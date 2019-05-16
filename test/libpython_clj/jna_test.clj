@@ -1,6 +1,6 @@
-(ns clj-libpython.jna-test
+(ns libpython-clj.jna-test
   (:require [clojure.test :refer :all]
-            [clj-libpython.jna :as libpy]))
+            [libpython-clj.jna :as libpy]))
 
 
 (deftest print-test

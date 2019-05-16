@@ -1,4 +1,4 @@
-# clj-libpython
+# libpython-clj
 
 libpython bindings to the tech ecosystem.
 

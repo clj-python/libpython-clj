@@ -1,4 +1,4 @@
-(ns clj-libpython.jna
+(ns libpython-clj.jna
   (:require [tech.v2.datatype :as dtype]
             [tech.jna :as jna]
             [tech.v2.datatype.typecast :as typecast])
