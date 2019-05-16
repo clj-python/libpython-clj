@@ -6,7 +6,7 @@ libpython bindings to the tech ecosystem.
 ## Resources
 
 * [libpython C api](https://docs.python.org/3.7/c-api/index.html#c-api-index)
-* [space-cpp](https://github.com/d99kris/spacy-cpp)
+* [spacy-cpp](https://github.com/d99kris/spacy-cpp)
 
 ## Usage
 
