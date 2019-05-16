@@ -119,3 +119,32 @@
   warning message."
   nil
   [obj jna/as-ptr])
+
+
+;; System Functionality
+
+
+(def-pylib-fn PySys_SetArgv
+  "This function works like PySys_SetArgvEx() with updatepath set to 1 unless the python
+  interpreter was started with the -I.
+
+    Use Py_DecodeLocale() to decode a bytes string to get a wchar_* string.
+
+    Changed in version 3.4: The updatepath value depends on -I."
+  nil
+  [argc int]
+  [argv jna/as-ptr])
+
+
+;; Objects
+
+(def-pylib-fn Py_DecRef
+  "Decrement the refference count on an object"
+  nil
+  [py-obj jna/as-ptr])
+
+
+(def-pylib-fn Py_IncRef
+  "Increment the reference count on an object"
+  nil
+  [py-obj jna/as-ptr])

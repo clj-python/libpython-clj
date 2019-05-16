@@ -10,6 +10,10 @@ libpython bindings to the tech ecosystem.
 
 ## Usage
 
+```console
+sudo apt install libpython3.7-dev
+```
+
 ```clojure
 (deftest print-test
   (libpy/Py_InitializeEx 0)
