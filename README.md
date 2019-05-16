@@ -9,7 +9,29 @@ libpython bindings to the tech ecosystem.
 
 ## Usage
 
-When I know, you will know
+```clojure
+(deftest print-test
+  (libpy/Py_InitializeEx 0)
+  (libpy/PyRun_SimpleString
+"from time import time,ctime
+print('Today is', ctime(time()))
+")
+  (let [finalize-val (libpy/Py_FinalizeEx)]
+    (println finalize-val)))
+```
+
+```console
+chrisn@chrisn-lt-2:~/dev/cnuernber/clj-libpython$ lein test
+:tech.resource.gc Reference thread starting
+
+lein test libpython-clj.jna-test
+Library python3.7m found at [:system "python3.7m"]
+Today is Thu May 16 14:26:21 2019
+0
+
+Ran 1 tests containing 0 assertions.
+0 failures, 0 errors.
+```
 
 ## License
 
