@@ -44,25 +44,11 @@
   (throw (ex-info log-str data)))
 
 
-(defrecord LibPython []
-  AutoCloseable
-  (close [this]
-))
+(defrecord LibPython [])
 
 
 (defonce ^:dynamic *python* (atom nil))
 
-
-
-(defn wide-str-ptr
-  ^Pointer [^String data]
-  (let [^Pointer retval (jna/malloc (+ 2 (count data)))]
-    (.setString retval 0 data "UTF-16")
-    retval))
-
-(defn ->ptr-ptr
-  ^PointerByReference [^Pointer value]
-  (PointerByReference. value))
 
 
 (def ^:dynamic *program-name* nil)
@@ -82,8 +68,8 @@
                      (when-let [program-name (or program-name *program-name*)]
                        (resource/stack-resource-context
                         (libpy/PySys_SetArgv 0 (-> program-name
-                                                   (wide-str-ptr)
-                                                   (->ptr-ptr)))))
+                                                   (jna/string->wide-ptr)
+                                                   (jna/create-ptr-ptr)))))
                      (->LibPython))]
         (reset! *python* (resource-gc/soft-reference
                           retval
@@ -91,10 +77,20 @@
                              (log-info "Destroying python libary bindings")
                              (let [finalize-val (long (libpy/Py_FinalizeEx))]
                                  (when-not (= 0 finalize-val)
-                                   (log-error (format "Py_Finalize failure: %s" finalize-val)))))))
+                                   (log-error (format "Py_Finalize failure: %s"
+                                                      finalize-val)))))))
         retval))))
 
 
 (defn wrap-pyobject
+  "Wrap object such that when it is no longer accessible via the program decref is
+  called."
   [pyobj]
   (resource/track pyobj (partial libpy/Py_DecRef (jna/as-ptr pyobj)) [:gc]))
+
+
+(defn incref-wrap-pyobject
+  "Increment the object's refcount and then call wrap-pyobject."
+  [pyobj]
+  (libpy/Py_IncRef pyobj)
+  (wrap-pyobject pyobj))
