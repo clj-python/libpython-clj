@@ -1,11 +1,30 @@
 (ns libpython-clj.jna
   (:require [tech.v2.datatype :as dtype]
             [tech.jna :as jna]
+            [tech.jna.base :as jna-base]
             [tech.v2.datatype.typecast :as typecast])
-  (:import [com.sun.jna Pointer]))
+  (:import [com.sun.jna Pointer NativeLibrary]))
 
 
 (def ^:dynamic *python-library* "python3.7m")
+
+
+(defprotocol PToPyObjectPtr
+  (->py-object-ptr [item]))
+
+
+(extend-type Object
+  PToPyObjectPtr
+  (->py-object-ptr [item]
+    (jna/as-ptr item)))
+
+
+(defn ensure-pyobj
+  [item]
+  (if-let [retval (->py-object-ptr item)]
+    retval
+    (throw (ex-info "Failed to get a pyobject pointer from object." {}))))
+
 
 
 (defmacro def-pylib-fn
@@ -118,7 +137,7 @@
   the unraisable exception occurred. If possible, the repr of obj will be printed in the
   warning message."
   nil
-  [obj jna/as-ptr])
+  [obj ensure-pyobj])
 
 
 ;; System Functionality
@@ -133,7 +152,7 @@
     Changed in version 3.4: The updatepath value depends on -I."
   nil
   [argc int]
-  [argv jna/as-ptr])
+  [argv ensure-pyobj])
 
 
 ;; Objects
@@ -141,10 +160,145 @@
 (def-pylib-fn Py_DecRef
   "Decrement the refference count on an object"
   nil
-  [py-obj jna/as-ptr])
+  [py-obj ensure-pyobj])
 
 
 (def-pylib-fn Py_IncRef
   "Increment the reference count on an object"
   nil
-  [py-obj jna/as-ptr])
+  [py-obj ensure-pyobj])
+
+
+;;There is a good reason to use this function; then you aren't dependent upon the
+;;compile time representation of the pyobject item itself.
+(def-pylib-fn PyObject_Type
+  "Return value: New reference.
+
+   When o is non-NULL, returns a type object corresponding to the object type of object
+   o. On failure, raises SystemError and returns NULL. This is equivalent to the Python
+   expression type(o). This function increments the reference count of the return
+   value. There’s really no reason to use this function instead of the common
+   expression o->ob_type, which returns a pointer of type PyTypeObject*, except when
+   the incremented reference count is needed."
+  Pointer
+  [py-obj ensure-pyobj])
+
+
+(def-pylib-fn PyObject_Length
+  "Return the length of object o. If the object o provides either the sequence and
+  mapping protocols, the sequence length is returned. On error, -1 is returned. This is
+  the equivalent to the Python expression len(o)."
+  Integer
+  [py-obj ensure-pyobj])
+
+
+(defn find-pylib-symbol
+  [sym-name]
+  (.getGlobalVariableAddress ^NativeLibrary (jna-base/load-library *python-library*)
+                             sym-name))
+
+
+(defn Py_None
+  []
+  (find-pylib-symbol "_Py_NoneStruct"))
+
+
+(defn Py_True
+  []
+  (find-pylib-symbol "_Py_TrueStruct"))
+
+
+(defn Py_False
+  []
+  (find-pylib-symbol "_Py_FalseStruct"))
+
+
+(def-pylib-fn PyBool_Check
+  "Return true if o is of type PyBool_Type."
+  Integer
+  [py-obj ensure-pyobj])
+
+
+(def-pylib-fn PyBool_FromLong
+  "Return value: New reference.
+    Return a new reference to Py_True or Py_False depending on the truth value of v."
+  Pointer
+  [v long])
+
+
+(def-pylib-fn PyObject_IsTrue
+  "Returns 1 if the object o is considered to be true, and 0 otherwise. This is
+  equivalent to the Python expression not not o. On failure, return -1."
+  Integer
+  [py-obj ensure-pyobj])
+
+
+(def-pylib-fn PyObject_Not
+  "Returns 0 if the object o is considered to be true, and 1 otherwise. This is
+  equivalent to the Python expression not o. On failure, return -1."
+  Integer
+  [py-obj ensure-pyobj])
+
+
+(def-pylib-fn PyObject_Repr
+  "Return value: New reference.
+
+   Compute a string representation of object o. Returns the string representation on
+   success, NULL on failure. This is the equivalent of the Python expression
+   repr(o). Called by the repr() built-in function.
+
+   Changed in version 3.4: This function now includes a debug assertion to help ensure
+   that it does not silently discard an active exception."
+  Pointer
+  [py_obj ensure-pyobj])
+
+
+(def-pylib-fn PyObject_Str
+  "Return value: New reference.
+
+   Compute a string representation of object o. Returns the string representation on
+   success, NULL on failure. This is the equivalent of the Python expression str(o). Called
+   by the str() built-in function and by the print statement."
+  Pointer
+  [py-obj ensure-pyobj])
+
+
+(def-pylib-fn PyUnicode_AsUTF8AndSize
+  "Return a pointer to the UTF-8 encoding of the Unicode object, and store the size of
+   the encoded representation (in bytes) in size. The size argument can be NULL; in this
+   case no size will be stored. The returned buffer always has an extra null byte
+   appended (not included in size), regardless of whether there are any other null code
+   points.
+
+   In the case of an error, NULL is returned with an exception set and no size is stored.
+
+   This caches the UTF-8 representation of the string in the Unicode object, and
+   subsequent calls will return a pointer to the same buffer. The caller is not
+   responsible for deallocating the buffer.
+
+   New in version 3.3.
+
+   Changed in version 3.7: The return type is now const char * rather of char *."
+  Pointer
+  [py-obj ensure-pyobj]
+  [size-ptr jna/as-ptr])
+
+
+(def-pylib-fn PyUnicode_AsUTF8
+  "As PyUnicode_AsUTF8AndSize(), but does not store the size.
+
+   New in version 3.3.
+
+   Changed in version 3.7: The return type is now const char * rather of char *."
+  Pointer
+  [py-obj ensure-pyobj])
+
+
+(def-pylib-fn PyMem_Free
+  "Frees the memory block pointed to by p, which must have been returned by a previous
+  call to PyMem_Malloc(), PyMem_Realloc() or PyMem_Calloc(). Otherwise, or if
+  PyMem_Free(p) has been called before, undefined behavior occurs.
+
+   If p is NULL, no operation is performed."
+  nil
+  [data-ptr jna/as-ptr])
