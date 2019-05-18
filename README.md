@@ -1,6 +1,13 @@
 # libpython-clj
 
-libpython bindings to the tech ecosystem.
+jna libpython bindings to the tech ecosystem.
+
+If you have a production need right now, I strongly advise you to consider
+[jep](https://github.com/ninia/jep).
+
+This project is mean to explore what is possible using JNA.  This has a lot of
+advantages over a [10,000 line C binding layer](https://github.com/ninia/jep/tree/master/src/main/c)
+...if it works.
 
 
 ## Resources
