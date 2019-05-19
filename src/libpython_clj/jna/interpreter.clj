@@ -4,6 +4,7 @@
                      ensure-pyobj
                      ensure-pytuple
                      ensure-pydict
+                     find-pylib-symbol
                      *python-library*]
              :as libpy-base]
             [tech.jna.base :as jna-base]
@@ -128,12 +129,6 @@
   [argv ensure-pyobj])
 
 
-(defn find-pylib-symbol
-  [sym-name]
-  (.getGlobalVariableAddress ^NativeLibrary (jna-base/load-library *python-library*)
-                             sym-name))
-
-
 ;; chrisn@chrisn-dt:~/dev/cnuernber/libpython-clj$ nm -D /usr/lib/x86_64-linux-gnu/libpython3.7m.so | grep -i _type
 ;; Then a few more transformations.
 (def type-symbol-names
@@ -253,16 +248,6 @@
 (defn Py_None
   []
   (find-pylib-symbol "_Py_NoneStruct"))
-
-
-(defn Py_True
-  []
-  (find-pylib-symbol "_Py_TrueStruct"))
-
-
-(defn Py_False
-  []
-  (find-pylib-symbol "_Py_FalseStruct"))
 
 
 (defn Py_NotImplemented

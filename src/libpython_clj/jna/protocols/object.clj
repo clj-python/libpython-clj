@@ -1,9 +1,10 @@
-(ns libpython-clj.jna.object
+(ns libpython-clj.jna.protocols.object
   (:require [libpython-clj.jna.base
              :refer [def-pylib-fn
                      ensure-pyobj
                      ensure-pytuple
                      ensure-pydict
+                     size-t-type
                      *python-library*]
              :as libpy-base]
             [tech.jna.base :as jna-base]
@@ -299,9 +300,6 @@
   Pointer
   [callable ensure-pyobj]
   [args jna/as-ptr])
-
-
-(def size-t-type (type (jna/size-t 0)))
 
 
 (def-pylib-fn PyObject_Hash

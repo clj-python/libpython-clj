@@ -1,4 +1,4 @@
-(ns libpython-clj.jna.numeric.integer
+(ns libpython-clj.jna.concrete.numeric.integer
   (:require [libpython-clj.jna.base
              :refer [def-pylib-fn
                      ensure-pyobj
@@ -6,11 +6,8 @@
                      ensure-pydict
                      *python-library*]
              :as libpy-base]
-            [tech.jna.base :as jna-base]
-            [tech.jna :as jna]
-            [camel-snake-kebab.core :refer [->kebab-case]])
-  (:import [com.sun.jna Pointer Native NativeLibrary]
-           [com.sun.jna.ptr PointerByReference]))
+            [tech.jna :as jna])
+  (:import [com.sun.jna Pointer]))
 
 
 (def-pylib-fn PyLong_Check

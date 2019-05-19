@@ -40,7 +40,15 @@
   (ensure-pyobj item))
 
 
-
 (defmacro def-pylib-fn
   [fn-name docstring & args]
   `(jna/def-jna-fn *python-library* ~fn-name ~docstring ~@args))
+
+
+(def size-t-type (type (jna/size-t 0)))
+
+
+(defn find-pylib-symbol
+  [sym-name]
+  (.getGlobalVariableAddress ^NativeLibrary (jna-base/load-library *python-library*)
+                             sym-name))
