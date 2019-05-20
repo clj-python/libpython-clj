@@ -9,7 +9,9 @@
              :as libpy-base]
             [tech.jna :as jna]
             [tech.v2.datatype :as dtype])
-  (:import [com.sun.jna Pointer]))
+  (:import [com.sun.jna Pointer]
+           [com.sun.jna.ptr PointerByReference
+            LongByReference IntByReference]))
 
 
 
@@ -45,6 +47,13 @@
   [errors str])
 
 
+(defn size-t-by-reference-type
+  []
+  (if (instance? Long (jna/size-t 0))
+    LongByReference
+    IntByReference))
+
+
 (def-pylib-fn PyUnicode_AsUTF8AndSize
   "Return a pointer to the UTF-8 encoding of the Unicode object, and store the size of
    the encoded representation (in bytes) in size. The size argument can be NULL; in this
@@ -63,7 +72,7 @@
    Changed in version 3.7: The return type is now const char * rather of char *."
   Pointer
   [py-obj ensure-pyobj]
-  [size-ptr jna/as-ptr])
+  [size-ptr (partial jna/ensure-type (size-t-by-reference-type))])
 
 
 (def-pylib-fn PyUnicode_AsUTF8

@@ -6,8 +6,8 @@ import java.util.*;
 
 public class PyMethodDef extends Structure {
 
-  public Pointer ml_name; 
-  public Pointer ml_meth;
+  public Pointer ml_name;
+  public Callback ml_meth;
   public int ml_flags;
   public Pointer ml_doc;
 

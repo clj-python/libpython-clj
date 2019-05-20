@@ -14,6 +14,7 @@
             [libpython-clj.jna.protocols.iterator]
             [libpython-clj.jna.protocols.sequence]
             [libpython-clj.jna.protocols.mapping]
+            [libpython-clj.jna.protocols.buffer]
             [libpython-clj.jna.concrete.numeric.integer]
             [libpython-clj.jna.concrete.numeric.float]
             [libpython-clj.jna.concrete.numeric.boolean]
@@ -22,7 +23,8 @@
             [libpython-clj.jna.concrete.list]
             [libpython-clj.jna.concrete.set]
             [libpython-clj.jna.concrete.dict]
-            [libpython-clj.jna.concrete.unicode])
+            [libpython-clj.jna.concrete.unicode]
+            [libpython-clj.jna.concrete.cfunction])
   (:import [com.sun.jna Pointer NativeLibrary]))
 
 
@@ -124,6 +126,35 @@
                 PyMapping_Length
                 PyMapping_SetItemString
                 PyMapping_Values)
+
+
+(export-symbols libpython-clj.jna.protocols.buffer
+                PyBUF_ANY_CONTIGUOUS
+                PyBUF_CONTIG
+                PyBUF_CONTIG_RO
+                PyBUF_C_CONTIGUOUS
+                PyBUF_FORMAT
+                PyBUF_FULL
+                PyBUF_FULL_RO
+                PyBUF_F_CONTIGUOUS
+                PyBUF_INDIRECT
+                PyBUF_MAX_NDIM
+                PyBUF_ND
+                PyBUF_READ
+                PyBUF_RECORDS
+                PyBUF_RECORDS_RO
+                PyBUF_SIMPLE
+                PyBUF_STRIDED
+                PyBUF_STRIDED_RO
+                PyBUF_STRIDES
+                PyBUF_WRITABLE
+                PyBUF_WRITE
+                PyBUF_WRITEABLE
+                PyBuffer_IsContiguous
+                PyBuffer_Release
+                PyBuffer_ToContiguous
+                PyObject_CheckBuffer
+                PyObject_GetBuffer)
 
 
 (export-symbols libpython-clj.jna.concrete.numeric.integer
@@ -231,3 +262,14 @@
                 PyUnicode_AsUTF8AndSize
                 PyUnicode_AsUTF8
                 PyUnicode_Decode)
+
+
+(export-symbols libpython-clj.jna.concrete.cfunction
+                METH_CLASS
+                METH_COEXIST
+                METH_KEYWORDS
+                METH_NOARGS
+                METH_O
+                METH_STATIC
+                METH_VARARGS
+                PyCFunction_New)
