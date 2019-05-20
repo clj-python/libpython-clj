@@ -9,6 +9,8 @@
              :as libpy-base]
             [tech.jna.base :as jna-base]
             [tech.jna :as jna]
+            [libpython-clj.jna.protocols.object :as pyobj]
+            [libpython-clj.jna.concrete.unicode :as pyuni]
             [camel-snake-kebab.core :refer [->kebab-case]])
   (:import [com.sun.jna Pointer Native NativeLibrary]
            [com.sun.jna.ptr PointerByReference]))
@@ -168,7 +170,6 @@
    "PyDictValues_Type"
    "PyEllipsis_Type"
    "PyEnum_Type"
-   "PyExc_TypeError"
    "PyFileIO_Type"
    "PyFilter_Type"
    "PyFloat_Type"
@@ -229,6 +230,21 @@
        (into {})))
 
 
+;; (-> (pyobj/PyObject_GetAttrString symbol-addr "__name__")
+;;                                   (pyuni/PyUnicode_AsUTF8)
+;;                                   (jna/variable-byte-ptr->string)
+;;                                   keyword)
+
+
+(defn get-type-name
+  [type-pyobj]
+  (-> (pyobj/PyObject_GetAttrString type-pyobj "__name__")
+      (pyuni/PyUnicode_AsUTF8)
+      (jna/variable-byte-ptr->string)
+      ->kebab-case
+      keyword))
+
+
 (defn lookup-type-symbols
   "Transform the static type-symbol-table map into a map of actual long pointer addresses to
   {:typename :type-symbol-name}"
@@ -238,7 +254,7 @@
               (try
                 (when-let [symbol-addr (find-pylib-symbol type-symbol-name)]
                   [(Pointer/nativeValue symbol-addr)
-                   {:typename typename
+                   {:typename (get-type-name symbol-addr)
                     :type-symbol-name type-symbol-name}])
                 (catch Throwable e nil))))
        (remove nil?)

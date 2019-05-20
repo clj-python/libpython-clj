@@ -14,6 +14,9 @@ advantages over a [10,000 line C binding layer](https://github.com/ninia/jep/tre
 
 * [libpython C api](https://docs.python.org/3.7/c-api/index.html#c-api-index)
 * [spacy-cpp](https://github.com/d99kris/spacy-cpp)
+* [base classes for python protocols](https://docs.python.org/3.7/library/collections.abc.html#collections-abstract-base-classes)
+
+## 
 
 ## Usage
 

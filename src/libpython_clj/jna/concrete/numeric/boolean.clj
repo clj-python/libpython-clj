@@ -1,4 +1,4 @@
-(ns libpython-clj.jna.conrete.numeric.boolean
+(ns libpython-clj.jna.concrete.numeric.boolean
   (:require [libpython-clj.jna.base
              :refer [def-pylib-fn
                      ensure-pyobj

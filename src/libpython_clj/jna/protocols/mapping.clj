@@ -1,4 +1,4 @@
-(ns libpython-jna.jna.protocols.mapping
+(ns libpython-clj.jna.protocols.mapping
   (:require [libpython-clj.jna.base
              :refer [def-pylib-fn
                      ensure-pyobj

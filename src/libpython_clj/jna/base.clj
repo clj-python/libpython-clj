@@ -15,12 +15,6 @@
   (->py-object-ptr [item]))
 
 
-(extend-type Object
-  PToPyObjectPtr
-  (->py-object-ptr [item]
-    (jna/as-ptr item)))
-
-
 (defn ensure-pyobj
   [item]
   (if-let [retval (->py-object-ptr item)]

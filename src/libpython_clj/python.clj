@@ -79,8 +79,9 @@
       (resource/stack-resource-context
        (libpy/PySys_SetArgv 0 (-> program-name
                                   (jna/string->wide-ptr)))))
-    (let [retval (->Interpreter (atom (libpy/PyEval_SaveThread))
-                                (atom (libpy/lookup-type-symbols)))
+    (let [type-symbols (libpy/lookup-type-symbols)
+          retval (->Interpreter (atom (libpy/PyEval_SaveThread))
+                                (atom type-symbols))
           thread-state-atom (:thread-state* retval)]
       (reset! *main-interpreter* (resource/track
                                   retval
@@ -173,12 +174,15 @@
   (with-gil nil
     (let [interpreter (ensure-interpreter)
           sym-table-atom (:type-symbol-table* interpreter)
-          sym-table @sym-table-atom
           py-type (py-raw-type pyobj)
-          py-type-addr (Pointer/nativeValue ^Pointer py-type)]
-      (if-let [retval (get-in sym-table [py-type-addr :typename])]
-        retval
-        (throw (ex-info "Loading more dynamic types is not yet supported" {}))))))
+          py-type-addr (Pointer/nativeValue ^Pointer py-type)
+          sym-table
+          (swap! sym-table-atom
+                 (fn [sym-table]
+                   (if-let [retval (get-in sym-table [py-type-addr :typename])]
+                     sym-table
+                     (assoc sym-table py-type-addr {:typename (libpy/get-type-name py-type)}))))]
+      (get sym-table py-type-addr))))
 
 
 (defn pyobj->string
@@ -200,3 +204,18 @@
                    (-> (libpy/PyObject_GetItem item-dir
                                                (libpy/PyLong_FromLong idx))
                        pyobj->string)))))))
+
+
+(defn ->python
+  [item]
+  (with-gil nil
+    (libpy/->py-object-ptr item)))
+
+
+(extend-type Object
+  PToPyObjectPtr
+  (->py-object-ptr [item]
+    (cond
+      (integer? item)
+      )
+    (jna/as-ptr item)))

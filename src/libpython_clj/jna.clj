@@ -8,10 +8,26 @@
             [libpython-clj.jna.base
              :refer [def-pylib-fn
                      ensure-pyobj]]
+            [libpython-clj.jna.base]
             [libpython-clj.jna.interpreter]
-            [libpython-clj.jna.object]
-            [libpython-clj.jna.numeric.integer])
+            [libpython-clj.jna.protocols.object]
+            [libpython-clj.jna.protocols.iterator]
+            [libpython-clj.jna.protocols.sequence]
+            [libpython-clj.jna.protocols.mapping]
+            [libpython-clj.jna.concrete.numeric.integer]
+            [libpython-clj.jna.concrete.numeric.float]
+            [libpython-clj.jna.concrete.numeric.boolean]
+            [libpython-clj.jna.concrete.numeric.complex]
+            [libpython-clj.jna.concrete.tuple]
+            [libpython-clj.jna.concrete.list]
+            [libpython-clj.jna.concrete.set]
+            [libpython-clj.jna.concrete.dict]
+            [libpython-clj.jna.concrete.unicode])
   (:import [com.sun.jna Pointer NativeLibrary]))
+
+
+(export-symbols libpython-clj.jna.base
+                find-pylib-symbol)
 
 
 (export-symbols libpython-clj.jna.interpreter
@@ -25,10 +41,9 @@
                 PyErr_Print
                 PyErr_WriteUnraisable
                 PySys_SetArgv
+                get-type-name
                 lookup-type-symbols
                 Py_None
-                Py_True
-                Py_False
                 Py_NotImplemented
                 PyMem_Free
                 PyEval_RestoreThread
@@ -38,7 +53,7 @@
                 PyRun_String)
 
 
-(export-symbols libpython-clj.jna.object
+(export-symbols libpython-clj.jna.protocols.object
                 Py_DecRef
                 Py_IncRef
                 PyObject_Type
@@ -72,7 +87,46 @@
                 PyObject_GetIter)
 
 
-(export-symbols libpython-clj.jna.numeric.integer
+(export-symbols libpython-clj.jna.protocols.iterator
+                PyIter_Check
+                PyIter_Next)
+
+
+(export-symbols libpython-clj.jna.protocols.sequence
+                PySequence_Check
+                PySequence_Concat
+                PySequence_Contains
+                PySequence_Count
+                PySequence_DelItem
+                PySequence_DelSlice
+                PySequence_GetItem
+                PySequence_GetSlice
+                PySequence_InPlaceConcat
+                PySequence_InPlaceRepeat
+                PySequence_Index
+                PySequence_Length
+                PySequence_List
+                PySequence_Repeat
+                PySequence_SetItem
+                PySequence_SetSlice
+                PySequence_Tuple)
+
+
+(export-symbols libpython-clj.jna.protocols.mapping
+                PyMapping_Check
+                PyMapping_DelItem
+                PyMapping_DelItemString
+                PyMapping_GetItemString
+                PyMapping_HasKey
+                PyMapping_HasKeyString
+                PyMapping_Items
+                PyMapping_Keys
+                PyMapping_Length
+                PyMapping_SetItemString
+                PyMapping_Values)
+
+
+(export-symbols libpython-clj.jna.concrete.numeric.integer
                 PyLong_Check
                 PyLong_CheckExact
                 PyLong_FromLong
@@ -85,46 +139,95 @@
                 PyLong_AsLongLong)
 
 
-
-(def-pylib-fn PyBool_Check
-  "Return true if o is of type PyBool_Type."
-  Integer
-  [py-obj ensure-pyobj])
-
-
-(def-pylib-fn PyBool_FromLong
-  "Return value: New reference.
-    Return a new reference to Py_True or Py_False depending on the truth value of v."
-  Pointer
-  [v long])
+(export-symbols libpython-clj.jna.concrete.numeric.float
+                PyFloat_AsDouble
+                PyFloat_Check
+                PyFloat_CheckExact
+                PyFloat_FromDouble
+                PyFloat_FromString
+                PyFloat_GetInfo
+                PyFloat_GetMax
+                PyFloat_GetMin)
 
 
-(def-pylib-fn PyUnicode_AsUTF8AndSize
-  "Return a pointer to the UTF-8 encoding of the Unicode object, and store the size of
-   the encoded representation (in bytes) in size. The size argument can be NULL; in this
-   case no size will be stored. The returned buffer always has an extra null byte
-   appended (not included in size), regardless of whether there are any other null code
-   points.
-
-   In the case of an error, NULL is returned with an exception set and no size is stored.
-
-   This caches the UTF-8 representation of the string in the Unicode object, and
-   subsequent calls will return a pointer to the same buffer. The caller is not
-   responsible for deallocating the buffer.
-
-   New in version 3.3.
-
-   Changed in version 3.7: The return type is now const char * rather of char *."
-  Pointer
-  [py-obj ensure-pyobj]
-  [size-ptr jna/as-ptr])
+(export-symbols libpython-clj.jna.concrete.numeric.boolean
+                PyBool_Check
+                PyBool_FromLong
+                Py_False
+                Py_True)
 
 
-(def-pylib-fn PyUnicode_AsUTF8
-  "As PyUnicode_AsUTF8AndSize(), but does not store the size.
+(export-symbols libpython-clj.jna.concrete.numeric.complex
+                PyComplex_AsCComplex
+                PyComplex_Check
+                PyComplex_FromCComplex
+                PyComplex_FromDoubles
+                PyComplex_ImagAsDouble
+                PyComplex_RealAsDouble)
 
-   New in version 3.3.
 
-   Changed in version 3.7: The return type is now const char * rather of char *."
-  Pointer
-  [py-obj ensure-pyobj])
+(export-symbols libpython-clj.jna.concrete.tuple
+                PyTuple_Check
+                PyTuple_GetItem
+                PyTuple_GetSlice
+                PyTuple_New
+                PyTuple_SetItem)
+
+
+(export-symbols libpython-clj.jna.concrete.list
+                PyList_Append
+                PyList_AsTuple
+                PyList_Check
+                PyList_GetItem
+                PyList_GetSlice
+                PyList_Insert
+                PyList_New
+                PyList_Reverse
+                PyList_SetItem
+                PyList_SetSlice
+                PyList_Size
+                PyList_Sort)
+
+
+(export-symbols libpython-clj.jna.concrete.set
+                PyFrozenSet_Check
+                PyFrozenSet_New
+                PySet_Add
+                PySet_Check
+                PySet_Clear
+                PySet_Contains
+                PySet_Discard
+                PySet_New
+                PySet_Pop)
+
+
+(export-symbols libpython-clj.jna.concrete.dict
+                PyDictProxy_New
+                PyDict_Check
+                PyDict_Clear
+                PyDict_Contains
+                PyDict_Copy
+                PyDict_DelItem
+                PyDict_DelItemString
+                PyDict_GetItem
+                PyDict_GetItemString
+                PyDict_GetItemWithError
+                PyDict_Items
+                PyDict_Keys
+                PyDict_Merge
+                PyDict_MergeFromSeq2
+                PyDict_New
+                PyDict_Next
+                PyDict_SetDefault
+                PyDict_SetItem
+                PyDict_SetItemString
+                PyDict_Size
+                PyDict_Update
+                PyDict_Values)
+
+
+(export-symbols libpython-clj.jna.concrete.unicode
+                PyUnicode_AsEncodedString
+                PyUnicode_AsUTF8AndSize
+                PyUnicode_AsUTF8
+                PyUnicode_Decode)
