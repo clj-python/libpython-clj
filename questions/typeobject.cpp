@@ -13,11 +13,14 @@ int main(int c, char** v)
    "type.tp_basicsize: %ld\n"
    "type.tp_as_number: %ld\n"
    "type.tp_as_buffer: %ld\n"
-   "type.tp_finalize: %ld\n",
+   "type.tp_finalize: %ld\n"
+   "py_hash_t: %ld\n"
+   ,
    sizeof(PyObject),
    sizeof(PyTypeObject),
    offsetof(PyTypeObject, tp_basicsize),
    offsetof(PyTypeObject, tp_as_number),
    offsetof(PyTypeObject, tp_as_buffer),
-   offsetof(PyTypeObject, tp_finalize));
+   offsetof(PyTypeObject, tp_finalize),
+   sizeof(Py_hash_t));
 }

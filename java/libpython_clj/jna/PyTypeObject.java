@@ -182,13 +182,13 @@ public class PyTypeObject extends Structure
 
   /* Methods to implement standard operations */
 
-  public Pointer tp_dealloc;
+  public CFunction.tp_dealloc tp_dealloc;
   public Pointer tp_print;
-  public Pointer tp_getattr;
-  public Pointer tp_setattr;
+  public CFunction.tp_getattr tp_getattr;
+  public CFunction.tp_setattr tp_setattr;
   public Pointer tp_as_async; /* formerly known as tp_compare (Python 2)
 				 or tp_reserved (Python 3) */
-  public Pointer tp_repr;
+  public CFunction.NoArgFunction tp_repr;
 
     /* Method suites for standard classes */
 
@@ -198,11 +198,11 @@ public class PyTypeObject extends Structure
 
   /* More standard operations (here for binary compatibility) */
 
-  public Pointer tp_hash;
-  public Pointer tp_call;
-  public Pointer tp_str;
-  public Pointer tp_getattro;
-  public Pointer tp_setattro;
+  public CFunction.tp_hash tp_hash;
+  public CFunction.KeyWordFunction tp_call;
+  public CFunction.NoArgFunction tp_str;
+  public CFunction.tp_getattro tp_getattro;
+  public CFunction.tp_setattro tp_setattro;
 
   /* Functions to access object as input/output buffer */
   public Pointer tp_as_buffer;
@@ -221,27 +221,27 @@ public class PyTypeObject extends Structure
 
   /* Assigned meaning in release 2.1 */
   /* rich comparisons */
-  public Pointer tp_richcompare;
+  public CFunction.tp_richcompare tp_richcompare;
 
     /* weak reference enabler */
   public long tp_weaklistoffset;
 
   /* Iterators */
-  public Pointer tp_iter;
-  public Pointer tp_iternext;
+  public CFunction.NoArgFunction tp_iter;
+  public CFunction.NoArgFunction tp_iternext;
 
   /* Attribute descriptor and subclassing stuff */
-  public Pointer tp_methods;
-  public Pointer tp_members;
-  public Pointer tp_getset;
+  public PyMethodDef tp_methods;
+  public PyMemberDef tp_members;
+  public PyGetSetDef tp_getset;
   public Pointer tp_base;
   public Pointer tp_dict;
   public Pointer tp_descr_get;
   public Pointer tp_descr_set;
   public long tp_dictoffset;
-  public Pointer tp_init;
+  public CFunction.tp_init tp_init;
   public Pointer tp_alloc;
-  public Pointer tp_new;
+  public CFunction.tp_new tp_new;
   public Pointer tp_free; /* Low-level free-memory routine */
   public Pointer tp_is_gc; /* For PyObject_IS_GC */
   public Pointer _bases;
