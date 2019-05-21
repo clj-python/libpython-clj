@@ -1,8 +1,8 @@
 package libpython_clj.jna;
 
+
 import com.sun.jna.*;
 import java.util.*;
-
 
 
 public class PyModuleDef extends Structure {
