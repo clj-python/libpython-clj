@@ -6,7 +6,6 @@
             [tech.resource :as resource]
             [tech.resource.gc :as resource-gc]
             [tech.parallel.require :as parallel-req]
-            [clojure.core.async :as async]
             [tech.v2.datatype :as dtype])
   (:import [tech.resource GCSoftReference]
            [com.sun.jna Pointer]
@@ -19,7 +18,8 @@
             CFunction$TupleFunction
             PyMethodDef
             ]
-           [tech.v2.datatype ObjectIter]))
+           [tech.v2.datatype ObjectIter]
+           [java.io Writer]))
 
 
 (set! *warn-on-reflection* true)
@@ -62,7 +62,7 @@
                         type-symbol-table*
                         ;;Things like function pointers that cannot ever leave scope
                         forever*
-                        ;;A two-way map of integer pyobj handle to java object.
+                        ;;A two-way map of integer pyobj handle to java object wrapper
                         objects*])
 
 
@@ -157,7 +157,10 @@
   (let [interpreter (ensure-interpreter)
         pyobj-value (Pointer/nativeValue (jna/as-ptr pyobj))]
     (resource/track pyobj #(with-gil interpreter
-                             (libpy/Py_DecRef (Pointer. pyobj-value)))
+                             (try
+                               (libpy/Py_DecRef (Pointer. pyobj-value))
+                               (catch Throwable e
+                                 (log-error "Exception while releasing object: %s" e))))
                     [:gc])))
 
 
@@ -242,7 +245,7 @@
 
 
 (defn pyobj->string
-  [pyobj]
+  ^String [pyobj]
   (with-gil nil
     (let [py-str (if (= :str (py-type-keyword pyobj))
                    pyobj
@@ -486,6 +489,15 @@
       (wrap-pyobject (libpy/PyObject_GetAttr pyobj (copy-to-python attr-name))))))
 
 
+(defn set-attr
+  [pyobj attr-name attr-value]
+  (with-gil nil
+    (if (stringable? attr-name)
+      (libpy/PyObject_SetAttrString pyobj (stringable attr-name) attr-value)
+      (libpy/PyObject_SetAttr pyobj attr-name attr-value))
+    pyobj))
+
+
 (defn wrap-clojure-fn
   [fn-obj]
   (when-not (fn? fn-obj)
@@ -542,3 +554,78 @@
     (cond
       :else
       (jna/as-ptr item))))
+
+
+(defn py-import
+  [modname]
+  (with-gil nil
+    (wrap-pyobject
+     (libpy/PyImport_ImportModule modname))))
+
+
+(defn obj-has-item?
+  [elem elem-name]
+  (with-gil nil
+    (if (stringable? elem-name)
+      (libpy/PyMapping_HasKeyString elem (stringable elem-name))
+      (libpy/PyMapping_HasKey elem elem-name))))
+
+
+(defn obj-get-item
+  [elem elem-name]
+  (with-gil nil
+    (if (stringable? elem-name)
+      (libpy/PyMapping_GetItemString elem (stringable elem-name))
+      (libpy/PyObject_GetItem elem elem-name))))
+
+
+(defn obj-set-item
+  [elem elem-name elem-value]
+  (with-gil nil
+    (if (stringable? elem-name)
+      (libpy/PyMapping_SetItemString elem (stringable elem-name) elem-value)
+      (libpy/PyObject_SetItem elem elem-name elem-value))
+    elem))
+
+
+(defn setup-std-out-std-err!
+  []
+  (with-gil nil
+    (let [sys-module (py-import "sys")
+          error-dict (->py-dict {})
+          out-dict (->py-dict {})]
+      (obj-set-item error-dict "write"
+                    (create-function (fn [msg & args]
+                                       (.write ^Writer *err* (str msg)))
+                                     :method-name "write"
+                                     :documentation "Write a string to stderr"))
+      (obj-set-item out-dict "write"
+                    (create-function (fn [msg & args]
+                                       (.write ^Writer *out* (str msg)))
+                                     :method-name "write"
+                                     :documentation "Write a string to stdout"))
+      (set-attr sys-module "stdout" out-dict)
+      (set-attr sys-module "stderr" error-dict)
+      :ok)))
+
+
+(defn run-string
+  [^String program & {:keys [globals locals]}]
+  (with-gil nil
+    (let [globals (or globals (->py-dict {}))
+          locals (or locals (->py-dict {}))]
+      {:result
+       (wrap-pyobject
+        (libpy/PyRun_String (str program) :py-file-input globals locals))
+       :globals globals
+       :locals locals})))
+
+
+(defn test-cpp-example
+  []
+  (initialize!)
+  (with-gil nil
+    (let [python-script "result = multiplicand * multiplier\n"
+          local-dict (->py-dict {"multiplicand" 2
+                                 "multiplier" 5})]
+      (run-string python-script :locals local-dict))))

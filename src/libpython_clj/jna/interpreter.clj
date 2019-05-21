@@ -354,7 +354,26 @@
    was raised."
   Pointer
   [program str]
-  [start-symbol start-symbol]
+  [start-sym start-symbol]
   [globals ensure-pydict]
   ;;Any object that implements the mapping protocol
   [locals ensure-pydict])
+
+
+(def-pylib-fn PyRun_StringFlags
+  "Return value: New reference.
+
+   Execute Python source code from str in the context specified by the objects globals
+   and locals with the compiler flags specified by flags. globals must be a dictionary;
+   locals can be any object that implements the mapping protocol. The parameter start
+   specifies the start token that should be used to parse the source code.
+
+   Returns the result of executing the code as a Python object, or NULL if an exception
+   was raised."
+  Pointer
+  [program str]
+  [start-sym start-symbol]
+  [globals ensure-pydict]
+  ;;Any object that implements the mapping protocol
+  [locals ensure-pydict]
+  [compilerflags identity])

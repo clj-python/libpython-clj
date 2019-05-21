@@ -24,7 +24,8 @@
             [libpython-clj.jna.concrete.set]
             [libpython-clj.jna.concrete.dict]
             [libpython-clj.jna.concrete.unicode]
-            [libpython-clj.jna.concrete.cfunction])
+            [libpython-clj.jna.concrete.cfunction]
+            [libpython-clj.jna.concrete.import])
   (:import [com.sun.jna Pointer NativeLibrary]))
 
 
@@ -52,7 +53,8 @@
                 PyEval_SaveThread
                 PyThreadState_Get
                 PyThreadState_Swap
-                PyRun_String)
+                PyRun_String
+                PyRun_StringFlags)
 
 
 (export-symbols libpython-clj.jna.protocols.object
@@ -273,3 +275,8 @@
                 METH_STATIC
                 METH_VARARGS
                 PyCFunction_New)
+
+
+(export-symbols libpython-clj.jna.concrete.import
+                PyImport_ImportModule
+                PyImport_ImportModuleLevel)
