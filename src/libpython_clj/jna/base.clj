@@ -4,7 +4,8 @@
             [tech.jna.base :as jna-base]
             [tech.v2.datatype.typecast :as typecast]
             [camel-snake-kebab.core :refer [->kebab-case]])
-  (:import [com.sun.jna Pointer NativeLibrary]))
+  (:import [com.sun.jna Pointer NativeLibrary]
+           [libpython_clj.jna PyObject]))
 
 
 
@@ -13,6 +14,11 @@
 
 (defprotocol PToPyObjectPtr
   (->py-object-ptr [item]))
+
+
+(extend-type PyObject
+  PToPyObjectPtr
+  (->py-object-ptr [item] item))
 
 
 (defn ensure-pyobj

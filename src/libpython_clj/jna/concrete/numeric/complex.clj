@@ -8,7 +8,8 @@
              :as libpy-base]
             [tech.jna :as jna])
   (:import [com.sun.jna Pointer]
-           [libpython_clj.jna PyComplex PyComplex$ByValue]))
+           [libpython_clj.jna PyComplex PyComplex$ByValue
+            PyObject]))
 
 
 (def-pylib-fn PyComplex_Check
@@ -21,7 +22,7 @@
   "Return value: New reference.
 
    Create a new Python complex number object from a C Py_complex value."
-  Pointer
+  PyObject
   [v (partial jna/ensure-type PyComplex$ByValue)])
 
 
@@ -29,7 +30,7 @@
   "Return value: New reference.
 
    Return a new PyComplexObject object from real and imag."
-  Pointer
+  PyObject
   [real double]
   [imag double])
 

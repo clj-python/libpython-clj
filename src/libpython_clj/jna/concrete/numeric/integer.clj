@@ -7,7 +7,8 @@
                      *python-library*]
              :as libpy-base]
             [tech.jna :as jna])
-  (:import [com.sun.jna Pointer]))
+  (:import [com.sun.jna Pointer]
+           [libpython_clj.jna PyObject]))
 
 
 (def-pylib-fn PyLong_Check
@@ -32,7 +33,7 @@
    -5 and 256, when you create an int in that range you actually just get back a
    reference to the existing object. So it should be possible to change the value of
    1. I suspect the behaviour of Python in this case is undefined. :-)"
-  Pointer
+  PyObject
   [v int])
 
 
@@ -40,7 +41,7 @@
   "Return value: New reference.
 
    Return a new PyLongObject object from a C unsigned long, or NULL on failure."
-  Pointer
+  PyObject
   [v unchecked-int])
 
 
@@ -48,7 +49,7 @@
   "Return value: New reference.
 
    Return a new PyLongObject object from a C Py_ssize_t, or NULL on failure."
-  Pointer
+  PyObject
   [v jna/size-t])
 
 
@@ -56,14 +57,14 @@
   "Return value: New reference.
 
    Return a new PyLongObject object from a C long long, or NULL on failure."
-  Pointer
+  PyObject
   [v long])
 
 (def-pylib-fn PyLong_FromUnsignedLongLong
   "Return value: New reference.
 
    Return a new PyLongObject object from a C unsigned long long, or NULL on failure."
-  Pointer
+  PyObject
   [v unchecked-long])
 
 
@@ -71,7 +72,7 @@
   "Return value: New reference.
 
    Return a new PyLongObject object from the integer part of v, or NULL on failure."
-  Pointer
+  PyObject
   [v double])
 
 

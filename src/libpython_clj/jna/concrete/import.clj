@@ -8,7 +8,8 @@
                      *python-library*]
              :as libpy-base]
             [tech.jna :as jna])
-  (:import [com.sun.jna Pointer]))
+  (:import [com.sun.jna Pointer]
+           [libpython_clj.jna PyObject]))
 
 
 (def-pylib-fn PyImport_ImportModule
@@ -25,7 +26,31 @@
    failure. A failing import of a module doesn’t leave the module in sys.modules.
 
    This function always uses absolute imports."
-  Pointer
+  PyObject
+  [name str])
+
+
+
+(def-pylib-fn PyImport_Import
+  "Return value: New reference.
+
+   This is a higher-level interface that calls the current “import hook function” (with
+   an explicit level of 0, meaning absolute import). It invokes the __import__()
+   function from the __builtins__ of the current globals. This means that the import is
+   done using whatever import hooks are installed in the current environment.
+
+   This function always uses absolute imports."
+  PyObject
+  [name ensure-pyobj])
+
+
+
+(def-pylib-fn PyImport_AddModule
+  "Return value: Borrowed reference.
+
+   Similar to PyImport_AddModuleObject(), but the name is a UTF-8 encoded string instead
+   of a Unicode object."
+  PyObject
   [name str])
 
 
@@ -90,7 +115,7 @@ importlib.import_module().
 
 Changed in version 3.3: Negative values for level are no longer supported (which also
 changes the default value to 0)."
-  Pointer
+  PyObject
   [name str]
   [globals ensure-pydict]
   [locals ensure-pydict]

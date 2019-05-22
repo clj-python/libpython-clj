@@ -6,6 +6,8 @@ import java.util.*;
 
 public class PyMemberDef extends Structure {
 
+  // We keep these as pointers because the memberdef has to live forever
+  // so we have to manually ensure the name and doc ptrs also live forever.
   public Pointer name;
   public int type;
   public long offset;

@@ -169,10 +169,8 @@ type.tp_finalize: 392
 **/
 
 
-public class PyTypeObject extends Structure
+public class PyTypeObject extends PyObject
 {
-  public long ob_refcnt;
-  public Pointer ob_type;
   public long ob_size;
   public Pointer tp_name; /* For printing, in format "<module>.<name>" */
 
@@ -231,9 +229,9 @@ public class PyTypeObject extends Structure
   public CFunction.NoArgFunction tp_iternext;
 
   /* Attribute descriptor and subclassing stuff */
-  public PyMethodDef tp_methods;
-  public PyMemberDef tp_members;
-  public PyGetSetDef tp_getset;
+  public PyMethodDef.ByReference tp_methods;
+  public PyMemberDef.ByReference tp_members;
+  public PyGetSetDef.ByReference tp_getset;
   public Pointer tp_base;
   public Pointer tp_dict;
   public Pointer tp_descr_get;
@@ -242,7 +240,7 @@ public class PyTypeObject extends Structure
   public CFunction.tp_init tp_init;
   public Pointer tp_alloc;
   public CFunction.tp_new tp_new;
-  public Pointer tp_free; /* Low-level free-memory routine */
+  public CFunction.tp_free tp_free; /* Low-level free-memory routine */
   public Pointer tp_is_gc; /* For PyObject_IS_GC */
   public Pointer _bases;
   public Pointer tp_mro; /* method resolution order */
@@ -264,87 +262,87 @@ public class PyTypeObject extends Structure
     {
       "ob_refcnt",
       "ob_type",
-   "ob_size",
-   "tp_name", /* For printing, in format "<module>.<name>" */
+      "ob_size",
+      "tp_name", /* For printing, in format "<module>.<name>" */
 
-  /* For allocation */
-   "tp_basicsize",
-   "tp_itemsize",
+      /* For allocation */
+      "tp_basicsize",
+      "tp_itemsize",
 
-  /* Methods to implement standard operations */
+      /* Methods to implement standard operations */
 
-   "tp_dealloc",
-   "tp_print",
-   "tp_getattr",
-   "tp_setattr",
-   "tp_as_async", /* formerly known as tp_compare (Python 2)
-				 or tp_reserved (Python 3) */
-   "tp_repr",
+      "tp_dealloc",
+      "tp_print",
+      "tp_getattr",
+      "tp_setattr",
+      "tp_as_async", /* formerly known as tp_compare (Python 2)
+			or tp_reserved (Python 3) */
+      "tp_repr",
 
-    /* Method suites for standard classes */
+      /* Method suites for standard classes */
 
-   "tp_as_number",
-   "tp_as_sequence",
-   "tp_as_mapping",
+      "tp_as_number",
+      "tp_as_sequence",
+      "tp_as_mapping",
 
-  /* More standard operations (here for binary compatibility) */
+      /* More standard operations (here for binary compatibility) */
 
-   "tp_hash",
-   "tp_call",
-   "tp_str",
-   "tp_getattro",
-   "tp_setattro",
+      "tp_hash",
+      "tp_call",
+      "tp_str",
+      "tp_getattro",
+      "tp_setattro",
 
-  /* Functions to access object as input/output buffer */
-   "tp_as_buffer",
+      /* Functions to access object as input/output buffer */
+      "tp_as_buffer",
 
-  /* Flags to define presence of optional/expanded features */
-   "tp_flags",
+      /* Flags to define presence of optional/expanded features */
+      "tp_flags",
 
-   "tp_doc", /* Documentation string */
+      "tp_doc", /* Documentation string */
 
-  /* Assigned meaning in release 2.0 */
-  /* call function for all accessible objects */
-   "tp_traverse",
+      /* Assigned meaning in release 2.0 */
+      /* call function for all accessible objects */
+      "tp_traverse",
 
-  /* delete references to contained objects */
-   "tp_clear",
+      /* delete references to contained objects */
+      "tp_clear",
 
-  /* Assigned meaning in release 2.1 */
-  /* rich comparisons */
-   "tp_richcompare",
+      /* Assigned meaning in release 2.1 */
+      /* rich comparisons */
+      "tp_richcompare",
 
-    /* weak reference enabler */
-   "tp_weaklistoffset",
+      /* weak reference enabler */
+      "tp_weaklistoffset",
 
-  /* Iterators */
-   "tp_iter",
-   "tp_iternext",
+      /* Iterators */
+      "tp_iter",
+      "tp_iternext",
 
-  /* Attribute descriptor and subclassing stuff */
-   "tp_methods",
-   "tp_members",
-   "tp_getset",
-   "tp_base",
-   "tp_dict",
-   "tp_descr_get",
-   "tp_descr_set",
-   "tp_dictoffset",
-   "tp_init",
-   "tp_alloc",
-   "tp_new",
-   "tp_free", /* Low-level free-memory routine */
-   "tp_is_gc", /* For PyObject_IS_GC */
-   "_bases",
-   "tp_mro", /* method resolution order */
-   "tp_cache",
-   "tp_subclasses",
-   "tp_weaklist",
-   "tp_del",
+      /* Attribute descriptor and subclassing stuff */
+      "tp_methods",
+      "tp_members",
+      "tp_getset",
+      "tp_base",
+      "tp_dict",
+      "tp_descr_get",
+      "tp_descr_set",
+      "tp_dictoffset",
+      "tp_init",
+      "tp_alloc",
+      "tp_new",
+      "tp_free", /* Low-level free-memory routine */
+      "tp_is_gc", /* For PyObject_IS_GC */
+      "_bases",
+      "tp_mro", /* method resolution order */
+      "tp_cache",
+      "tp_subclasses",
+      "tp_weaklist",
+      "tp_del",
 
-  /* Type attribute cache version tag. Added in version 2.6 */
-   "tp_version_tag",
+      /* Type attribute cache version tag. Added in version 2.6 */
+      "tp_version_tag",
 
-   "tp_finalize"
+      "tp_finalize"
     }); }
 }

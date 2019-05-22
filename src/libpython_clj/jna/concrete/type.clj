@@ -9,7 +9,7 @@
              :as libpy-base]
             [tech.jna :as jna])
   (:import [com.sun.jna Pointer]
-           [libpython_clj.jna PyMethodDef PyTypeObject]))
+           [libpython_clj.jna PyMethodDef PyTypeObject PyObject]))
 
 
 (def Py_TPFLAGS_HEAPTYPE (bit-shift-left 1 9))
@@ -108,7 +108,7 @@
 
    Generic handler for the tp_new slot of a type object. Create a new instance using the
    type’s tp_alloc slot."
-  Pointer
+  PyObject
   [type (partial jna/ensure-type PyTypeObject)]
   [args ensure-pyobj]
   [kwds ensure-pyobj])
@@ -124,7 +124,7 @@
 
 (def-pylib-fn _PyObject_New
   "Return value: New reference."
-  Pointer
+  PyObject
   [type (partial jna/ensure-type PyTypeObject)])
 
 

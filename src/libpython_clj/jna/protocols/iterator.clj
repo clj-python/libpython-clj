@@ -8,7 +8,8 @@
                      *python-library*]
              :as libpy-base]
             [tech.jna :as jna])
-  (:import [com.sun.jna Pointer]))
+  (:import [com.sun.jna Pointer]
+           [libpython_clj.jna PyObject]))
 
 
 
@@ -27,5 +28,5 @@
    to the caller to check this). If there are no remaining values, returns NULL with no
    exception set. If an error occurs while retrieving the item, returns NULL and passes
    along the exception."
-  Pointer
+  PyObject
   [o ensure-pyobj])

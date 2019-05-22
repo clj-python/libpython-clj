@@ -6,11 +6,14 @@ import java.util.*;
 
 public class PyGetSetDef extends Structure {
 
+  // We keep these as pointers because the memberdef has to live forever
+  // so we have to manually ensure the name and doc ptrs also live forever.
+
   public Pointer name;
   public CFunction.tp_att_getter get;
   public CFunction.tp_att_setter set;
   public Pointer doc;
-  public Pointer closure;
+  public Pointer closure; //void*
 
 
   public static class ByReference extends PyGetSetDef implements Structure.ByReference {}

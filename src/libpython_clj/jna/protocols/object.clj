@@ -11,7 +11,8 @@
             [tech.jna :as jna]
             [camel-snake-kebab.core :refer [->kebab-case]])
   (:import [com.sun.jna Pointer Native NativeLibrary]
-           [com.sun.jna.ptr PointerByReference]))
+           [com.sun.jna.ptr PointerByReference]
+           [libpython_clj.jna PyObject]))
 
 
 ;; Object Protocol
@@ -68,7 +69,7 @@
    value. There’s really no reason to use this function instead of the common
    expression o->ob_type, which returns a pointer of type PyTypeObject*, except when
    the incremented reference count is needed."
-  Pointer
+  PyObject
   [py-obj ensure-pyobj])
 
 
@@ -82,7 +83,7 @@
 
    Changed in version 3.4: This function now includes a debug assertion to help ensure
    that it does not silently discard an active exception."
-  Pointer
+  PyObject
   [py_obj ensure-pyobj])
 
 
@@ -92,7 +93,7 @@
    Compute a string representation of object o. Returns the string representation on
    success, NULL on failure. This is the equivalent of the Python expression str(o). Called
    by the str() built-in function and by the print statement."
-  Pointer
+  PyObject
   [py-obj ensure-pyobj])
 
 
@@ -125,7 +126,7 @@
    Retrieve an attribute named attr_name from object o. Returns the attribute value on
    success, or NULL on failure. This is the equivalent of the Python expression
    o.attr_name."
-  Pointer
+  PyObject
   [pyobj ensure-pyobj]
   [attr-name ensure-pyobj])
 
@@ -136,7 +137,7 @@
    Retrieve an attribute named attr_name from object o. Returns the attribute value on
    success, or NULL on failure. This is the equivalent of the Python expression
    o.attr_name."
-  Pointer
+  PyObject
   [pyobj ensure-pyobj]
   [attr-name str])
 
@@ -150,7 +151,7 @@
    outlined in Implementing Descriptors, data descriptors take preference over instance
    attributes, while non-data descriptors don’t. Otherwise, an AttributeError is
    raised."
-  Pointer
+  PyObject
   [pyobj ensure-pyobj]
   [attr-name ensure-pyobj])
 
@@ -218,7 +219,7 @@
    dictionary if necessary.
 
    New in version 3.3."
-  Pointer
+  PyObject
   [pyobj ensure-pyobj]
   [context ensure-pyobj])
 
@@ -241,7 +242,7 @@
    >, or >= respectively. This is the equivalent of the Python expression o1 op o2,
    where op is the operator corresponding to opid. Returns the value of the comparison
    on success, or NULL on failure."
-  Pointer
+  PyObject
   [o1 ensure-pyobj]
   [o2 ensure-pyobj]
   [opid bool-fn-constant])
@@ -283,7 +284,7 @@
    Returns the result of the call on success, or NULL on failure.
 
    This is the equivalent of the Python expression: callable(*args, **kwargs)."
-  Pointer
+  PyObject
   [callable ensure-pyobj]
   [args ensure-pytuple]
   [kwargs jna/as-ptr])
@@ -297,7 +298,7 @@
    Returns the result of the call on success, or NULL on failure.
 
    This is the equivalent of the Python expression: callable(*args)."
-  Pointer
+  PyObject
   [callable ensure-pyobj]
   [args jna/as-ptr])
 
@@ -339,7 +340,7 @@
 
    Return element of o corresponding to the object key or NULL on failure. This is the
    equivalent of the Python expression o[key]."
-  Pointer
+  PyObject
   [o ensure-pyobj]
   [key ensure-pyobj])
 
@@ -370,7 +371,7 @@
    error. If the argument is NULL, this is like the Python dir(), returning the names
    of the current locals; in this case, if no execution frame is active then NULL is
    returned but PyErr_Occurred() will return false."
-  Pointer
+  PyObject
   [o ensure-pyobj])
 
 
@@ -380,5 +381,5 @@
    This is equivalent to the Python expression iter(o). It returns a new iterator for
    the object argument, or the object itself if the object is already an
    iterator. Raises TypeError and returns NULL if the object cannot be iterated."
-  Pointer
+  PyObject
   [o ensure-pyobj])

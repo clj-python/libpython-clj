@@ -8,7 +8,8 @@
                      *python-library*]
              :as libpy-base]
             [tech.jna :as jna])
-  (:import [com.sun.jna Pointer]))
+  (:import [com.sun.jna Pointer]
+           [libpython_clj.jna PyObject]))
 
 
 (def-pylib-fn PyTuple_Check
@@ -21,7 +22,7 @@
   "Return value: New reference.
 
    Return a new tuple object of size len, or NULL on failure."
-  Pointer
+  PyObject
   [len jna/size-t])
 
 
@@ -30,7 +31,7 @@
 
    Return the object at position pos in the tuple pointed to by p. If pos is out of
    bounds, return NULL and sets an IndexError exception."
-  Pointer
+  PyObject
   [p ensure-pyobj]
   [pos jna/size-t])
 
@@ -40,7 +41,7 @@
 
    Take a slice of the tuple pointed to by p from low to high and return it as a new
    tuple."
-  Pointer
+  PyObject
   [p ensure-pyobj]
   [low jna/size-t]
   [high jna/size-t])

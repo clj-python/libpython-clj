@@ -12,7 +12,8 @@
            [libpython_clj.jna
             CFunction$KeyWordFunction
             CFunction$TupleFunction
-            PyMethodDef]))
+            PyMethodDef
+            PyObject]))
 
 
 ;; #define METH_OLDARGS  0x0000   -- unsupported now
@@ -51,6 +52,6 @@
 
 (def-pylib-fn PyCFunction_New
   "Create a new callable from an item."
-  Pointer
+  PyObject
   [method-def (partial jna/ensure-type PyMethodDef)]
   [self jna/as-ptr])

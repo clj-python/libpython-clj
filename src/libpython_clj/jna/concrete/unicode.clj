@@ -11,7 +11,8 @@
             [tech.v2.datatype :as dtype])
   (:import [com.sun.jna Pointer]
            [com.sun.jna.ptr PointerByReference
-            LongByReference IntByReference]))
+            LongByReference IntByReference]
+           [libpython_clj.jna PyObject]))
 
 
 
@@ -25,7 +26,7 @@
 
   Signature:
   PyObject* (const char *s, Py_ssize_t size, const char *encoding, const char *errors)"
-  Pointer
+  PyObject
   [s dtype/as-nio-buffer]
   [size jna/size-t]
   [encoding str]
@@ -41,7 +42,7 @@
    registry. Return NULL if an exception was raised by the codec.
    Signature:
    PyObject* (PyObject *unicode, const char *encoding, const char *errors)"
-  Pointer
+  PyObject
   [s ensure-pyobj]
   [encoding str]
   [errors str])

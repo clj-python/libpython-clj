@@ -8,7 +8,8 @@
                      *python-library*]
              :as libpy-base]
             [tech.jna :as jna])
-  (:import [com.sun.jna Pointer]))
+  (:import [com.sun.jna Pointer]
+           [libpython_clj.jna PyObject]))
 
 (def-pylib-fn PyList_Check
   "Return true if p is a list object or an instance of a subtype of the list type."
@@ -27,7 +28,7 @@
    you cannot use abstract API functions such as PySequence_SetItem() or expose the
    object to Python code before setting all items to a real object with
    PyList_SetItem()."
-  Pointer
+  PyObject
   [len jna/size-t])
 
 
@@ -44,7 +45,7 @@
    Return the object at position index in the list pointed to by list. The position must
    be positive, indexing from the end of the list is not supported. If index is out of
    bounds, return NULL and set an IndexError exception."
-  Pointer
+  PyObject
   [list ensure-pyobj]
   [index jna/size-t])
 
@@ -86,7 +87,7 @@
    Return a list of the objects in list containing the objects between low and
    high. Return NULL and set an exception if unsuccessful. Analogous to
    list[low:high]. Negative indices, as when slicing from Python, are not supported."
-  Pointer
+  PyObject
   [list ensure-pyobj]
   [low jna/size-t]
   [high jna/size-t])
@@ -123,5 +124,5 @@
 
    Return a new tuple object containing the contents of list; equivalent to
    tuple(list)."
-  Pointer
+  PyObject
   [list ensure-pyobj])

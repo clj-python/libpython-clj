@@ -8,7 +8,8 @@
                      *python-library*]
              :as libpy-base]
             [tech.jna :as jna])
-  (:import [com.sun.jna Pointer]))
+  (:import [com.sun.jna Pointer]
+           [libpython_clj.jna PyObject]))
 
 
 
@@ -33,7 +34,7 @@
 
    Return element of o corresponding to the string key or NULL on failure. This is the
    equivalent of the Python expression o[key]. See also PyObject_GetItem()."
-  Pointer
+  PyObject
   [o ensure-pyobj]
   [key str])
 
@@ -93,7 +94,7 @@
    On success, return a list of the keys in object o. On failure, return NULL.
 
    Changed in version 3.7: Previously, the function returned a list or a tuple."
-  Pointer
+  PyObject
   [o ensure-pyobj])
 
 
@@ -103,7 +104,7 @@
    On success, return a list of the values in object o. On failure, return NULL.
 
    Changed in version 3.7: Previously, the function returned a list or a tuple."
-  Pointer
+  PyObject
   [o ensure-pyobj])
 
 
@@ -114,5 +115,5 @@
    containing a key-value pair. On failure, return NULL.
 
    Changed in version 3.7: Previously, the function returned a list or a tuple."
-  Pointer
+  PyObject
   [o ensure-pyobj])

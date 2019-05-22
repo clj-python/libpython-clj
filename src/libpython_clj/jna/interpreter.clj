@@ -13,7 +13,8 @@
             [libpython-clj.jna.concrete.unicode :as pyuni]
             [camel-snake-kebab.core :refer [->kebab-case]])
   (:import [com.sun.jna Pointer Native NativeLibrary]
-           [com.sun.jna.ptr PointerByReference]))
+           [com.sun.jna.ptr PointerByReference]
+           [libpython_clj.jna PyObject]))
 
 
 ;; Bugs and caveats: The destruction of modules and objects in modules is done in random
@@ -82,7 +83,7 @@
     PyErr_ExceptionMatches() instead, shown below. (The comparison could easily fail
     since the exception may be an instance instead of a class, in the case of a class
     exception, or it may be a subclass of the expected exception.)"
-  Pointer)
+  PyObject)
 
 
 (def-pylib-fn PyErr_PrintEx
@@ -263,12 +264,12 @@
 
 (defn Py_None
   []
-  (find-pylib-symbol "_Py_NoneStruct"))
+  (PyObject. (find-pylib-symbol "_Py_NoneStruct")))
 
 
 (defn Py_NotImplemented
   []
-  (find-pylib-symbol "_Py_NotImplementedStruct"))
+  (PyObject. (find-pylib-symbol "_Py_NotImplementedStruct")))
 
 ;; Interpreter level protocols
 
@@ -352,7 +353,7 @@
 
    Returns the result of executing the code as a Python object, or NULL if an exception
    was raised."
-  Pointer
+  PyObject
   [program str]
   [start-sym start-symbol]
   [globals ensure-pydict]
@@ -370,7 +371,7 @@
 
    Returns the result of executing the code as a Python object, or NULL if an exception
    was raised."
-  Pointer
+  PyObject
   [program str]
   [start-sym start-symbol]
   [globals ensure-pydict]

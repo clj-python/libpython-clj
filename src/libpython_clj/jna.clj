@@ -25,7 +25,9 @@
             [libpython-clj.jna.concrete.dict]
             [libpython-clj.jna.concrete.unicode]
             [libpython-clj.jna.concrete.cfunction]
-            [libpython-clj.jna.concrete.import])
+            [libpython-clj.jna.concrete.import]
+            [libpython-clj.jna.concrete.module]
+            [libpython-clj.jna.concrete.type])
   (:import [com.sun.jna Pointer NativeLibrary]))
 
 
@@ -279,4 +281,38 @@
 
 (export-symbols libpython-clj.jna.concrete.import
                 PyImport_ImportModule
+                PyImport_Import
+                PyImport_AddModule
                 PyImport_ImportModuleLevel)
+
+
+(export-symbols libpython-clj.jna.concrete.type
+                PyObject_Del
+                PyType_Check
+                PyType_GenericNew
+                PyType_Ready
+                Py_TPFLAGS_BASETYPE
+                Py_TPFLAGS_DEFAULT
+                Py_TPFLAGS_HAVE_GC
+                Py_TPFLAGS_HAVE_STACKLESS_EXTENSION
+                Py_TPFLAGS_HAVE_VERSION_TAG
+                Py_TPFLAGS_HEAPTYPE
+                Py_TPFLAGS_IS_ABSTRACT
+                Py_TPFLAGS_READY
+                Py_TPFLAGS_READYING
+                Py_TPFLAGS_VALID_VERSION_TAG
+                _PyObject_New)
+
+
+(export-symbols libpython-clj.jna.concrete.module
+                PyModule_AddFunctions
+                PyModule_AddIntConstant
+                PyModule_AddObject
+                PyModule_AddStringConstant
+                PyModule_Check
+                PyModule_GetDef
+                PyModule_GetDict
+                PyModule_GetNameObject
+                PyModule_GetState
+                PyModule_New
+                PyModule_SetDocString)

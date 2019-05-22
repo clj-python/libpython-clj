@@ -7,7 +7,8 @@
                      *python-library*]
              :as libpy-base]
             [tech.jna :as jna])
-  (:import [com.sun.jna Pointer]))
+  (:import [com.sun.jna Pointer]
+           [libpython_clj.jna PyObject]))
 
 
 (def-pylib-fn PyFloat_Check
@@ -26,7 +27,7 @@
   "Return value: New reference.
 
    Create a PyFloatObject object based on the string value in str, or NULL on failure."
-  Pointer
+  PyObject
   [str ensure-pyobj])
 
 
@@ -34,7 +35,7 @@
   "Return value: New reference.
 
    Create a PyFloatObject object from v, or NULL on failure."
-  Pointer
+  PyObject
   [v double])
 
 

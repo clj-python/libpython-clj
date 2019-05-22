@@ -8,16 +8,30 @@
             [tech.parallel.require :as parallel-req]
             [tech.v2.datatype :as dtype])
   (:import [tech.resource GCSoftReference]
-           [com.sun.jna Pointer]
+           [com.sun.jna Pointer Structure]
            [com.sun.jna.ptr PointerByReference
             LongByReference IntByReference]
            [java.lang AutoCloseable]
            [java.nio.charset StandardCharsets]
+           [java.lang.reflect Field Method]
            [libpython_clj.jna
             CFunction$KeyWordFunction
             CFunction$TupleFunction
-            PyMethodDef
-            ]
+            CFunction$NoArgFunction
+            CFunction$tp_new
+            CFunction$tp_dealloc
+            CFunction$tp_att_getter
+            CFunction$tp_att_setter
+            CFunction$tp_getattr
+            CFunction$tp_getattro
+            CFunction$tp_setattr
+            CFunction$tp_setattro
+            CFunction$tp_hash
+            PyMethodDef PyObject
+            PyMethodDef$ByReference
+            PyTypeObject
+            JVMBridge
+            JVMBridgeType]
            [tech.v2.datatype ObjectIter]
            [java.io Writer]))
 
@@ -66,9 +80,79 @@
                         objects*])
 
 
+(defonce ^:dynamic *interpreters* (atom {}))
+
+
+(defn get-object-handle
+  [interpreter]
+  (System/identityHashCode interpreter))
+
+(defn add-interpreter-handle!
+  [interpreter]
+  (swap! *interpreters* assoc
+         (get-object-handle interpreter)
+         interpreter))
+
+
+(defn remove-interpreter-handle!
+  [interpreter]
+  (swap! *interpreters* dissoc
+         (get-object-handle interpreter)))
+
+
+(defn handle->interpreter
+  [interpreter-handle]
+  (if-let [retval (get @*interpreters* interpreter-handle)]
+    retval
+    (throw (ex-info "Failed to convert from handle to interpreter"
+                    {}))))
+
+(defn handle-or-interpreter->interpreter
+  [hdl-or-interp]
+  (if (number? hdl-or-interp)
+    (handle->interpreter hdl-or-interp)
+    hdl-or-interp))
+
 
 (defonce ^:dynamic *main-interpreter* (atom nil))
 (defonce ^:dynamic *current-thread-interpreter* nil)
+
+
+
+(defn find-jvm-bridge
+  ^JVMBridge [handle interpreter]
+  (when-let [interpreter (handle-or-interpreter->interpreter interpreter)]
+    (when-let [^JVMBridge bridge-object (get @(:objects* interpreter) handle)]
+      bridge-object)))
+
+
+(defn get-jvm-bridge
+  ^JVMBridge [handle interpreter]
+  (if-let [bridge-obj (find-jvm-bridge handle interpreter)]
+    (:jvm-bridge bridge-obj)
+    (throw (ex-info "Unable to find bridge for interpreter %s and handle %s"
+                    interpreter handle))))
+
+
+(defn register-bridge!
+  [^JVMBridge bridge ^PyObject bridge-pyobject]
+  (let [interpreter (.interpreter bridge)
+        bridge-handle (get-object-handle (.wrappedObject bridge))]
+    (when (find-jvm-bridge bridge-handle (.interpreter bridge))
+      (throw (ex-info "already-registered?" {})))
+    (swap! (:objects* interpreter) assoc
+           bridge-handle
+           {:jvm-bridge bridge
+            :pyobject bridge-pyobject})
+    :ok))
+
+
+(defn unregister-bridge!
+  [^JVMBridge bridge]
+  (let [interpreter (.interpreter bridge)
+        bridge-handle (get-object-handle (.wrappedObject bridge))]
+    (swap! (:objects* interpreter) dissoc bridge-handle)
+    :ok))
 
 
 (def ^:dynamic *program-name* "")
@@ -101,17 +185,12 @@
           retval (->Interpreter (atom (libpy/PyEval_SaveThread))
                                 (atom type-symbols)
                                 (atom [])
-                                (atom {:handle->obj {}
-                                       :obj->handle {}}))
+                                (atom {}))
           thread-state-atom (:thread-state* retval)
           forever-atom (:forever* retval)
           objects-atom (:objects* retval)]
-      (reset! *main-interpreter* (resource/track
-                                  retval
-                                  #(finalize-global-interpreter! thread-state-atom
-                                                                 forever-atom
-                                                                 objects-atom)
-                                  [:gc]))
+      (reset! *main-interpreter* retval)
+      (add-interpreter-handle! retval)
       :ok)))
 
 
@@ -120,7 +199,8 @@
   (when-let [main-interpreter (first (swap-vals! *main-interpreter* (constantly nil)))]
     (finalize-global-interpreter! (:thread-state* main-interpreter)
                                   (:forever* main-interpreter)
-                                  (:objects* main-interpreter))))
+                                  (:objects* main-interpreter))
+    (remove-interpreter-handle! main-interpreter)))
 
 
 (defn- ensure-interpreter
@@ -205,7 +285,7 @@
     (let [interpreter (ensure-interpreter)
           sym-table-atom (:type-symbol-table* interpreter)
           py-type (py-raw-type pyobj)
-          py-type-addr (Pointer/nativeValue ^Pointer py-type)
+          py-type-addr (Pointer/nativeValue ^Pointer (jna/as-ptr py-type))
           sym-table
           (swap! sym-table-atom
                  (fn [sym-table]
@@ -371,6 +451,8 @@
       (libpy/PyFloat_AsDouble pyobj)
       :str
       (py-string->string pyobj)
+      :none-type
+      nil
       (cond
         ;;Things could implement mapping and sequence logically so mapping
         ;;takes precedence
@@ -388,8 +470,8 @@
         (= 1 (has-attr? pyobj "__iter__"))
         (python->jvm-copy-iterable pyobj)
         :else
-        (throw (ex-info (format "Unable to map python object into jvm at this time: %s"
-                         (py-type-keyword pyobj)) {}))))))
+        {:type (py-type-keyword pyobj)
+         :value pyobj}))))
 
 
 (defn ->py-long
@@ -556,11 +638,17 @@
       (jna/as-ptr item))))
 
 
-(defn py-import
+(defn py-import-module
   [modname]
   (with-gil nil
     (wrap-pyobject
      (libpy/PyImport_ImportModule modname))))
+
+
+(defn py-add-module
+  [modname]
+  (with-gil nil
+    (libpy/PyImport_AddModule modname)))
 
 
 (defn obj-has-item?
@@ -588,28 +676,28 @@
     elem))
 
 
-(defn setup-std-out-std-err!
-  []
+(defn run-simple-string
+  "Run a simple string returning boolean 1 or 0
+
+    PyObject *m, *d, *v;
+    m = PyImport_AddModule(\"__main__\");
+    if (m == NULL)
+        return -1;
+    d = PyModule_GetDict(m);
+    v = PyRun_StringFlags(command, Py_file_input, d, d, flags);
+    if (v == NULL) {
+        PyErr_Print();
+        return -1;
+    }
+    Py_DECREF(v);
+    return 0;"
+  [^String program]
   (with-gil nil
-    (let [sys-module (py-import "sys")
-          error-dict (->py-dict {})
-          out-dict (->py-dict {})]
-      (obj-set-item error-dict "write"
-                    (create-function (fn [msg & args]
-                                       (.write ^Writer *err* (str msg)))
-                                     :method-name "write"
-                                     :documentation "Write a string to stderr"))
-      (obj-set-item out-dict "write"
-                    (create-function (fn [msg & args]
-                                       (.write ^Writer *out* (str msg)))
-                                     :method-name "write"
-                                     :documentation "Write a string to stdout"))
-      (set-attr sys-module "stdout" out-dict)
-      (set-attr sys-module "stderr" error-dict)
-      :ok)))
+    (libpy/PyRun_SimpleString program)))
 
 
 (defn run-string
+  "If you don't know what you are doing, this will sink you."
   [^String program & {:keys [globals locals]}]
   (with-gil nil
     (let [globals (or globals (->py-dict {}))
@@ -629,3 +717,173 @@
           local-dict (->py-dict {"multiplicand" 2
                                  "multiplier" 5})]
       (run-string python-script :locals local-dict))))
+
+
+(defn create-module
+  [modname & {:keys [package docstring dont-import?]}]
+  (with-gil nil
+    (let [new-module (wrap-pyobject (libpy/PyModule_New modname))]
+      (when docstring
+        (libpy/PyModule_SetDocString new-module docstring))
+      (when package
+        (set-attr new-module "__package__" (->py-string package)))
+      new-module)))
+
+
+(def fieldOffsetMethod
+  (memoize
+   (fn []
+     (doto (.getDeclaredMethod Structure "fieldOffset" (into-array Class [String]))
+       (.setAccessible true)))))
+
+(defn offsetof
+  [structure-instance fieldname]
+  (.invoke ^Method (fieldOffsetMethod)
+           structure-instance
+           (into-array Object [(str fieldname)])))
+
+
+(defn register-bridge-type!
+  "Register the bridge type and return newly created type."
+  [module]
+  (with-gil nil
+    (let [interpreter *current-thread-interpreter*
+          new-type (PyTypeObject.)
+          docstring (jna/string->ptr "Type used to create the jvmbridge python objects")
+          module-name (-> (get-attr module "__name__")
+                          (copy-to-jvm))
+          type-name "jvm_bridge"
+          type-qualified-name (str module-name "." type-name)
+          type-name-ptr (jna/string->ptr type-qualified-name)
+          bridge-item (JVMBridgeType.)
+          method-def-ary (-> (PyMethodDef.)
+                             (.toArray 2))
+          ^PyMethodDef first-method-def (aget method-def-ary 0)
+          dir-method-name (jna/string->ptr "__dir__")
+          dir-method-doc (jna/string->ptr "Custom __dir__ method")]
+      (set! (.ml_name first-method-def) dir-method-name)
+      (set! (.ml_meth first-method-def) (reify CFunction$NoArgFunction
+                                          (pyinvoke [this self]
+                                            (try
+                                              (let [bridge-type (JVMBridgeType. (.getPointer self))
+                                                    bridge-obj (get-jvm-bridge (.jvm_handle bridge-type)
+                                                                               (.jvm_interpreter_handle bridge-type))]
+                                                (->py-list (.dir bridge-obj)))
+                                              (catch Throwable e
+                                                (log-error ("error calling __dir__:" e ))
+                                                (->py-list []))))))
+      (set! (.ml_flags first-method-def) @libpy/METH_NOARGS)
+      (set! (.ml_doc first-method-def) dir-method-doc)
+      (.write first-method-def)
+      ;;Some of the methods we have to do ourselves:
+      (set! (.tp_name new-type) type-name-ptr)
+      (set! (.tp_doc new-type) docstring)
+      (set! (.tp_basicsize new-type) (.size bridge-item))
+      (set! (.tp_flags new-type) (bit-or @libpy/Py_TPFLAGS_DEFAULT
+                                         @libpy/Py_TPFLAGS_BASETYPE))
+      (set! (.tp_new new-type) (reify CFunction$tp_new
+                                 (pyinvoke [this self varargs kw_args]
+                                   (libpy/PyType_GenericNew self varargs kw_args))))
+      (set! (.tp_dealloc new-type) (reify CFunction$tp_dealloc
+                                     (pyinvoke [this self]
+                                       (let [bridge-type (JVMBridgeType. (.getPointer self))
+                                             bridge-obj (get-jvm-bridge (.jvm_handle bridge-type)
+                                                                        (.jvm_interpreter_handle bridge-type))
+                                             self-type (PyTypeObject. (.ob_type self))]
+                                         (try
+                                           (unregister-bridge! bridge-obj)
+                                           (catch Throwable e
+                                             (log-error e)))
+                                         ((.tp_free self-type) (.getPointer self))))))
+      (set! (.tp_getattr new-type) (reify CFunction$tp_getattr
+                                     (pyinvoke [this self att-name]
+                                       (try
+                                         (let [bridge-type (JVMBridgeType. (.getPointer self))
+                                               bridge-obj (get-jvm-bridge (.jvm_handle bridge-type)
+                                                                          (.jvm_interpreter_handle bridge-type))]
+                                           (.getAttr bridge-obj att-name))
+                                         (catch Throwable e
+                                           (log-error (format "getattr: %s: %s" att-name e))
+                                           nil)))))
+      (set! (.tp_setattr new-type) (reify CFunction$tp_setattr
+                                     (pyinvoke [this self att-name att-value]
+                                       (try
+                                         (let [bridge-type (JVMBridgeType. (.getPointer self))
+                                               bridge-obj (get-jvm-bridge (.jvm_handle bridge-type)
+                                                                          (.jvm_interpreter_handle bridge-type))]
+                                           (.setAttr bridge-obj att-name att-value)
+                                           1)
+                                         (catch Throwable e
+                                           (log-error (format "setattr: %s: %s" att-name e))
+                                           0)))))
+      (set! (.tp_methods new-type) (PyMethodDef$ByReference. (.getPointer first-method-def)))
+      (let [type-ready (libpy/PyType_Ready new-type)]
+        (if (>= 0 type-ready)
+          (do
+            ;;type-ready changes the type memory backing store
+            (.read new-type)
+            ;;update the refcount to 1
+            (set! (.ob_refcnt new-type) 1)
+            ;;write that to the backing store
+            (.write new-type)
+            (libpy/PyModule_AddObject module (str type-name "_type") new-type)
+            (swap! (:forever* interpreter) conj [new-type method-def-ary])
+            new-type)
+          (throw (ex-info (format "Type failed to register: %d" type-ready)
+                          {})))))))
+
+
+(defn wrap-var-writer
+  "Returns an unregistered bridge"
+  ^JVMBridge [writer-var]
+  (with-gil nil
+    (let [write-fn (create-function (fn [msg & args]
+                                      (.write ^Writer @writer-var (str msg))
+                                      nil))
+          interpreter (ensure-interpreter)]
+      (reify JVMBridge
+        (getAttr [bridge att-name]
+          (case att-name
+            "write" write-fn))
+        (dir [bridge]
+          (into-array String ["write"]))
+        (setAttr [bridge att-name att-val]
+          (throw (ex-info "Unsupported" {})))
+        (interpreter [bridge] interpreter)
+        (wrappedObject [bridge] writer-var)
+        (close [bridge])))))
+
+
+(defn expose-bridge-to-python!
+  "Create a python object for this bridge."
+  [^JVMBridge bridge libpython-module]
+  (with-gil (.interpreter bridge)
+    (let [^PyObject bridge-type-ptr (get-attr libpython-module "jvm_bridge_type")
+          _ (when-not bridge-type-ptr
+              (throw (ex-info "Failed to find bridge type" {})))
+          bridge-type (PyTypeObject. (.getPointer bridge-type-ptr))
+          ^PyObject new-py-obj (libpy/_PyObject_New bridge-type)
+          pybridge (JVMBridgeType. (.getPointer new-py-obj))]
+      (set! (.jvm_interpreter_handle pybridge) (get-object-handle (.interpreter bridge)))
+      (set! (.jvm_handle pybridge) (get-object-handle (.wrappedObject bridge)))
+      (.write pybridge)
+      (register-bridge! bridge pybridge)
+      pybridge)))
+
+
+(defn get-or-create-var-writer
+  [writer-var module]
+  (if-let [existing-writer (find-jvm-bridge (get-object-handle writer-var) (ensure-interpreter))]
+    (:pyobject existing-writer)
+    (with-gil nil
+      (-> (wrap-var-writer writer-var)
+          (expose-bridge-to-python! module)))))
+
+
+(defn setup-std-writer
+  [writer-var libpy-module sys-mod-attname]
+  (with-gil nil
+    (let [sys-module (py-import-module "sys")
+          std-out-writer (get-or-create-var-writer #'*out* libpy-module)]
+      (set-attr sys-module sys-mod-attname std-out-writer)
+      :ok)))
