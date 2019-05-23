@@ -86,7 +86,7 @@
   [^JVMBridge bridge ^PyObject bridge-pyobject]
   (let [interpreter (.interpreter bridge)
         bridge-handle (get-object-handle (.wrappedObject bridge))]
-    (when (find-jvm-bridge bridge-handle (.interpreter bridge))
+    (when (find-jvm-bridge-entry bridge-handle (.interpreter bridge))
       (throw (ex-info "already-registered?" {})))
     (swap! (:interpreter-state* interpreter) assoc-in
            [:bridge-objects bridge-handle]
@@ -249,7 +249,7 @@
   "Function assumes python stdout and stderr have been redirected"
   []
   (with-gil
-    (when-not (= 0 (libpy/PyErr_Occurred))
+    (when-not (= nil (libpy/PyErr_Occurred))
       (let [custom-writer (StringWriter.)]
         (with-bindings {#'*err* custom-writer}
           (libpy/PyErr_Print))

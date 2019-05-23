@@ -12,7 +12,7 @@
               with-gil with-interpreter
               ensure-bound-interpreter
               ensure-interpreter
-              find-jvm-bridge
+              find-jvm-bridge-entry
               get-jvm-bridge
               unregister-bridge!
               register-bridge!
@@ -25,12 +25,15 @@
             [tech.jna :as jna]
             [libpython-clj.python.object
              :refer [wrap-pyobject incref-wrap-pyobject
+                     incref
                      copy-to-jvm copy-to-python
                      ->py-dict
                      set-attr
                      get-attr
+                     py-none
                      ->py-string
-                     ->py-list]])
+                     ->py-list
+                     ->py-tuple]])
   (:import [java.lang.reflect Field Method]
            [com.sun.jna Pointer Structure CallbackReference]
            [libpython_clj.jna
@@ -69,10 +72,54 @@
           (copy-to-python retval)
           (libpy/Py_None))
         (catch Throwable e
+          (log-error     (format "%s:%s" e (with-out-str
+                                                     (st/print-stack-trace e))) )
           (libpy/PyErr_SetString (libpy/PyExc_Exception)
                                  (format "%s:%s" e (with-out-str
                                                      (st/print-stack-trace e))))
           nil)))))
+
+
+(defn- apply-method-def-data!
+  [^PyMethodDef method-def {:keys [name
+                                   doc
+                                   function]
+                            :as method-data}]
+  (let [callback (if (or (instance? CFunction$KeyWordFunction function)
+                         (instance? CFunction$TupleFunction function)
+                         (instance? CFunction$NoArgFunction function))
+                     function
+                     (wrap-clojure-fn function))
+        meth-flags (long (cond
+                           (instance? CFunction$NoArgFunction callback)
+                           @libpy/METH_NOARGS
+
+                           (instance? CFunction$TupleFunction callback)
+                           @libpy/METH_VARARGS
+
+                           (instance? CFunction$KeyWordFunction callback)
+                           (bit-or @libpy/METH_KEYWORDS @libpy/METH_VARARGS)
+                           :else
+                           (throw (ex-info (format "Failed due to type: %s" (type callback))))))
+        name-ptr (jna/string->ptr name)
+        doc-ptr (jna/string->ptr doc)]
+    (println "meth-flags" meth-flags)
+    (set! (.ml_name method-def) name-ptr)
+    (set! (.ml_meth method-def) (CallbackReference/getFunctionPointer callback))
+    (set! (.ml_flags method-def) (int meth-flags))
+    (set! (.ml_doc method-def) doc-ptr)
+    (.write method-def)
+    (pyinterp/conj-forever! (assoc method-data
+                                   :name-ptr name-ptr
+                                   :doc-ptr doc-ptr
+                                   :callback-object callback
+                                   :method-definition method-def))
+    method-def))
+
+
+(defn method-def-data->method-def
+  [method-data]
+  (apply-method-def-data! (PyMethodDef.) method-data))
 
 
 (defn create-function
@@ -86,25 +133,14 @@
              :or {method-name "unnamed_function"
                   documentation "not documented"}}]
   (with-gil
-    (let [callback (if (or (instance? CFunction$KeyWordFunction fn-obj)
-                           (instance? CFunction$TupleFunction fn-obj))
-                     fn-obj
-                     (wrap-clojure-fn fn-obj))
-          tuple-args? (instance? CFunction$TupleFunction callback)
-          meth-flags (long (if tuple-args?
-                             @libpy/METH_VARARGS
-                             @libpy/METH_KEYWORDS))
-          current-interpreter (ensure-bound-interpreter)
-          meth-def (PyMethodDef.)
-          name-ptr (jna/string->ptr method-name)
-          doc-ptr (jna/string->ptr documentation)
-          py-self (or py-self (copy-to-python {}))]
-      (set! (.ml_name meth-def) name-ptr)
-      (set! (.ml_meth meth-def) (CallbackReference/getFunctionPointer callback))
-      (set! (.ml_flags meth-def) (int meth-flags))
-      (set! (.ml_doc meth-def) doc-ptr)
-      (pyinterp/conj-forever! meth-def)
-      (wrap-pyobject (libpy/PyCFunction_New meth-def py-self)))))
+    (let [py-self (or py-self (copy-to-python {}))]
+      (wrap-pyobject (libpy/PyCFunction_New (method-def-data->method-def
+                                             {:name method-name
+                                              :doc documentation
+                                              :function fn-obj})
+                                            ;;This is a nice little tidbit, cfunction_new
+                                            ;;steals the reference.
+                                            (libpy/Py_IncRef py-self))))))
 
 
 (defn py-import-module
@@ -166,24 +202,21 @@
 
 
 (defn create-module
-  [modname & {:keys [package docstring dont-import? unregistered?]}]
-  (with-gil nil
+  [modname & {:keys [package docstring unregistered?]}]
+  (with-gil
     (let [new-module (wrap-pyobject (libpy/PyModule_New modname))]
       (when docstring
         (libpy/PyModule_SetDocString new-module docstring))
       (when package
         (set-attr new-module "__package__" (->py-string package)))
-      (when-not unregistered?
-        (let [sys-module (py-import-module "sys")
-              sys-modules (get-attr sys-module "modules")]
-          (libpy/PyDict_SetItemString sys-modules modname new-module)))
       new-module)))
 
 
 (def fieldOffsetMethod
   (memoize
    (fn []
-     (doto (.getDeclaredMethod Structure "fieldOffset" (into-array Class [String]))
+     (doto (.getDeclaredMethod Structure "fieldOffset"
+                               (into-array Class [String]))
        (.setAccessible true)))))
 
 
@@ -194,103 +227,158 @@
            (into-array Object [(str fieldname)])))
 
 
+(defn create-python-type
+  [type-name module-name method-def-data])
+
+
+(defn method-def-data-seq->method-def-ref
+  ^PyMethodDef$ByReference [method-def-data-seq]
+  (when (seq method-def-data-seq)
+    (let [n-elems (count method-def-data-seq)
+          method-def-ary (-> (PyMethodDef.)
+                             (.toArray (inc n-elems)))]
+      (->> method-def-data-seq
+           (map-indexed (fn [idx def-data]
+                          (apply-method-def-data!
+                           (aget method-def-ary idx)
+                           def-data)))
+           dorun)
+      (PyMethodDef$ByReference. (.getPointer ^PyMethodDef
+                                             (aget method-def-ary 0))))))
+
+
+(defn register-type!
+  "Register a new type.  Please refer to python documentation for meaning
+  of the variables."
+  [module {:keys [type-name
+                  docstring
+                  method-definitions
+                  tp_flags ;;may be nil
+                  tp_basicsize ;;size of binary type
+                  tp_new ;;may be nil, will use generic
+                  tp_dealloc ;;may be nil, will use generic
+                  tp_getattr ;;may *not* be nil
+                  tp_setattr ;;may *not* be nil
+                  ]
+           :as type-definition}]
+  (when (or (not type-name)
+            (= 0 (count type-name)))
+    (throw (ex-info "Cannot create unnamed type." {})))
+  (let [tp_new (or tp_new
+                   (reify CFunction$tp_new
+                     (pyinvoke [this self varargs kw_args]
+                       (libpy/PyType_GenericNew self varargs kw_args))))
+        module-name (-> (get-attr module "__name__")
+                        (copy-to-jvm))
+        docstring-ptr (jna/string->ptr docstring)
+        type-name-ptr (jna/string->ptr (str module-name "." type-name))
+        tp_flags (long (or tp_flags
+                           (bit-or @libpy/Py_TPFLAGS_DEFAULT
+                                   @libpy/Py_TPFLAGS_BASETYPE)))
+        new-type (PyTypeObject.)]
+    (set! (.tp_name new-type) type-name-ptr)
+    (set! (.tp_doc new-type) docstring-ptr)
+    (set! (.tp_basicsize new-type) tp_basicsize)
+    (set! (.tp_flags new-type) tp_flags)
+    (set! (.tp_new new-type) tp_new)
+    (set! (.tp_dealloc new-type) tp_dealloc)
+    (set! (.tp_getattr new-type) tp_getattr)
+    (set! (.tp_setattr new-type) tp_setattr)
+    (set! (.tp_methods new-type) (method-def-data-seq->method-def-ref
+                                  method-definitions))
+    (let [type-ready (libpy/PyType_Ready new-type)]
+      (if (>= 0 type-ready)
+        (do
+          (libpy/Py_IncRef new-type)
+          (.read new-type)
+          (libpy/PyModule_AddObject module (str type-name "_type") new-type)
+          ;;We are careful to keep track of the static data we give to python.
+          ;;the GC cannot now remove any of this stuff pretty much
+          ;;forever now.
+          (conj-forever! (assoc type-definition
+                                :tp_name type-name-ptr
+                                :tp_doc docstring-ptr
+                                :tp_new tp_new
+                                :tp_dealloc tp_dealloc
+                                :tp_getattr tp_getattr
+                                :tp_setattr tp_setattr))
+          (incref-wrap-pyobject new-type))
+        (throw (ex-info (format "Type failed to register: %d" type-ready)
+                        {}))))))
+
+(defn- pybridge->bridge
+  ^JVMBridge [^PyObject pybridge]
+  (let [bridge-type (JVMBridgeType. (.getPointer pybridge))]
+    (get-jvm-bridge (.jvm_handle bridge-type)
+                    (.jvm_interpreter_handle bridge-type))))
+
 
 (defn register-bridge-type!
   "Register the bridge type and return newly created type."
   [module & {:keys [type-name]
              :or {type-name "jvm_bridge"}}]
   (with-gil
-    (let [interpreter (ensure-bound-interpreter)
-          new-type (PyTypeObject.)
-          docstring (jna/string->ptr "Type used to create the jvmbridge python objects")
-          module-name (-> (get-attr module "__name__")
-                          (copy-to-jvm))
-          type-qualified-name (str module-name "." type-name)
-          type-name-ptr (jna/string->ptr type-qualified-name)
-          bridge-item (JVMBridgeType.)
-          method-def-ary (-> (PyMethodDef.)
-                             (.toArray 2))
-          ^PyMethodDef first-method-def (aget method-def-ary 0)
-          dir-method-name (jna/string->ptr "__dir__")
-          dir-method-doc (jna/string->ptr "Custom __dir__ method")
-          fn-callback (reify CFunction$NoArgFunction
-                        (pyinvoke [this self]
-                          (try
-                            (let [bridge-type (JVMBridgeType. (.getPointer self))
-                                  bridge-obj (get-jvm-bridge (.jvm_handle bridge-type)
-                                                             (.jvm_interpreter_handle bridge-type))]
-                              (->py-list (.dir bridge-obj)))
-                            (catch Throwable e
-                              (log-error ("error calling __dir__:" e ))
-                              (->py-list [])))))]
-      (set! (.ml_name first-method-def) dir-method-name)
-      (set! (.ml_meth first-method-def) (CallbackReference/getFunctionPointer fn-callback))
-      (set! (.ml_flags first-method-def) @libpy/METH_NOARGS)
-      (set! (.ml_doc first-method-def) dir-method-doc)
-      (.write first-method-def)
-      ;;Some of the methods we have to do ourselves:
-      (set! (.tp_name new-type) type-name-ptr)
-      (set! (.tp_doc new-type) docstring)
-      (set! (.tp_basicsize new-type) (.size bridge-item))
-      (set! (.tp_flags new-type) (bit-or @libpy/Py_TPFLAGS_DEFAULT
-                                         @libpy/Py_TPFLAGS_BASETYPE))
-      (set! (.tp_new new-type) (reify CFunction$tp_new
-                                 (pyinvoke [this self varargs kw_args]
-                                   (libpy/PyType_GenericNew self varargs kw_args))))
-      (set! (.tp_dealloc new-type) (reify CFunction$tp_dealloc
-                                     (pyinvoke [this self]
-                                       (try
-                                         (let [bridge-type (JVMBridgeType. (.getPointer self))
-                                               bridge-obj (get-jvm-bridge (.jvm_handle bridge-type)
-                                                                          (.jvm_interpreter_handle bridge-type))]
-                                           (unregister-bridge! bridge-obj))
-                                         (catch Throwable e
-                                           (log-error e)))
-                                       ((.tp_free (PyTypeObject. (.ob_type self))) (.getPointer self)))))
-      (set! (.tp_getattr new-type) (reify CFunction$tp_getattr
-                                     (pyinvoke [this self att-name]
-                                       (try
-                                         (let [bridge-type (JVMBridgeType. (.getPointer self))
-                                               bridge-obj (get-jvm-bridge (.jvm_handle bridge-type)
-                                                                          (.jvm_interpreter_handle bridge-type))]
-                                           (.getAttr bridge-obj att-name))
-                                         (catch Throwable e
-                                           (log-error (format "getattr: %s: %s" att-name e))
-                                           nil)))))
-      (set! (.tp_setattr new-type) (reify CFunction$tp_setattr
-                                     (pyinvoke [this self att-name att-value]
-                                       (try
-                                         (let [bridge-type (JVMBridgeType. (.getPointer self))
-                                               bridge-obj (get-jvm-bridge (.jvm_handle bridge-type)
-                                                                          (.jvm_interpreter_handle bridge-type))]
-                                           (.setAttr bridge-obj att-name att-value)
-                                           1)
-                                         (catch Throwable e
-                                           (log-error (format "setattr: %s: %s" att-name e))
-                                           0)))))
-      (set! (.tp_methods new-type) (PyMethodDef$ByReference. (.getPointer first-method-def)))
-      (let [type-ready (libpy/PyType_Ready new-type)]
-        (if (>= 0 type-ready)
-          (do
-            (libpy/Py_IncRef new-type)
-            (.read new-type)
-            (libpy/PyModule_AddObject module (str type-name "_type") new-type)
-            (conj-forever! [new-type method-def-ary
-                            fn-callback
-                            dir-method-name
-                            dir-method-doc])
-            new-type)
-          (throw (ex-info (format "Type failed to register: %d" type-ready)
-                          {})))))))
+    (register-type!
+     module
+     {:type-name type-name
+      :docstring "Type used to create the jvmbridge python objects"
+      :method-definitions [{:name "__dir__"
+                            :doc "Custom jvm bridge  __dir__ method"
+                            :function (reify CFunction$NoArgFunction
+                                        (pyinvoke [this self]
+                                          (try
+                                            (-> (pybridge->bridge self)
+                                                (.dir)
+                                                (->py-list))
+                                            (catch Throwable e
+                                              (log-error ("error calling __dir__:" e ))
+                                              (->py-list [])))))}]
+      :tp_basicsize (.size (JVMBridgeType.))
+      :tp_dealloc (reify CFunction$tp_dealloc
+                    (pyinvoke [this self]
+                      (try
+                        (-> (pybridge->bridge self)
+                            (unregister-bridge!))
+                        (catch Throwable e
+                          (log-error e)))
+                      ((.tp_free (PyTypeObject. (.ob_type self))) (.getPointer self))))
+      :tp_getattr (reify CFunction$tp_getattr
+                    (pyinvoke [this self att-name]
+                      (try
+                        (-> (pybridge->bridge self)
+                            (.getAttr att-name))
+                        (catch Throwable e
+                          (log-error (format "getattr: %s: %s" att-name e))
+                          nil))))
+      :tp_setattr (reify CFunction$tp_setattr
+                    (pyinvoke [this self att-name att-value]
+                      (try
+                        (-> (pybridge->bridge self)
+                            (.setAttr att-name att-value))
+                        (catch Throwable e
+                          (log-error (format "setattr: %s: %s" att-name e))
+                          0))))})))
 
 
 (defn wrap-var-writer
   "Returns an unregistered bridge"
   ^JVMBridge [writer-var]
   (with-gil
-    (let [write-fn (create-function (fn [msg & args]
-                                      (.write ^Writer @writer-var (str msg))
-                                      nil))
+    (let [write-fn (-> (reify CFunction$KeyWordFunction
+                         (pyinvoke [this self tuple-args kw-args]
+                           (try
+                             (let [tuple-data (when tuple-args
+                                                (copy-to-jvm tuple-args))
+                                   kw-data (when kw-args
+                                             (copy-to-jvm kw-args))]
+                               (.write ^Writer @writer-var (str (first tuple-data)))
+                               (py-none))
+                             (catch Throwable e
+                               (println "ERROR!!")
+                               (log-error e)
+                               (py-none)))))
+                       create-function
+                       incref)
           interpreter (ensure-bound-interpreter)]
       (reify JVMBridge
         (getAttr [bridge att-name]
@@ -301,8 +389,7 @@
         (setAttr [bridge att-name att-val]
           (throw (ex-info "Unsupported" {})))
         (interpreter [bridge] interpreter)
-        (wrappedObject [bridge] writer-var)
-        (close [bridge])))))
+        (wrappedObject [bridge] writer-var)))))
 
 
 (defn expose-bridge-to-python!
@@ -319,12 +406,13 @@
       (set! (.jvm_handle pybridge) (get-object-handle (.wrappedObject bridge)))
       (.write pybridge)
       (register-bridge! bridge pybridge)
-      pybridge)))
+      (wrap-pyobject pybridge))))
 
 
 (defn get-or-create-var-writer
   [writer-var module]
-  (if-let [existing-writer (find-jvm-bridge (get-object-handle writer-var) (ensure-interpreter))]
+  (if-let [existing-writer (find-jvm-bridge-entry (get-object-handle writer-var)
+                                                  (ensure-interpreter))]
     (:pyobject existing-writer)
     (with-gil nil
       (-> (wrap-var-writer writer-var)
@@ -335,6 +423,6 @@
   [writer-var libpy-module sys-mod-attname]
   (with-gil
     (let [sys-module (py-import-module "sys")
-          std-out-writer (get-or-create-var-writer #'*out* libpy-module)]
+          std-out-writer (get-or-create-var-writer writer-var libpy-module)]
       (set-attr sys-module sys-mod-attname std-out-writer)
       :ok)))

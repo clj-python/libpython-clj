@@ -25,17 +25,26 @@
 
 (defn wrap-pyobject
   "Wrap object such that when it is no longer accessible via the program decref is
-  called. Used for new references."
+  called. Used for new references.  This is some of the meat of the issue, however,
+  in that getting the two system's garbage collectors to play nice is kind
+  of tough."
   [pyobj]
   (check-error-throw)
   (when pyobj
     (let [interpreter (ensure-bound-interpreter)
           pyobj-value (Pointer/nativeValue (jna/as-ptr pyobj))]
+      (comment
+        (println "tracking object" pyobj-value))
       ;;We ask the garbage collector to track the python object and notify
       ;;us when it is released.  We then decref on that event.
       (resource/track pyobj
                       #(with-interpreter interpreter
                          (try
+                           (comment
+                             (println "releasing object" pyobj-value
+                                      "with refcount" (.ob_refcnt (PyObject.
+                                                                   (Pointer.
+                                                                    pyobj-value)))))
                            (libpy/Py_DecRef (Pointer. pyobj-value))
                            (catch Throwable e
                              (log-error "Exception while releasing object: %s" e))))
@@ -49,6 +58,15 @@
   (with-gil
     (libpy/Py_IncRef pyobj)
     (wrap-pyobject pyobj)))
+
+
+(defn incref
+  "Incref and return object"
+  [pyobj]
+  (let [pyobj (->pyobject pyobj)]
+    (libpy/Py_IncRef pyobj)
+    (.read pyobj)
+    pyobj))
 
 
 (defn py-true
@@ -82,7 +100,7 @@
   ^PyObject [item]
   (when-not item
     (throw (ex-info "Null item passed in" {})))
-  (base/->py-object-ptr item))
+  (libpy-base/->py-object-ptr item))
 
 
 (defn py-raw-type
@@ -299,12 +317,19 @@
       (py-string->string pyobj)
       :none-type
       nil
+      :tuple
+      (python->jvm-copy-persistent-vector pyobj)
+      :list
+      (python->jvm-copy-persistent-vector pyobj)
+      :dict
+      (python->jvm-copy-hashmap pyobj)
       (cond
         ;;Things could implement mapping and sequence logically so mapping
         ;;takes precedence
         (= 1 (libpy/PyMapping_Check pyobj))
-        (if-let [map-items (-> (libpy/PyMapping_Items pyobj)
-                               wrap-pyobject)]
+        (if-let [map-items (try (-> (libpy/PyMapping_Items pyobj)
+                                    wrap-pyobject)
+                                (catch Throwable e nil))]
           (python->jvm-copy-hashmap pyobj map-items)
           (do
             ;;Ignore error.  The mapping check isn't thorough enough to work.

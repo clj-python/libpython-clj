@@ -9,7 +9,7 @@
 
 
 
-(def ^:dynamic *python-library* "python3.7m")
+(def ^:dynamic *python-library* "python3.6m")
 
 
 (defprotocol PToPyObjectPtr
