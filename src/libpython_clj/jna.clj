@@ -27,7 +27,8 @@
             [libpython-clj.jna.concrete.cfunction]
             [libpython-clj.jna.concrete.import]
             [libpython-clj.jna.concrete.module]
-            [libpython-clj.jna.concrete.type])
+            [libpython-clj.jna.concrete.type]
+            [libpython-clj.jna.concrete.err])
   (:import [com.sun.jna Pointer NativeLibrary]))
 
 
@@ -316,3 +317,93 @@
                 PyModule_GetState
                 PyModule_New
                 PyModule_SetDocString)
+
+
+(export-symbols libpython-clj.jna.concrete.err
+                PyErr_BadArgument
+                PyErr_BadInternalCall
+                PyErr_Clear
+                PyErr_Fetch
+                PyErr_NoMemory
+                PyErr_Print
+                PyErr_PrintEx
+                PyErr_Restore
+                PyErr_SetFromErrno
+                PyErr_SetNone
+                PyErr_SetObject
+                PyErr_SetString
+                PyErr_WarnEx
+                PyErr_WarnExplicit
+                PyErr_WriteUnraisable
+                ;; Exception classes
+                PyExc_ArithmeticError
+                PyExc_AssertionError
+                PyExc_AttributeError
+                PyExc_BaseException
+                PyExc_BlockingIOError
+                PyExc_BrokenPipeError
+                PyExc_BufferError
+                PyExc_BytesWarning
+                PyExc_ChildProcessError
+                PyExc_ConnectionAbortedError
+                PyExc_ConnectionError
+                PyExc_ConnectionRefusedError
+                PyExc_ConnectionResetError
+                PyExc_DeprecationWarning
+                PyExc_EOFError
+                PyExc_Exception
+                PyExc_FileExistsError
+                PyExc_FileNotFoundError
+                PyExc_FloatingPointError
+                PyExc_FutureWarning
+                PyExc_GeneratorExit
+                PyExc_ImportError
+                PyExc_ImportWarning
+                PyExc_IndentationError
+                PyExc_IndexError
+                PyExc_InterruptedError
+                PyExc_IsADirectoryError
+                PyExc_KeyError
+                PyExc_KeyboardInterrupt
+                PyExc_LookupError
+                PyExc_MemoryError
+                PyExc_ModuleNotFoundError
+                PyExc_NameError
+                PyExc_NotADirectoryError
+                PyExc_NotImplementedError
+                PyExc_OSError
+                PyExc_OverflowError
+                PyExc_PendingDeprecationWarning
+                PyExc_PermissionError
+                PyExc_ProcessLookupError
+                PyExc_RecursionError
+                PyExc_ReferenceError
+                PyExc_ResourceWarning
+                PyExc_RuntimeError
+                PyExc_RuntimeWarning
+                PyExc_StopAsyncIteration
+                PyExc_StopIteration
+                PyExc_SyntaxError
+                PyExc_SyntaxWarning
+                PyExc_SystemError
+                PyExc_SystemExit
+                PyExc_TabError
+                PyExc_TimeoutError
+                PyExc_TypeError
+                PyExc_UnboundLocalError
+                PyExc_UnicodeDecodeError
+                PyExc_UnicodeEncodeError
+                PyExc_UnicodeError
+                PyExc_UnicodeTranslateError
+                PyExc_UnicodeWarning
+                PyExc_UserWarning
+                PyExc_ValueError
+                PyExc_Warning
+                PyExc_ZeroDivisionError
+                ;;Exception data system
+                PyException_GetCause
+                PyException_GetContext
+                PyException_GetTraceback
+                PyException_SetCause
+                PyException_SetContext
+                PyException_SetTraceback)
