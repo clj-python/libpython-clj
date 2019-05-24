@@ -103,7 +103,6 @@
                            (throw (ex-info (format "Failed due to type: %s" (type callback))))))
         name-ptr (jna/string->ptr name)
         doc-ptr (jna/string->ptr doc)]
-    (println "meth-flags" meth-flags)
     (set! (.ml_name method-def) name-ptr)
     (set! (.ml_meth method-def) (CallbackReference/getFunctionPointer callback))
     (set! (.ml_flags method-def) (int meth-flags))
@@ -141,7 +140,6 @@
                                             ;;This is a nice little tidbit, cfunction_new
                                             ;;steals the reference.
                                             (libpy/Py_IncRef py-self))))))
-
 
 (defn py-import-module
   [modname]
@@ -307,8 +305,8 @@
                         {}))))))
 
 (defn- pybridge->bridge
-  ^JVMBridge [^PyObject pybridge]
-  (let [bridge-type (JVMBridgeType. (.getPointer pybridge))]
+  ^JVMBridge [^Pointer pybridge]
+  (let [bridge-type (JVMBridgeType. pybridge)]
     (get-jvm-bridge (.jvm_handle bridge-type)
                     (.jvm_interpreter_handle bridge-type))))
 
@@ -341,7 +339,7 @@
                             (unregister-bridge!))
                         (catch Throwable e
                           (log-error e)))
-                      ((.tp_free (PyTypeObject. (.ob_type self))) (.getPointer self))))
+                      ((.tp_free (PyTypeObject. (libpy/PyObject_Type self))) self)))
       :tp_getattr (reify CFunction$tp_getattr
                     (pyinvoke [this self att-name]
                       (try
@@ -377,13 +375,12 @@
                                (println "ERROR!!")
                                (log-error e)
                                (py-none)))))
-                       create-function
-                       incref)
+                       create-function)
           interpreter (ensure-bound-interpreter)]
       (reify JVMBridge
         (getAttr [bridge att-name]
           (case att-name
-            "write" write-fn))
+            "write" (incref write-fn)))
         (dir [bridge]
           (into-array String ["write"]))
         (setAttr [bridge att-name att-val]
@@ -396,12 +393,12 @@
   "Create a python object for this bridge."
   [^JVMBridge bridge libpython-module]
   (with-interpreter (.interpreter bridge)
-    (let [^PyObject bridge-type-ptr (get-attr libpython-module "jvm_bridge_type")
+    (let [^Pointer bridge-type-ptr (get-attr libpython-module "jvm_bridge_type")
           _ (when-not bridge-type-ptr
               (throw (ex-info "Failed to find bridge type" {})))
-          bridge-type (PyTypeObject. (.getPointer bridge-type-ptr))
-          ^PyObject new-py-obj (libpy/_PyObject_New bridge-type)
-          pybridge (JVMBridgeType. (.getPointer new-py-obj))]
+          bridge-type (PyTypeObject. bridge-type-ptr)
+          ^Pointer new-py-obj (libpy/_PyObject_New bridge-type)
+          pybridge (JVMBridgeType. new-py-obj(.getPointer new-py-obj))]
       (set! (.jvm_interpreter_handle pybridge) (get-object-handle (.interpreter bridge)))
       (set! (.jvm_handle pybridge) (get-object-handle (.wrappedObject bridge)))
       (.write pybridge)

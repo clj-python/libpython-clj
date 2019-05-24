@@ -60,64 +60,6 @@
   Integer
   [command str])
 
-
-;; Errors
-
-
-(def-pylib-fn PyErr_Clear
-  "Clear the error indicator. If the error indicator is not set, there is no effect."
-  nil)
-
-
-(def-pylib-fn PyErr_Occurred
-  "Return value: Borrowed reference.
-
-    Test whether the error indicator is set. If set, return the exception type (the
-    first argument to the last call to one of the PyErr_Set*() functions or to
-    PyErr_Restore()). If not set, return NULL. You do not own a reference to the return
-    value, so you do not need to Py_DECREF() it.
-
-    Note
-
-    Do not compare the return value to a specific exception; use
-    PyErr_ExceptionMatches() instead, shown below. (The comparison could easily fail
-    since the exception may be an instance instead of a class, in the case of a class
-    exception, or it may be a subclass of the expected exception.)"
-  PyObject)
-
-
-(def-pylib-fn PyErr_PrintEx
-  "Call this function only when the error indicator is set. Otherwise it will cause a
-  fatal error!
-
-  If set_sys_last_vars is nonzero, the variables sys.last_type, sys.last_value and
-  sys.last_traceback will be set to the type, value and traceback of the printed
-  exception, respectively.
-
-  Print a standard traceback to sys.stderr and clear the error indicator. Unless the
-  error is a SystemExit. In that case the no traceback is printed and Python process
-  will exit with the error code specified by the SystemExit instance."
-  nil
-  [set_sys_last_vars int])
-
-
-(def-pylib-fn PyErr_Print
-  "Alias for PyErr_PrintEx(1)."
-  nil)
-
-
-(def-pylib-fn PyErr_WriteUnraisable
-  "This utility function prints a warning message to sys.stderr when an exception has
-  been set but it is impossible for the interpreter to actually raise the exception. It
-  is used, for example, when an exception occurs in an __del__() method.
-
-  The function is called with a single argument obj that identifies the context in which
-  the unraisable exception occurred. If possible, the repr of obj will be printed in the
-  warning message."
-  nil
-  [obj ensure-pyobj])
-
-
 ;; System Functionality
 
 (def-pylib-fn PySys_SetArgv
@@ -264,12 +206,12 @@
 
 (defn Py_None
   []
-  (PyObject. (find-pylib-symbol "_Py_NoneStruct")))
+  (find-pylib-symbol "_Py_NoneStruct"))
 
 
 (defn Py_NotImplemented
   []
-  (PyObject. (find-pylib-symbol "_Py_NotImplementedStruct")))
+  (find-pylib-symbol "_Py_NotImplementedStruct"))
 
 ;; Interpreter level protocols
 
@@ -353,7 +295,7 @@
 
    Returns the result of executing the code as a Python object, or NULL if an exception
    was raised."
-  PyObject
+  Pointer
   [program str]
   [start-sym start-symbol]
   [globals ensure-pydict]
@@ -371,7 +313,7 @@
 
    Returns the result of executing the code as a Python object, or NULL if an exception
    was raised."
-  PyObject
+  Pointer
   [program str]
   [start-sym start-symbol]
   [globals ensure-pydict]

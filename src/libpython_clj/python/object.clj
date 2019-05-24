@@ -23,6 +23,20 @@
 (set! *warn-on-reflection* true)
 
 
+(extend-type Object
+  libpy-base/PToPyObjectPtr
+  (->py-object-ptr [item]
+    (PyObject.
+     (jna/as-ptr item))))
+
+
+(defn ->pyobject
+  ^PyObject [item]
+  (when-not item
+    (throw (ex-info "Null item passed in" {})))
+  (libpy-base/->py-object-ptr item))
+
+
 (defn wrap-pyobject
   "Wrap object such that when it is no longer accessible via the program decref is
   called. Used for new references.  This is some of the meat of the issue, however,
@@ -56,16 +70,16 @@
   references that need to escape the current scope."
   [pyobj]
   (with-gil
-    (libpy/Py_IncRef pyobj)
-    (wrap-pyobject pyobj)))
+    (let [pyobj (jna/as-ptr pyobj)]
+      (libpy/Py_IncRef pyobj)
+      (wrap-pyobject pyobj))))
 
 
 (defn incref
   "Incref and return object"
   [pyobj]
-  (let [pyobj (->pyobject pyobj)]
+  (let [pyobj (jna/as-ptr pyobj)]
     (libpy/Py_IncRef pyobj)
-    (.read pyobj)
     pyobj))
 
 
@@ -87,20 +101,6 @@
 (defn py-not-implemented
   []
   (libpy/Py_NotImplemented))
-
-
-(extend-type Object
-  libpy-base/PToPyObjectPtr
-  (->py-object-ptr [item]
-    (PyObject.
-     (jna/as-ptr item))))
-
-
-(defn ->pyobject
-  ^PyObject [item]
-  (when-not item
-    (throw (ex-info "Null item passed in" {})))
-  (libpy-base/->py-object-ptr item))
 
 
 (defn py-raw-type

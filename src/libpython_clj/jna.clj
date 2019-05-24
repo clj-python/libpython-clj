@@ -41,11 +41,6 @@
                 Py_IsInitialized
                 Py_FinalizeEx
                 PyRun_SimpleString
-                PyErr_Clear
-                PyErr_Occurred
-                PyErr_PrintEx
-                PyErr_Print
-                PyErr_WriteUnraisable
                 PySys_SetArgv
                 get-type-name
                 lookup-type-symbols
@@ -335,6 +330,7 @@
                 PyErr_WarnEx
                 PyErr_WarnExplicit
                 PyErr_WriteUnraisable
+                PyErr_Occurred
                 ;; Exception classes
                 PyExc_ArithmeticError
                 PyExc_AssertionError

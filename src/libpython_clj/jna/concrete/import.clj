@@ -26,7 +26,7 @@
    failure. A failing import of a module doesn’t leave the module in sys.modules.
 
    This function always uses absolute imports."
-  PyObject
+  Pointer
   [name str])
 
 
@@ -40,7 +40,7 @@
    done using whatever import hooks are installed in the current environment.
 
    This function always uses absolute imports."
-  PyObject
+  Pointer
   [name ensure-pyobj])
 
 
@@ -50,7 +50,7 @@
 
    Similar to PyImport_AddModuleObject(), but the name is a UTF-8 encoded string instead
    of a Unicode object."
-  PyObject
+  Pointer
   [name str])
 
 
@@ -115,7 +115,7 @@ importlib.import_module().
 
 Changed in version 3.3: Negative values for level are no longer supported (which also
 changes the default value to 0)."
-  PyObject
+  Pointer
   [name str]
   [globals ensure-pydict]
   [locals ensure-pydict]

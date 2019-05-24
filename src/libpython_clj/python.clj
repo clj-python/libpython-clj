@@ -9,7 +9,8 @@
              :refer [with-gil with-interpreter]]
             [libpython-clj.python.object :as pyobject])
   (:import [com.sun.jna Pointer]
-           [java.io Writer]))
+           [java.io Writer]
+           [libpython_clj.jna PyObject]))
 
 
 (set! *warn-on-reflection* true)
@@ -68,3 +69,17 @@
                 create-function
                 create-module
                 py-import-module)
+
+
+(comment
+  (initialize!)
+  (def mm (create-module "mm"))
+  (def tt (pyinterop/register-bridge-type! mm))
+  (def writer-iface (pyinterop/wrap-var-writer #'*err*))
+  (def writer (pyinterop/expose-bridge-to-python! writer-iface mm))
+  (pyinterop/setup-std-writer #'*err* mm "stderr")
+  (pyinterop/setup-std-writer #'*out* mm "stdout")
+  (def sys-module (py-import-module "sys"))
+  (def stderr-item (get-attr sys-module "stderr"))
+  (def test-fn (get-attr stderr-item "write"))
+  )

@@ -22,7 +22,7 @@
   "Return value: New reference.
 
    Create a new Python complex number object from a C Py_complex value."
-  PyObject
+  Pointer
   [v (partial jna/ensure-type PyComplex$ByValue)])
 
 
@@ -30,7 +30,7 @@
   "Return value: New reference.
 
    Return a new PyComplexObject object from real and imag."
-  PyObject
+  Pointer
   [real double]
   [imag double])
 

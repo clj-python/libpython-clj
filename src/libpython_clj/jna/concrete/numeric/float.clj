@@ -27,7 +27,7 @@
   "Return value: New reference.
 
    Create a PyFloatObject object based on the string value in str, or NULL on failure."
-  PyObject
+  Pointer
   [str ensure-pyobj])
 
 
@@ -35,7 +35,7 @@
   "Return value: New reference.
 
    Create a PyFloatObject object from v, or NULL on failure."
-  PyObject
+  Pointer
   [v double])
 
 

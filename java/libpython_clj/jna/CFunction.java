@@ -6,27 +6,27 @@ import com.sun.jna.*;
 
 public class CFunction {
   public static interface KeyWordFunction extends Callback {
-    PyObject pyinvoke(PyObject self, PyObject tuple_args, PyObject kw_args);
+    Pointer pyinvoke(Pointer self, Pointer tuple_args, Pointer kw_args);
   }
 
   public static interface TupleFunction extends Callback {
-    PyObject pyinvoke(PyObject self, PyObject tuple_args);
+    Pointer pyinvoke(Pointer self, Pointer tuple_args);
   }
 
   public static interface NoArgFunction extends Callback {
-    PyObject pyinvoke(PyObject self);
+    Pointer pyinvoke(Pointer self);
   }
 
   public static interface tp_new extends Callback {
-    PyObject pyinvoke(PyTypeObject type, PyObject args, PyObject kwds);
+    Pointer pyinvoke(PyTypeObject type, Pointer args, Pointer kwds);
   }
 
   public static interface tp_init extends Callback {
-    PyObject pyinvoke(PyObject self, PyObject tuple_args, PyObject kw_args);
+    Pointer pyinvoke(Pointer self, Pointer tuple_args, Pointer kw_args);
   }
 
   public static interface tp_dealloc extends Callback {
-    void pyinvoke(PyObject self);
+    void pyinvoke(Pointer self);
   }
 
   public static interface tp_free extends Callback {
@@ -34,42 +34,42 @@ public class CFunction {
   }
 
   public static interface tp_att_getter extends Callback {
-    PyObject pyinvoke(PyObject self, PyObject closure);
+    Pointer pyinvoke(Pointer self, Pointer closure);
   }
 
   public static interface tp_att_setter extends Callback {
-    PyObject pyinvoke(PyObject self, PyObject value, PyObject closure);
+    Pointer pyinvoke(Pointer self, Pointer value, Pointer closure);
   }
 
   public static interface tp_getattr extends Callback {
-    PyObject pyinvoke(PyObject self, String attr_name);
+    Pointer pyinvoke(Pointer self, String attr_name);
   }
 
   public static interface tp_setattr extends Callback {
-    int pyinvoke(PyObject self, String attr_name, PyObject val);
+    int pyinvoke(Pointer self, String attr_name, Pointer val);
   }
 
   public static interface tp_getattro extends Callback {
-    PyObject pyinvoke(PyObject self, PyObject attr_name);
+    Pointer pyinvoke(Pointer self, Pointer attr_name);
   }
 
   public static interface tp_setattro extends Callback {
-    int pyinvoke(PyObject self, PyObject attr_name, PyObject val);
+    int pyinvoke(Pointer self, Pointer attr_name, Pointer val);
   }
 
   public static interface tp_richcompare extends Callback {
-    PyObject pyinvoke(PyObject self, PyObject other, int comp_type);
+    Pointer pyinvoke(Pointer self, Pointer other, int comp_type);
   }
 
   public static interface tp_hash extends Callback {
-    long pyinvoke(PyObject self );
+    long pyinvoke(Pointer self );
   }
 
   public static interface bf_getbuffer extends Callback {
-    int pyinvoke(PyObject self, PyBuffer item, int flags);
+    int pyinvoke(Pointer self, PyBuffer item, int flags);
   }
 
   public static interface bf_releasebuffer extends Callback {
-    void pyinvoke(PyObject self, PyBuffer item);
+    void pyinvoke(Pointer self, PyBuffer item);
   }
 }

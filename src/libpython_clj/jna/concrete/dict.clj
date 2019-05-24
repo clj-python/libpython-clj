@@ -23,7 +23,7 @@
   "Return value: New reference.
 
    Return a new empty dictionary, or NULL on failure."
-  PyObject)
+  Pointer)
 
 
 (def-pylib-fn PyDictProxy_New
@@ -32,7 +32,7 @@
    Return a types.MappingProxyType object for a mapping which enforces read-only
    behavior. This is normally used to create a view to prevent modification of the
    dictionary for non-dynamic class types."
-  PyObject
+  Pointer
   [mapping ensure-pyobj])
 
 
@@ -55,7 +55,7 @@
   "Return value: New reference.
 
    Return a new dictionary that contains the same key-value pairs as p."
-  PyObject
+  Pointer
   [p ensure-pyobj])
 
 
@@ -102,7 +102,7 @@
 
    Note that exceptions which occur while calling __hash__() and __eq__() methods will
    get suppressed. To get error reporting use PyDict_GetItemWithError() instead."
-  PyObject
+  Pointer
   [p ensure-pyobj]
   [key ensure-pyobj])
 
@@ -113,7 +113,7 @@
    Variant of PyDict_GetItem() that does not suppress exceptions. Return NULL with an
    exception set if an exception occurred. Return NULL without an exception set if the
    key wasn’t present."
-  PyObject
+  Pointer
   [p ensure-pyobj]
   [key ensure-pyobj])
 
@@ -127,7 +127,7 @@
    Note that exceptions which occur while calling __hash__() and __eq__() methods and
    creating a temporary string object will get suppressed. To get error reporting use
    PyDict_GetItemWithError() instead."
-  PyObject
+  Pointer
   [p ensure-pyobj]
   [key ensure-pyobj])
 
@@ -144,7 +144,7 @@
    lookup and the insertion.
 
     New in version 3.4."
-  PyObject
+  Pointer
   [p ensure-pyobj]
   [key ensure-pyobj]
   [defaultobj ensure-pyobj])
@@ -154,7 +154,7 @@
   "Return value: New reference.
 
    Return a PyListObject containing all the items from the dictionary."
-  PyObject
+  Pointer
   [p ensure-pyobj])
 
 
@@ -162,7 +162,7 @@
   "Return value: New reference.
 
    Return a PyListObject containing all the keys from the dictionary."
-  PyObject
+  Pointer
   [p ensure-pyobj])
 
 
@@ -170,7 +170,7 @@
   "Return value: New reference.
 
    Return a PyListObject containing all the values from the dictionary p."
-  PyObject
+  Pointer
   [p ensure-pyobj])
 
 

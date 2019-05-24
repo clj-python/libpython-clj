@@ -13,6 +13,10 @@
            [libpython_clj.jna PyObject PyTypeObject]))
 
 
+(def-pylib-fn PyErr_Occurred
+  "Check if the error indicator is set.  If so, return the exception type."
+  Pointer)
+
 
 (def-pylib-fn PyErr_Clear
   "Clear the error indicator. If the error indicator is not set, there is no effect."
@@ -91,7 +95,7 @@
    This is a shorthand for PyErr_SetNone(PyExc_MemoryError); it returns NULL so an
    object allocation function can write return PyErr_NoMemory(); when it runs out of
    memory."
-  PyObject)
+  Pointer)
 
 
 (def-pylib-fn PyErr_SetFromErrno
@@ -106,7 +110,7 @@
    set to that. The function always returns NULL, so a wrapper function around a system
    call can write return PyErr_SetFromErrno(type); when the system call returns an
    error."
-  PyObject
+  Pointer
   [type ensure-pyobj])
 
 
@@ -201,7 +205,7 @@
    Return the traceback associated with the exception as a new reference, as accessible
    from Python through __traceback__. If there is no traceback associated, this returns
    NULL."
-  PyObject
+  Pointer
   [ex ensure-pyobj])
 
 
@@ -218,7 +222,7 @@
    Return the context (another exception instance during whose handling ex was raised)
    associated with the exception as a new reference, as accessible from Python through
    __context__. If there is no context associated, this returns NULL."
-  PyObject
+  Pointer
   [ex ensure-pyobj])
 
 
@@ -237,7 +241,7 @@
    Return the cause (either an exception instance, or None, set by raise ... from ...)
    associated with the exception as a new reference, as accessible from Python through
    __cause__."
-  PyObject
+  Pointer
   [ex ensure-pyobj])
 
 
@@ -258,8 +262,7 @@
      []
      (->
       (find-pylib-symbol ~(name sym-name))
-      (.getPointer 0)
-      (PyObject. ))))
+      (.getPointer 0))))
 
 
 (def-err-symbol PyExc_BaseException)

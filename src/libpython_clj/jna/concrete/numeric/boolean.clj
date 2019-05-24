@@ -20,26 +20,20 @@
 (defn Py_True
   "The Python True object. This object has no methods. It needs to be treated just like
   any other object with respect to reference counts."
-  ^PyObject []
-  (doto (->
-         (find-pylib-symbol "_Py_TrueStruct")
-         (PyObject.))
-    (.read)))
+  ^Pointer []
+  (find-pylib-symbol "_Py_TrueStruct"))
 
 
 (defn Py_False
   "The Python False object. This object has no methods. It needs to be treated just like
   any other object with respect to reference counts."
-  ^PyObject []
-  (doto (->
-         (find-pylib-symbol "_Py_FalseStruct")
-         (PyObject.))
-    (.read)))
+  ^Pointer []
+  (find-pylib-symbol "_Py_FalseStruct"))
 
 
 (def-pylib-fn PyBool_FromLong
   "Return value: New reference.
 
    Return a new reference to Py_True or Py_False depending on the truth value of v."
-  PyObject
+  Pointer
   [v int])

@@ -34,7 +34,7 @@
 
    Return the concatenation of o1 and o2 on success, and NULL on failure. This is the
    equivalent of the Python expression o1 + o2."
-  PyObject
+  Pointer
   [o1 ensure-pyobj]
   [o2 ensure-pyobj])
 
@@ -44,7 +44,7 @@
 
    Return the result of repeating sequence object o count times, or NULL on
    failure. This is the equivalent of the Python expression o * count."
-  PyObject
+  Pointer
   [o ensure-pyobj]
   [count jna/size-t])
 
@@ -55,7 +55,7 @@
    Return the concatenation of o1 and o2 on success, and NULL on failure. The operation
    is done in-place when o1 supports it. This is the equivalent of the Python expression
    o1 += o2."
-  PyObject
+  Pointer
   [o1 ensure-pyobj]
   [o2 ensure-pyobj])
 
@@ -66,7 +66,7 @@
    Return the result of repeating sequence object o count times, or NULL on failure. The
    operation is done in-place when o supports it. This is the equivalent of the Python
    expression o *= count."
-  PyObject
+  Pointer
   [o ensure-pyobj]
   [count jna/size-t])
 
@@ -76,7 +76,7 @@
 
    Return the ith element of o, or NULL on failure. This is the equivalent of the Python
    expression o[i]."
-  PyObject
+  Pointer
   [o ensure-pyobj]
   [i jna/size-t])
 
@@ -86,7 +86,7 @@
 
    Return the slice of sequence object o between i1 and i2, or NULL on failure. This is
    the equivalent of the Python expression o[i1:i2]."
-  PyObject
+  Pointer
   [o ensure-pyobj]
   [i1 jna/size-t]
   [i2 jna/size-t])
@@ -164,7 +164,7 @@
    Return a list object with the same contents as the sequence or iterable o, or NULL on
    failure. The returned list is guaranteed to be new. This is equivalent to the Python
    expression list(o)."
-  PyObject
+  Pointer
   [o ensure-pyobj])
 
 
@@ -175,5 +175,5 @@
    on failure. If o is a tuple, a new reference will be returned, otherwise a tuple will
    be constructed with the appropriate contents. This is equivalent to the Python
    expression tuple(o)."
-  PyObject
+  Pointer
   [o ensure-pyobj])

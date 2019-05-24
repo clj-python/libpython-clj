@@ -34,7 +34,7 @@
 
    Return element of o corresponding to the string key or NULL on failure. This is the
    equivalent of the Python expression o[key]. See also PyObject_GetItem()."
-  PyObject
+  Pointer
   [o ensure-pyobj]
   [key str])
 
@@ -94,7 +94,7 @@
    On success, return a list of the keys in object o. On failure, return NULL.
 
    Changed in version 3.7: Previously, the function returned a list or a tuple."
-  PyObject
+  Pointer
   [o ensure-pyobj])
 
 
@@ -104,7 +104,7 @@
    On success, return a list of the values in object o. On failure, return NULL.
 
    Changed in version 3.7: Previously, the function returned a list or a tuple."
-  PyObject
+  Pointer
   [o ensure-pyobj])
 
 
@@ -115,5 +115,5 @@
    containing a key-value pair. On failure, return NULL.
 
    Changed in version 3.7: Previously, the function returned a list or a tuple."
-  PyObject
+  Pointer
   [o ensure-pyobj])

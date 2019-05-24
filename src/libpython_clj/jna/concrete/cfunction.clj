@@ -52,6 +52,6 @@
 
 (def-pylib-fn PyCFunction_New
   "Create a new callable from an item."
-  PyObject
+  Pointer
   [method-def (partial jna/ensure-type PyMethodDef)]
   [self jna/as-ptr])

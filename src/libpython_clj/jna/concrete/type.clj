@@ -108,7 +108,7 @@
 
    Generic handler for the tp_new slot of a type object. Create a new instance using the
    type’s tp_alloc slot."
-  PyObject
+  Pointer
   [type (partial jna/ensure-type PyTypeObject)]
   [args ensure-pyobj]
   [kwds ensure-pyobj])
@@ -124,7 +124,7 @@
 
 (def-pylib-fn _PyObject_New
   "Return value: New reference."
-  PyObject
+  Pointer
   [type (partial jna/ensure-type PyTypeObject)])
 
 

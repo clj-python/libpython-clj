@@ -28,5 +28,5 @@
    to the caller to check this). If there are no remaining values, returns NULL with no
    exception set. If an error occurs while retrieving the item, returns NULL and passes
    along the exception."
-  PyObject
+  Pointer
   [o ensure-pyobj])

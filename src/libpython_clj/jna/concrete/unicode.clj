@@ -26,7 +26,7 @@
 
   Signature:
   PyObject* (const char *s, Py_ssize_t size, const char *encoding, const char *errors)"
-  PyObject
+  Pointer
   [s dtype/as-nio-buffer]
   [size jna/size-t]
   [encoding str]
@@ -42,7 +42,7 @@
    registry. Return NULL if an exception was raised by the codec.
    Signature:
    PyObject* (PyObject *unicode, const char *encoding, const char *errors)"
-  PyObject
+  Pointer
   [s ensure-pyobj]
   [encoding str]
   [errors str])

@@ -29,7 +29,7 @@
    New in version 3.3.
 
    Changed in version 3.4: __package__ and __loader__ are set to None."
-  PyObject
+  Pointer
   [name str])
 
 
@@ -66,7 +66,7 @@
 
    It is recommended extensions use other PyModule_*() and PyObject_*() functions
    rather than directly manipulate a module’s __dict__."
-  PyObject
+  Pointer
   [module ensure-pyobj])
 
 
@@ -77,7 +77,7 @@
    string, SystemError is raised and NULL is returned.
 
    New in version 3.3."
-  PyObject
+  Pointer
   [module ensure-pyobj])
 
 
