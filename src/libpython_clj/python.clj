@@ -42,7 +42,7 @@
                 py-type-keyword
                 pyobj->string
                 python->jvm-copy-hashmap
-                python->jvm-copy-iterable
+                python->jvm-iterable
                 python->jvm-copy-persistent-vector
                 set-attr
                 wrap-pyobject)

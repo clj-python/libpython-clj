@@ -22,7 +22,7 @@
               py-dir
               incref-wrap-pyobject
               wrap-pyobject
-              python->jvm-copy-iterable
+              python->jvm-iterable
               ->py-list
               ->py-tuple
               ->py-dict
@@ -229,7 +229,7 @@
         (keySet [this]
           (with-interpreter interpreter
             (->> (libpy/PyDict_Keys pyobj)
-                 (python->jvm-copy-iterable)
+                 (python->jvm-iterable bridge-python->jvm)
                  set)))
 
         (put [this k v]
@@ -314,6 +314,11 @@
                 bridge-python->jvm)))))))
 
 
+(defn bridge-python-iterable
+  [pyobj]
+  (python->jvm-iterable pyobj bridge-python->jvm))
+
+
 (defn bridge-python->jvm
   "Attempts to build a jvm bridge that 'hides' the python type.  This bridge is lazy and
   noncaching so use it wisely; it may be better to just copy the type once into the JVM.
@@ -335,8 +340,12 @@
           (cond
             (= 1 (libpy/PyCallable_Check pyobj))
             (bridge-python-callable pyobj)
+            (has-attr? pyobj "__iter__")
+            (bridge-python-iterable pyobj)
             :else
-            (throw (ex-info "Unable to bridge type: %s" (py-type-keyword pyobj)))))))))
+            (throw (ex-info (format "Unable to bridge type: %s"
+                                    (py-type-keyword pyobj))
+                            {}))))))))
 
 
 (defn bridge-jvm->python

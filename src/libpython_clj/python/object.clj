@@ -17,7 +17,8 @@
            [libpython_clj.jna
             PyObject]
            [java.nio.charset StandardCharsets]
-           [tech.v2.datatype ObjectIter]))
+           [tech.v2.datatype ObjectIter]
+           [java.util RandomAccess Map]))
 
 
 (set! *warn-on-reflection* true)
@@ -26,8 +27,8 @@
 (extend-type Object
   libpy-base/PToPyObjectPtr
   (->py-object-ptr [item]
-    (PyObject.
-     (jna/as-ptr item))))
+    (when-let [ptr-val (jna/as-ptr item)]
+      (PyObject. ptr-val))))
 
 
 (defn ->pyobject
@@ -233,15 +234,32 @@
     (->py-string item)
     (keyword? item)
     (copy-to-python (name item))
-    (map? item)
+    (or (instance? Map item)
+        (map? item))
     (->py-dict item)
-    (seq item)
+    (or (instance? RandomAccess item)
+        (instance? Iterable item))
     (if (and (< (count item) 4)
              (vector? item))
       (->py-tuple item)
       (->py-list item))
     :else
     (libpy-base/->py-object-ptr item)))
+
+
+(extend-protocol libpy-base/PToPyObjectPtr
+  Number
+  (->py-object-ptr [item]
+    (with-gil nil
+      (copy-to-python item)))
+  String
+  (->py-object-ptr [item]
+    (with-gil nil
+      (copy-to-python item)))
+  ;;The container classes are mirrored into python, not copied.
+  ;;so no entries here for map, list, etc.
+  )
+
 
 
 (declare copy-to-jvm has-attr? get-attr)
@@ -274,15 +292,16 @@
                      copy-to-jvm))))))
 
 
-(defn python->jvm-copy-iterable
+(defn python->jvm-iterable
   "Create an iterable that auto-copies what it iterates completely into the jvm."
-  [pyobj]
+  [pyobj & [item-conversion-fn]]
   (with-gil nil
     (when-not (= 1 (has-attr? pyobj "__iter__"))
       (throw (ex-info (format "object is not iterable: %s"
                               (py-type-keyword pyobj))
                       {})))
-    (let [iter-callable (get-attr pyobj "__iter__")
+    (let [item-conversion-fn (or item-conversion-fn copy-to-jvm)
+          iter-callable (get-attr pyobj "__iter__")
           interpreter (ensure-bound-interpreter)]
       (reify Iterable
         (iterator [item]
@@ -294,7 +313,7 @@
                             (when-let [next-obj (libpy/PyIter_Next py-iter)]
                               (-> next-obj
                                   (wrap-pyobject)
-                                  (copy-to-jvm)))))
+                                  item-conversion-fn))))
                 cur-item-store (atom (next-fn nil))]
             (reify ObjectIter
               (hasNext [obj-iter] (boolean @cur-item-store))
@@ -339,7 +358,7 @@
         (= 1 (libpy/PySequence_Check pyobj))
         (python->jvm-copy-persistent-vector)
         (= 1 (has-attr? pyobj "__iter__"))
-        (python->jvm-copy-iterable pyobj)
+        (python->jvm-iterable pyobj copy-to-jvm)
         :else
         {:type (py-type-keyword pyobj)
          :value pyobj}))))
