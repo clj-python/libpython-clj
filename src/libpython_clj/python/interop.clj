@@ -61,6 +61,9 @@
 (set! *warn-on-reflection* true)
 
 
+(def libpython-clj-module-name "libpython_clj")
+
+
 (defn wrap-clojure-fn
   [fn-obj]
   (when-not (fn? fn-obj)

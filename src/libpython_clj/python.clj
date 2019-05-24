@@ -53,9 +53,8 @@
                 add-module
                 run-simple-string
                 run-string
-                create-function)
-
-(def libpython-clj-module-name "libpython_clj")
+                create-function
+                libpython-clj-module-name)
 
 
 (defn initialize!

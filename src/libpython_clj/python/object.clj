@@ -345,18 +345,19 @@
          :value pyobj}))))
 
 
-(defn- stringable?
+(defn stringable?
   [item]
   (or (keyword? item)
       (string? item)
       (symbol? item)))
 
 
-(defn- stringable
+(defn stringable
   ^String [item]
-  (if (string? item)
-    item
-    (name item)))
+  (when (stringable? item)
+    (if (string? item)
+      item
+      (name item))))
 
 
 (defn has-attr?
