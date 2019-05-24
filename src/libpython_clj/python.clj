@@ -62,11 +62,10 @@
   (when-not @pyinterp/*main-interpreter*
     (pyinterp/initialize! program-name)
     ;;setup bridge mechansim and io redirection
-    (let [libpy-module (add-module libpython-clj-module-name)]
-      (pyinterop/register-bridge-type! libpy-module)
-      (when-not no-io-redirect?
-        (pyinterop/setup-std-writer #'*err* libpy-module "stderr")
-        (pyinterop/setup-std-writer #'*out* libpy-module "stdout"))))
+    (pyinterop/register-bridge-type!)
+    (when-not no-io-redirect?
+      (pyinterop/setup-std-writer #'*err* "stderr")
+      (pyinterop/setup-std-writer #'*out* "stdout")))
   :ok)
 
 

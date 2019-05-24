@@ -230,6 +230,10 @@
     (->py-long item)
     (number? item)
     (->py-float item)
+    (boolean? item)
+    (if item
+      (libpy/Py_True)
+      (libpy/Py_False))
     (string? item)
     (->py-string item)
     (keyword? item)

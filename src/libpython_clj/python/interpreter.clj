@@ -86,8 +86,6 @@
   [^JVMBridge bridge ^PyObject bridge-pyobject]
   (let [interpreter (.interpreter bridge)
         bridge-handle (get-object-handle (.wrappedObject bridge))]
-    (when (find-jvm-bridge-entry bridge-handle (.interpreter bridge))
-      (throw (ex-info "already-registered?" {})))
     (swap! (:interpreter-state* interpreter) assoc-in
            [:bridge-objects bridge-handle]
            {:jvm-bridge bridge

@@ -42,6 +42,7 @@
             CFunction$TupleFunction
             CFunction$NoArgFunction
             CFunction$tp_new
+            CFunction$tp_free
             CFunction$tp_dealloc
             CFunction$tp_att_getter
             CFunction$tp_att_setter
@@ -104,7 +105,8 @@
                            (instance? CFunction$KeyWordFunction callback)
                            (bit-or @libpy/METH_KEYWORDS @libpy/METH_VARARGS)
                            :else
-                           (throw (ex-info (format "Failed due to type: %s" (type callback))))))
+                           (throw (ex-info (format "Failed due to type: %s"
+                                                   (type callback))))))
         name-ptr (jna/string->ptr name)
         doc-ptr (jna/string->ptr doc)]
     (set! (.ml_name method-def) name-ptr)
@@ -297,7 +299,7 @@
         (throw (ex-info (format "Type failed to register: %d" type-ready)
                         {}))))))
 
-(defn- pybridge->bridge
+(defn pybridge->bridge
   ^JVMBridge [^Pointer pybridge]
   (let [bridge-type (JVMBridgeType. pybridge)]
     (get-jvm-bridge (.jvm_handle bridge-type)
@@ -306,49 +308,61 @@
 
 (defn register-bridge-type!
   "Register the bridge type and return newly created type."
-  [module & {:keys [type-name]
-             :or {type-name "jvm_bridge"}}]
+  [& {:keys [type-name module]
+      :or {type-name "jvm_bridge"}}]
   (with-gil
-    (register-type!
-     module
-     {:type-name type-name
-      :docstring "Type used to create the jvmbridge python objects"
-      :method-definitions [{:name "__dir__"
-                            :doc "Custom jvm bridge  __dir__ method"
-                            :function (reify CFunction$NoArgFunction
-                                        (pyinvoke [this self]
-                                          (try
-                                            (-> (pybridge->bridge self)
-                                                (.dir)
-                                                (->py-list))
-                                            (catch Throwable e
-                                              (log-error ("error calling __dir__:" e ))
-                                              (->py-list [])))))}]
-      :tp_basicsize (.size (JVMBridgeType.))
-      :tp_dealloc (reify CFunction$tp_dealloc
-                    (pyinvoke [this self]
-                      (try
-                        (-> (pybridge->bridge self)
-                            (unregister-bridge!))
-                        (catch Throwable e
-                          (log-error e)))
-                      ((.tp_free (PyTypeObject. (libpy/PyObject_Type self))) self)))
-      :tp_getattr (reify CFunction$tp_getattr
-                    (pyinvoke [this self att-name]
-                      (try
-                        (-> (pybridge->bridge self)
-                            (.getAttr att-name))
-                        (catch Throwable e
-                          (log-error (format "getattr: %s: %s" att-name e))
-                          nil))))
-      :tp_setattr (reify CFunction$tp_setattr
-                    (pyinvoke [this self att-name att-value]
-                      (try
-                        (-> (pybridge->bridge self)
-                            (.setAttr att-name att-value))
-                        (catch Throwable e
-                          (log-error (format "setattr: %s: %s" att-name e))
-                          0))))})))
+    (let [module (or module (add-module
+                             libpython-clj-module-name))]
+      (register-type!
+       module
+       {:type-name type-name
+        :docstring "Type used to create the jvmbridge python objects"
+        :method-definitions [{:name "__dir__"
+                              :doc "Custom jvm bridge  __dir__ method"
+                              :function (reify CFunction$NoArgFunction
+                                          (pyinvoke [this self]
+                                            (try
+                                              (-> (pybridge->bridge self)
+                                                  (.dir)
+                                                  (->py-list))
+                                              (catch Throwable e
+                                                (log-error "error calling __dir__:" e )
+                                                (->py-list [])))))}]
+        :tp_basicsize (.size (JVMBridgeType.))
+        :tp_dealloc (reify CFunction$tp_dealloc
+                      (pyinvoke [this self]
+                        (try
+                          (-> (pybridge->bridge self)
+                              (unregister-bridge!))
+                          (catch Throwable e
+                            (log-error e)))
+                        (try
+                          (let [^CFunction$tp_free free-func
+                                (.tp_free (PyTypeObject.
+                                           (libpy/PyObject_Type self)))]
+                            (when free-func
+                              (.pyinvoke free-func self)))
+                          (catch Throwable e
+                            (log-error (format "%s:%s"
+                                               e
+                                               (with-out-str
+                                                 (st/print-stack-trace e))))))))
+        :tp_getattr (reify CFunction$tp_getattr
+                      (pyinvoke [this self att-name]
+                        (try
+                          (-> (pybridge->bridge self)
+                              (.getAttr att-name))
+                          (catch Throwable e
+                            (log-error (format "getattr: %s: %s" att-name e))
+                            nil))))
+        :tp_setattr (reify CFunction$tp_setattr
+                      (pyinvoke [this self att-name att-value]
+                        (try
+                          (-> (pybridge->bridge self)
+                              (.setAttr att-name att-value))
+                          (catch Throwable e
+                            (log-error (format "setattr: %s: %s" att-name e))
+                            0))))}))))
 
 
 (defn wrap-var-writer
@@ -384,9 +398,12 @@
 
 (defn expose-bridge-to-python!
   "Create a python object for this bridge."
-  [^JVMBridge bridge libpython-module]
+  [^JVMBridge bridge & [libpython-module]]
   (with-interpreter (.interpreter bridge)
-    (let [^Pointer bridge-type-ptr (get-attr libpython-module "jvm_bridge_type")
+    (let [libpython-module (or libpython-module
+                               (add-module libpython-clj-module-name))
+          ^Pointer bridge-type-ptr (get-attr libpython-module
+                                             "jvm_bridge_type")
           _ (when-not bridge-type-ptr
               (throw (ex-info "Failed to find bridge type" {})))
           bridge-type (PyTypeObject. bridge-type-ptr)
@@ -396,23 +413,24 @@
       (set! (.jvm_handle pybridge) (get-object-handle (.wrappedObject bridge)))
       (.write pybridge)
       (register-bridge! bridge pybridge)
-      (wrap-pyobject pybridge))))
+      (-> (.getPointer pybridge)
+          wrap-pyobject))))
 
 
 (defn get-or-create-var-writer
-  [writer-var module]
+  [writer-var & [libpy-module]]
   (if-let [existing-writer (find-jvm-bridge-entry (get-object-handle writer-var)
                                                   (ensure-interpreter))]
     (:pyobject existing-writer)
     (with-gil nil
       (-> (wrap-var-writer writer-var)
-          (expose-bridge-to-python! module)))))
+          (expose-bridge-to-python! libpy-module)))))
 
 
 (defn setup-std-writer
-  [writer-var libpy-module sys-mod-attname]
+  [writer-var sys-mod-attname & [libpy-module]]
   (with-gil
     (let [sys-module (import-module "sys")
-          std-out-writer (get-or-create-var-writer writer-var libpy-module)]
+          std-out-writer (get-or-create-var-writer writer-var)]
       (set-attr sys-module sys-mod-attname std-out-writer)
       :ok)))
