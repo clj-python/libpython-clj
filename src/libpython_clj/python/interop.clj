@@ -33,7 +33,8 @@
                      py-none
                      ->py-string
                      ->py-list
-                     ->py-tuple]])
+                     ->py-tuple
+                     py-type-keyword]])
   (:import [java.lang.reflect Field Method]
            [com.sun.jna Pointer Structure CallbackReference]
            [libpython_clj.jna
@@ -141,14 +142,14 @@
                                             ;;steals the reference.
                                             (libpy/Py_IncRef py-self))))))
 
-(defn py-import-module
+(defn import-module
   [modname]
   (with-gil
     (wrap-pyobject
      (libpy/PyImport_ImportModule modname))))
 
 
-(defn py-add-module
+(defn add-module
   [modname]
   (with-gil
     (incref-wrap-pyobject
@@ -197,17 +198,6 @@
           local-dict (->py-dict {"multiplicand" 2
                                  "multiplier" 5})]
       (run-string python-script :locals local-dict))))
-
-
-(defn create-module
-  [modname & {:keys [package docstring unregistered?]}]
-  (with-gil
-    (let [new-module (wrap-pyobject (libpy/PyModule_New modname))]
-      (when docstring
-        (libpy/PyModule_SetDocString new-module docstring))
-      (when package
-        (set-attr new-module "__package__" (->py-string package)))
-      new-module)))
 
 
 (def fieldOffsetMethod
@@ -398,7 +388,7 @@
               (throw (ex-info "Failed to find bridge type" {})))
           bridge-type (PyTypeObject. bridge-type-ptr)
           ^Pointer new-py-obj (libpy/_PyObject_New bridge-type)
-          pybridge (JVMBridgeType. new-py-obj(.getPointer new-py-obj))]
+          pybridge (JVMBridgeType. new-py-obj)]
       (set! (.jvm_interpreter_handle pybridge) (get-object-handle (.interpreter bridge)))
       (set! (.jvm_handle pybridge) (get-object-handle (.wrappedObject bridge)))
       (.write pybridge)
@@ -419,7 +409,7 @@
 (defn setup-std-writer
   [writer-var libpy-module sys-mod-attname]
   (with-gil
-    (let [sys-module (py-import-module "sys")
+    (let [sys-module (import-module "sys")
           std-out-writer (get-or-create-var-writer writer-var libpy-module)]
       (set-attr sys-module sys-mod-attname std-out-writer)
       :ok)))

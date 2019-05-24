@@ -279,7 +279,8 @@
                 PyImport_ImportModule
                 PyImport_Import
                 PyImport_AddModule
-                PyImport_ImportModuleLevel)
+                PyImport_ImportModuleLevel
+                PyImport_GetModuleDict)
 
 
 (export-symbols libpython-clj.jna.concrete.type

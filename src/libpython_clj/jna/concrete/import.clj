@@ -121,3 +121,11 @@ changes the default value to 0)."
   [locals ensure-pydict]
   [fromlist ensure-pyobj]
   [level int])
+
+
+(def-pylib-fn PyImport_GetModuleDict
+  "Return value: Borrowed reference.
+
+   Return the dictionary used for the module administration (a.k.a. sys.modules). Note
+   that this is a per-interpreter variable."
+  Pointer)

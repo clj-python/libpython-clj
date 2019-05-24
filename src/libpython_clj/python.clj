@@ -16,21 +16,6 @@
 (set! *warn-on-reflection* true)
 
 
-(defn initialize!
-  [& {:keys [program-name no-redirect?]}]
-  (when-not @pyinterp/*main-interpreter*
-    (pyinterp/initialize! program-name)
-    ;;setup bridge mechansim and io redirection
-    (when-not no-redirect?)
-    )
-  :ok)
-
-
-(defn finalize!
-  []
-  (pyinterp/finalize!))
-
-
 (export-symbols libpython-clj.python.object
                 ->py-dict
                 ->py-float
@@ -64,11 +49,31 @@
 
 
 (export-symbols libpython-clj.python.interop
+                import-module
+                add-module
                 run-simple-string
                 run-string
-                create-function
-                create-module
-                py-import-module)
+                create-function)
+
+(def libpython-clj-module-name "libpython_clj")
+
+
+(defn initialize!
+  [& {:keys [program-name no-io-redirect?]}]
+  (when-not @pyinterp/*main-interpreter*
+    (pyinterp/initialize! program-name)
+    ;;setup bridge mechansim and io redirection
+    (let [libpy-module (add-module libpython-clj-module-name)]
+      (pyinterop/register-bridge-type! libpy-module)
+      (when-not no-io-redirect?
+        (pyinterop/setup-std-writer #'*err* libpy-module "stderr")
+        (pyinterop/setup-std-writer #'*out* libpy-module "stdout"))))
+  :ok)
+
+
+(defn finalize!
+  []
+  (pyinterp/finalize!))
 
 
 (comment
