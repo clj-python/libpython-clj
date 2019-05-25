@@ -15,6 +15,9 @@ phase to specific version of the python runtime:
   REPL.
 
 
+** This Project Is Rapidly Changing!!!**
+
+
 
 ## Key Design Points
 
@@ -165,27 +168,92 @@ sudo apt install libpython3.6-dev
 ```
 
 ```clojure
-(deftest print-test
-  (libpy/Py_InitializeEx 0)
-  (libpy/PyRun_SimpleString
-"from time import time,ctime
-print('Today is', ctime(time()))
-")
-  (let [finalize-val (libpy/Py_FinalizeEx)]
-    (println finalize-val)))
-```
-
-```console
-chrisn@chrisn-lt-2:~/dev/cnuernber/clj-libpython$ lein test
+user> (require '[libpython-clj.python :as python])
 :tech.resource.gc Reference thread starting
+nil
+user> (python/initialize!)
+info: executing python initialize!
+Library python3.6m found at [:system "python3.6m"]
+:ok
 
-lein test libpython-clj.jna-test
-Library python3.7m found at [:system "python3.7m"]
-Today is Thu May 16 14:26:21 2019
-0
+user> (python/run-simple-string "print('hey')")
+hey
+{:globals #object[com.sun.jna.Pointer 0x5d583373 "native@0x7ff0dc04f3a8"],
+ :locals #object[com.sun.jna.Pointer 0x5d583373 "native@0x7ff0dc04f3a8"],
+ :result #object[com.sun.jna.Pointer 0x86d7ae5 "native@0x7ff0d6a6c150"]}
+```
+(python/run-simple-string "print('syntax-errrrrr")
+Execution error (ExceptionInfo) at libpython-clj.python.interpreter/check-error-throw (interpreter.clj:260).
+  File "<string>", line 1
+    print('syntax-errrrrr
+                        ^
+SyntaxError: EOL while scanning string literal
 
-Ran 1 tests containing 0 assertions.
-0 failures, 0 errors.
+
+user> (python/run-simple-string "item = 10")
+{:globals #object[com.sun.jna.Pointer 0x55418aaa "native@0x7ff0dc04f3a8"],
+ :locals #object[com.sun.jna.Pointer 0x55418aaa "native@0x7ff0dc04f3a8"],
+ :result #object[com.sun.jna.Pointer 0x52f3ccc9 "native@0x7ff0d6a6c150"]}
+
+user> (def global-map (python/python->jvm (:globals *1)))
+#'user/global-map
+user> (keys global-map)
+("__name__"
+ "__doc__"
+ "__package__"
+ "__loader__"
+ "__spec__"
+ "__annotations__"
+ "__builtins__"
+ "item")
+user> (get global-map "item")
+10
+user> (.put global-map "item" 100)
+100
+
+user> (python/run-simple-string "print('' + item)")
+Execution error (ExceptionInfo) at libpython-clj.python.interpreter/check-error-throw (interpreter.clj:260).
+Traceback (most recent call last):
+  File "<string>", line 1, in <module>
+TypeError: must be str, not int
+
+user> (python/run-simple-string "print('' + str(item))")
+100
+{:globals #object[com.sun.jna.Pointer 0x52eee652 "native@0x7ff0dc04f3a8"],
+ :locals #object[com.sun.jna.Pointer 0x52eee652 "native@0x7ff0dc04f3a8"],
+ :result #object[com.sun.jna.Pointer 0x19e9d429 "native@0x7ff0d6a6c150"]}
+
+;;  THIS SYNTAX IS CHANGING  !!!!;;
+;;  The -> operator is going to be a copy operator while the
+;;  as operator is going to be bridge, so  as-jvm instead of python->jvm
+
+user> (def numpy (-> (python/import-module "numpy")
+                     (python/python->jvm)))
+#'user/numpy
+user> (def ones-fn (get numpy "ones"))
+#'user/ones-fn
+user> (def ary-data (ones-fn [2 3]))
+#'user/ary-data
+user> (get ary-data "shape")
+[2 3]
+
+user> (def ary-ctype (get ary-data "ctypes"))
+#'user/ary-ctype
+user> (def test-ptr-val (get ary-ctype "data"))
+#'user/test-ptr-val
+user> test-ptr-val
+140670943595536
+
+user> (require '[tech.v2.datatype.jna :as dtype-jna])
+nil
+user> (def zero-copy-raw-data (dtype-jna/unsafe-address->typed-pointer test-ptr-val (* 8 6) :float64))
+#'user/zero-copy-raw-data
+user> zero-copy-raw-data
+#object[java.nio.DirectDoubleBufferU 0x50beba84 "java.nio.DirectDoubleBufferU[pos=0 lim=6 cap=6]"]
+user> (require '[tech.v2.datatype :as dtype])
+nil
+user> (dtype/->vector zero-copy-raw-data)
+[1.0 1.0 1.0 1.0 1.0 1.0]
 ```
 
 ## License
