@@ -32,7 +32,8 @@
              [expose-bridge-to-python!
               pybridge->bridge
               create-function]]
-            [clojure.stacktrace :as st])
+            [clojure.stacktrace :as st]
+            [tech.jna :as jna])
   (:import [java.util Map RandomAccess List Map$Entry Iterator]
            [clojure.lang IFn]
            [tech.v2.datatype ObjectReader ObjectWriter ObjectMutable
@@ -43,6 +44,9 @@
             CFunction$TupleFunction
             CFunction$NoArgFunction
             PyFunction]))
+
+
+(set! *warn-on-reflection* true)
 
 
 (def bridgeable-python-type-set
@@ -85,8 +89,9 @@
   (with-gil
     (let [interpreter (ensure-bound-interpreter)]
       (reify
-        libpy-base/PToPyObjectPtr
-        (->py-object-ptr [item] pyobj)
+        jna/PToPtr
+        (is-jna-ptr-convertible? [item] true)
+        (->ptr-backing-store [item] pyobj)
 
         ObjectReader
         (lsize [reader]
@@ -127,9 +132,12 @@
   (with-gil
     (let [interpreter (ensure-bound-interpreter)
           n-elems (libpy/PyObject_Length pyobj)]
-      (reify ObjectReader
-        libpy-base/PToPyObjectPtr
-        (->py-object-ptr [item] pyobj)
+      (reify
+        jna/PToPtr
+        (is-jna-ptr-convertible? [item] true)
+        (->ptr-backing-store [item] pyobj)
+
+        ObjectReader
         (lsize [reader] n-elems)
         (read [reader idx]
           (with-interpreter interpreter
@@ -174,7 +182,7 @@
 
 
 (defn- dict-mapentry-items
-  [pyobj]
+  ^Iterable [pyobj]
   (->> (libpy/PyDict_Items pyobj)
        (wrap-pyobject)
        (python->jvm)
@@ -182,9 +190,9 @@
               (reify Map$Entry
                 (getKey [this] k)
                 (getValue [this] v)
-                (hashCode [this] (.hashCode tuple))
+                (hashCode [this] (.hashCode ^Object tuple))
                 (equals [this o]
-                  (.equals tuple o)))))))
+                  (.equals ^Object tuple o)))))))
 
 
 (defn python-dict->jvm
@@ -199,8 +207,10 @@
           interpreter (ensure-bound-interpreter)]
 
       (reify
-        libpy-base/PToPyObjectPtr
-        (->py-object-ptr [item] pyobj)
+        jna/PToPtr
+        (is-jna-ptr-convertible? [item] true)
+        (->ptr-backing-store [item] pyobj)
+
         ;;oh fuck...
         Map
         (clear [this]
@@ -284,8 +294,10 @@
   (with-gil
     (let [interpreter (ensure-bound-interpreter)]
       (reify
-        libpy-base/PToPyObjectPtr
-        (->py-object-ptr [item] pyobj)
+        jna/PToPtr
+        (is-jna-ptr-convertible? [item] true)
+        (->ptr-backing-store [item] pyobj)
+
         IFn
         ;;uggh
         (invoke [this]
@@ -344,6 +356,20 @@
   (python->jvm-iterable pyobj python->jvm))
 
 
+(defn- generic-mapentry-items
+  ^Iterable [^Map pymap]
+  (->> (.keySet pymap)
+       (map (fn [k]
+              (let [v (.get pymap k)
+                    tuple [k v]]
+                (reify Map$Entry
+                  (getKey [this] k)
+                  (getValue [this] v)
+                  (hashCode [this] (.hashCode ^Object tuple))
+                  (equals [this o]
+                    (.equals ^Object tuple o))))))))
+
+
 (defn generic-python->jvm
   "Given a generic pyobject, wrap it in a read-only map interface
   where the keys are the attributes."
@@ -354,9 +380,54 @@
       (let [interpreter (ensure-bound-interpreter)
             key-set (->> (py-dir pyobj)
                          set)]
-        (reify Map
-          ))))
-  )
+        (reify
+          jna/PToPtr
+          (is-jna-ptr-convertible? [item] true)
+          (->ptr-backing-store [item] pyobj)
+
+          Map
+          (containsKey [this k]
+            (contains? key-set k))
+          (entrySet [this] (->> (generic-mapentry-items this)
+                                set))
+          (keySet [this] key-set)
+          (hashCode [this]
+            (with-interpreter interpreter
+              (int
+               (if (has-attr? pyobj "__hash__")
+                 (-> (get-attr pyobj "__hash__")
+                     (libpy/PyObject_CallObject nil)
+                     wrap-pyobject
+                     (python->jvm))
+                 (Pointer/nativeValue (jna/as-ptr pyobj))))))
+          (equals [this obj]
+            (with-interpreter
+              (boolean
+               (if (has-attr? pyobj "__eq__")
+                 (= 1
+                    (-> (get-attr pyobj "__eq__")
+                        (libpy/PyObject_CallObject (->py-tuple [(jvm->python obj)]))
+                        wrap-pyobject
+                        (python->jvm)))
+                 (when-let [obj-ptr (jna/as-ptr obj)]
+                   (= (Pointer/nativeValue (jna/as-ptr pyobj))
+                      (Pointer/nativeValue obj-ptr)))))))
+          (get [this k]
+            (with-interpreter interpreter
+              (-> (get-attr pyobj (str k))
+                  python->jvm)))
+          (values [this]
+            (->> key-set
+                 (with-interpreter interpreter
+                   (->> key-set
+                        (map #(.get this %))
+                        doall))))
+          (size [this] (count key-set))
+          (isEmpty [this] (= 0 (.size this)))
+          Iterable
+          (iterator [this]
+            (->> (generic-mapentry-items this)
+                 .iterator)))))))
 
 
 (defn python->jvm
@@ -371,8 +442,8 @@
       (let [obj-type (py-type-keyword pyobj)]
         (case obj-type
           :none-type nil
-          :int (libpy/PyLong_AsLong pyobj)
-          :float (libpy/PyFloat_AsDouble pyobj)
+          :int (copy-to-jvm pyobj)
+          :float (copy-to-jvm pyobj)
           :str (py-string->string pyobj)
           :list (python-list->jvm pyobj)
           :tuple (python-tuple->jvm pyobj)
@@ -381,11 +452,8 @@
           (cond
             (= 1 (libpy/PyCallable_Check pyobj))
             (python-callable->jvm pyobj)
-            (= 1  (has-attr? pyobj "__iter__"))
-            (python-iterable->jvm pyobj)
             :else
-            {:type (py-type-keyword pyobj)
-             :object pyobj}))))))
+            (generic-python->jvm pyobj)))))))
 
 (defmacro wrap-jvm-context
   [& body]
@@ -446,7 +514,7 @@
     (let [att-map
           {"__next__" (jvm-fn->python
                        #(when (.hasNext item)
-                          (.nextItem item)))}]
+                          (.next item)))}]
       (create-bridge-from-att-map item att-map))))
 
 
@@ -454,17 +522,45 @@
   ^Pointer [^Map jvm-data]
   (with-gil
     (let [att-map
-          {"__contains__" (jvm-fn->python #(.contains-key jvm-data %))
+          {"__contains__" (jvm-fn->python #(.containsKey jvm-data %))
            "__eq__" (jvm-fn->python #(.equals jvm-data %))
            "__getitem__" (jvm-fn->python #(.get jvm-data %))
            "__setitem__" (jvm-fn->python #(.put jvm-data %1 %2))
+           "__hash__" (jvm-fn->python #(.hashCode jvm-data))
+           "__iter__" (jvm-fn->python #(.iterator ^Iterable jvm-data))
+           "__len__" (jvm-fn->python #(.size jvm-data))
+           "__str__" (jvm-fn->python #(.toString jvm-data))
+           "clear" (jvm-fn->python #(.clear jvm-data))
+           "keys" (jvm-fn->python #(seq (.keySet jvm-data)))
+           "values" (jvm-fn->python #(seq (.values jvm-data)))
+           "pop" (jvm-fn->python #(.remove jvm-data %))}]
+      (create-bridge-from-att-map jvm-data att-map))))
+
+
+(defn jvm-list->python
+  ^Pointer [^List jvm-data]
+  (with-gil
+    (let [att-map
+          {"__contains__" (jvm-fn->python #(.contains jvm-data %))
+           "__eq__" (jvm-fn->python #(.equals jvm-data %))
+           "__getitem__" (jvm-fn->python #(.get jvm-data (int %)))
+           "__setitem__" (jvm-fn->python #(.set jvm-data (int %1) %2))
            "__hash__" (jvm-fn->python #(.hashCode jvm-data))
            "__iter__" (jvm-fn->python #(.iterator jvm-data))
            "__len__" (jvm-fn->python #(.size jvm-data))
            "__str__" (jvm-fn->python #(.toString jvm-data))
            "clear" (jvm-fn->python #(.clear jvm-data))
-           "keys" (jvm-fn->python #(seq (.keySet jvm-data)))
-           "values" (jvm-fn->python #(seq (.values jvm-data)))}]
+           "sort" (jvm-fn->python #(.sort jvm-data nil))
+           "append" (jvm-fn->python #(.add jvm-data %))
+           "insert" (jvm-fn->python #(.add jvm-data (int %1) %2))
+           "pop" (jvm-fn->python (fn [& args]
+                                   (let [index (int (if (first args)
+                                                      (first args)
+                                                      -1))
+                                         index (if (< index 0)
+                                                 (- (.size jvm-data) index)
+                                                 index)]
+                                     #(.remove jvm-data index))))}]
       (create-bridge-from-att-map jvm-data att-map))))
 
 
@@ -483,6 +579,8 @@
   (with-gil nil
     (if jvm-obj
       (cond
+        (libpy-base/convertible-to-pyobject-ptr? jvm-obj)
+        (libpy-base/->py-object-ptr jvm-obj)
         (number? jvm-obj)
         (copy-to-python jvm-obj)
         (boolean? jvm-obj)
@@ -491,6 +589,11 @@
         (copy-to-python (stringable jvm-obj))
         (instance? Map jvm-obj)
         (jvm-map->python jvm-obj)
+        (instance? Map$Entry jvm-obj)
+        (jvm->python [(.getKey ^Map$Entry jvm-obj)
+                      (.getValue ^Map$Entry jvm-obj)])
+        (instance? RandomAccess jvm-obj)
+        (jvm-list->python jvm-obj)
         (instance? Iterable jvm-obj)
         (jvm-iterable->python jvm-obj)
         (instance? Iterator jvm-obj)

@@ -13,11 +13,13 @@
 
 
 (defprotocol PToPyObjectPtr
+  (convertible-to-pyobject-ptr? [item])
   (->py-object-ptr [item]))
 
 
 (extend-type PyObject
   PToPyObjectPtr
+  (convertible-to-pyobject-ptr? [item] true)
   (->py-object-ptr [item] item))
 
 
