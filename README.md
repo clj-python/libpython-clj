@@ -15,8 +15,9 @@ advantages over a [10,000 line C binding layer](https://github.com/ninia/jep/tre
 * [libpython C api](https://docs.python.org/3.7/c-api/index.html#c-api-index)
 * [spacy-cpp](https://github.com/d99kris/spacy-cpp)
 * [base classes for python protocols](https://docs.python.org/3.7/library/collections.abc.html#collections-abstract-base-classes)
+* [create numpy from C ptr](https://stackoverflow.com/questions/23930671/how-to-create-n-dim-numpy-array-from-a-pointer)
+* [create C ptr from numpy](https://docs.scipy.org/doc/numpy/reference/generated/numpy.ndarray.ctypes.html)
 
-## 
 
 ## Usage
 
