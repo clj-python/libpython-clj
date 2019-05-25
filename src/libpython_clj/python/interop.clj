@@ -177,9 +177,19 @@
     }
     Py_DECREF(v);
     return 0;"
-  [^String program]
+  [program & {:keys [globals locals]}]
   (with-gil
-    (libpy/PyRun_SimpleString program)))
+    (let [main-mod (libpy/PyImport_AddModule "__main__")
+          globals (or globals (incref-wrap-pyobject
+                               (libpy/PyModule_GetDict main-mod)))
+          locals (or locals globals)
+          retval (-> (libpy/PyRun_String (str program)
+                                         :py-file-input
+                                         globals locals)
+                     wrap-pyobject)]
+      {:globals globals
+       :locals locals
+       :result retval})))
 
 
 (defn run-string

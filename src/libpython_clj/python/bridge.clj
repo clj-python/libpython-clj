@@ -41,7 +41,8 @@
            [libpython_clj.jna JVMBridge
             CFunction$KeyWordFunction
             CFunction$TupleFunction
-            CFunction$NoArgFunction]))
+            CFunction$NoArgFunction
+            PyFunction]))
 
 
 (def bridgeable-python-type-set
@@ -236,9 +237,10 @@
 
         (keySet [this]
           (with-interpreter interpreter
-            (->> (libpy/PyDict_Keys pyobj)
-                 (python->jvm-iterable python->jvm)
-                 set)))
+            (-> (libpy/PyDict_Keys pyobj)
+                wrap-pyobject
+                (python->jvm-iterable python->jvm)
+                set)))
 
         (put [this k v]
           (with-interpreter interpreter
@@ -327,12 +329,34 @@
           (with-interpreter interpreter
             (-> (libpy/PyObject_CallObject pyobj (->py-tuple arglist))
                 wrap-pyobject
-                python->jvm)))))))
+                python->jvm)))
+        PyFunction
+        (invokeKeyWords [this tuple-args keyword-args]
+          (-> (libpy/PyObject_Call pyobj
+                                   (->py-tuple tuple-args)
+                                   (->py-dict keyword-args))
+              wrap-pyobject
+              python->jvm))))))
 
 
 (defn python-iterable->jvm
   [pyobj]
   (python->jvm-iterable pyobj python->jvm))
+
+
+(defn generic-python->jvm
+  "Given a generic pyobject, wrap it in a read-only map interface
+  where the keys are the attributes."
+  [pyobj]
+  (with-gil nil
+    (if (= :none-type (py-type-keyword pyobj))
+      nil
+      (let [interpreter (ensure-bound-interpreter)
+            key-set (->> (py-dir pyobj)
+                         set)]
+        (reify Map
+          ))))
+  )
 
 
 (defn python->jvm
@@ -346,7 +370,7 @@
     (with-gil
       (let [obj-type (py-type-keyword pyobj)]
         (case obj-type
-          :non-type nil
+          :none-type nil
           :int (libpy/PyLong_AsLong pyobj)
           :float (libpy/PyFloat_AsDouble pyobj)
           :str (py-string->string pyobj)
@@ -357,12 +381,11 @@
           (cond
             (= 1 (libpy/PyCallable_Check pyobj))
             (python-callable->jvm pyobj)
-            (has-attr? pyobj "__iter__")
+            (= 1  (has-attr? pyobj "__iter__"))
             (python-iterable->jvm pyobj)
             :else
-            (throw (ex-info (format "Unable to bridge type: %s"
-                                    (py-type-keyword pyobj))
-                            {}))))))))
+            {:type (py-type-keyword pyobj)
+             :object pyobj}))))))
 
 (defmacro wrap-jvm-context
   [& body]

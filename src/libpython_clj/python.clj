@@ -7,7 +7,8 @@
             [libpython-clj.python.interop :as pyinterop]
             [libpython-clj.python.interpreter :as pyinterp
              :refer [with-gil with-interpreter]]
-            [libpython-clj.python.object :as pyobject])
+            [libpython-clj.python.object :as pyobject]
+            [libpython-clj.python.bridge])
   (:import [com.sun.jna Pointer]
            [java.io Writer]
            [libpython_clj.jna PyObject]))
@@ -55,6 +56,11 @@
                 run-string
                 create-function
                 libpython-clj-module-name)
+
+(export-symbols libpython-clj.python.bridge
+                ;; python->jvm
+                ;; jvm->python
+                )
 
 
 (defn initialize!
