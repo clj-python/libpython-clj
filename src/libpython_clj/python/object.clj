@@ -26,6 +26,8 @@
 
 (extend-type Object
   libpy-base/PToPyObjectPtr
+  (convertible-to-pyobject-ptr? [item]
+    (jna/is-jna-ptr-convertible? item))
   (->py-object-ptr [item]
     (when-let [ptr-val (jna/as-ptr item)]
       (PyObject. ptr-val))))
@@ -253,10 +255,12 @@
 
 (extend-protocol libpy-base/PToPyObjectPtr
   Number
+  (convertible-to-pyobject-ptr? [item] true)
   (->py-object-ptr [item]
     (with-gil nil
       (copy-to-python item)))
   String
+  (convertible-to-pyobject-ptr? [item] true)
   (->py-object-ptr [item]
     (with-gil nil
       (copy-to-python item)))
@@ -300,14 +304,18 @@
   "Create an iterable that auto-copies what it iterates completely into the jvm."
   [pyobj & [item-conversion-fn]]
   (with-gil nil
-    (when-not (= 1 (has-attr? pyobj "__iter__"))
+    (when-not (has-attr? pyobj "__iter__")
       (throw (ex-info (format "object is not iterable: %s"
                               (py-type-keyword pyobj))
                       {})))
     (let [item-conversion-fn (or item-conversion-fn copy-to-jvm)
           iter-callable (get-attr pyobj "__iter__")
           interpreter (ensure-bound-interpreter)]
-      (reify Iterable
+      (reify
+        jna/PToPtr
+        (is-jna-ptr-convertible? [item] true)
+        (->ptr-backing-store [item] pyobj)
+        Iterable
         (iterator [item]
           (let [py-iter (with-interpreter interpreter
                           (-> (libpy/PyObject_CallObject iter-callable nil)
@@ -320,6 +328,9 @@
                                   item-conversion-fn))))
                 cur-item-store (atom (next-fn nil))]
             (reify ObjectIter
+              jna/PToPtr
+              (is-jna-ptr-convertible? [item] true)
+              (->ptr-backing-store [item] py-iter)
               (hasNext [obj-iter] (boolean @cur-item-store))
               (next [obj-iter]
                 (-> (swap-vals! cur-item-store next-fn)
@@ -361,7 +372,7 @@
         ;;Sequences become persistent vectors
         (= 1 (libpy/PySequence_Check pyobj))
         (python->jvm-copy-persistent-vector)
-        (= 1 (has-attr? pyobj "__iter__"))
+        (has-attr? pyobj "__iter__")
         (python->jvm-iterable pyobj copy-to-jvm)
         :else
         {:type (py-type-keyword pyobj)
@@ -386,9 +397,10 @@
 (defn has-attr?
   [pyobj attr-name]
   (with-gil nil
-    (if (stringable? attr-name)
-      (libpy/PyObject_HasAttrString pyobj (stringable attr-name))
-      (libpy/PyObject_HasAttrString pyobj (copy-to-python attr-name)))))
+    (= 1
+       (if (stringable? attr-name)
+         (libpy/PyObject_HasAttrString pyobj (stringable attr-name))
+         (libpy/PyObject_HasAttr pyobj (copy-to-python attr-name))))))
 
 
 (defn get-attr

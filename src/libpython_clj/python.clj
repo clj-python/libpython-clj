@@ -57,10 +57,10 @@
                 create-function
                 libpython-clj-module-name)
 
+
 (export-symbols libpython-clj.python.bridge
-                ;; python->jvm
-                ;; jvm->python
-                )
+                python->jvm
+                jvm->python)
 
 
 (defn initialize!

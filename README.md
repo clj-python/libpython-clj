@@ -1,13 +1,19 @@
 # libpython-clj
 
-jna libpython bindings to the tech ecosystem.
+JNA libpython bindings to the tech ecosystem.
 
 If you have a production need right now, I strongly advise you to consider
 [jep](https://github.com/ninia/jep).
 
 This project is mean to explore what is possible using JNA.  This has a lot of
-advantages over a [10,000 line C binding layer](https://github.com/ninia/jep/tree/master/src/main/c)
-...if it works.
+advantages over a static binding layer that must bind during an offline compilation
+phase to specific version of the python runtime:
+
+* The exact same binary can run top of on multiple version of python reducing version
+  dependency chain management issues.
+* Development of new functionality is faster because it can be done from purely from the
+  REPL.
+
 
 
 ## Key Design Points
@@ -42,6 +48,15 @@ local variables and interpreter locking so you can do things like:
   some code)
 ```
 
+You don't have to do this, however.  If you don't care what context you run in you can
+just use the public API which under the covers simple does:
+
+
+```clojure
+(with-gil
+  some code)
+```
+
 This type of thing grabs the GIL if it hasn't already been claimed by the current thread
 and off you go.  When the code is finished, it saves the interpreter thread state back
 into a global atom and thus releases the GIL.  Interpreters have both shared and
@@ -49,24 +64,66 @@ per-interpreter state named `:shared-state` and `:interpreter-state` respectivel
 Shared state would be the global type symbol table.  Interpreter state contains things
 like a map of objects to their per-interpreter python bridging class.
 
+If the interpreter isn't specified it uses the main interpreter.  The simplest way to
+ensure you have the gil is `with-gil`.  You may also use `(ensure-bound-interpreter)` if
+you wish to penalize users for using a function incorrectly.  This returns the
+interpreter currently bound to this thread or throws.
+
 
 ### Garbage Collection
 
 The system uses the tech.resource library to attach a GC hook to appropriate java object
 that releases the associated python object if the java object goes out of scope.
 Bridges use a similar technique to unregister the bridge on destruction of their python
-counterpar.  There should be no need for manual addref/release calls in any user code.
+counterpart.  There should be no need for manual addref/release calls in any user code
+aside from potentially (and damn rarely) a `(System/gc)` call.
 
 
-### Copying Vs. Mirroring
+### Copying Vs. Bridging
 
 
 Objects either in python or in java may be either copied or mirrored into the other
 ecosystem.  Mirroring allows sharing complex and potentially changing datastructures
 while copying allows a cleaner partitioning of concerns and frees both garbage
 collection systems to act more independently.  Numeric buffers that have a direct
-representation as a C-ptr (the datatype native-buffer type) have a zero-copy pathway
-via numpy.
+representation as a C-ptr (the datatype native-buffer type) have a zero-copy pathway via
+numpy.  If you want access to object functionality that object needs to be mirrored; so
+for example if you want to call numpy functions then you need to mirror that object.
+Tensors are always represented in python as numpy objects using zero-copy where possible
+in all cases.
+
+
+### Bridging
+
+
+Python Callables implement `clojure.lang.IFn` along with a python specific interface so
+in general you can call them like any other function but you also can use keyword
+arguments if you know you are dealing with a python function.  Python dicts implement
+`java.util.Map and clojure.lang.IFn` and lists are `java.util.List`,
+java.util.RandomAcces`, and `clojure.lang.IFn`.  This allows fluid manipulation of
+the datastructures (even mutation) from both languages.
+
+You can create a python function from a clojure function with create-function.  You can 
+create a new bridge type by implementing the `libpython_clj.jna.JVMBridge` interface:
+
+```java
+public interface JVMBridge extends AutoCloseable
+{
+  public Pointer getAttr(String name);
+  public void setAttr(String name, Pointer val);
+  public String[] dir();
+  public Object interpreter();
+  public Object wrappedObject();
+  // Called from python when the python mirror is deleted.
+  // This had better not throw anything.
+  public default void close() {}
+}
+```
+
+
+### IO
+
+`sys.stdout` and `sys.stderr` are redirected to `*out*` and `*err*` respectively.
 
 
 
@@ -75,8 +132,9 @@ via numpy.
 * [libpython C api](https://docs.python.org/3.7/c-api/index.html#c-api-index)
 * [spacy-cpp](https://github.com/d99kris/spacy-cpp)
 * [base classes for python protocols](https://docs.python.org/3.7/library/collections.abc.html#collections-abstract-base-classes)
+* [create numpy from C ptr](https://stackoverflow.com/questions/23930671/how-to-create-n-dim-numpy-array-from-a-pointer)
+* [create C ptr from numpy](https://docs.scipy.org/doc/numpy/reference/generated/numpy.ndarray.ctypes.html)
 
-##
 
 ## Usage
 
