@@ -103,7 +103,7 @@ arguments if you know you are dealing with a python function.  Python dicts impl
 java.util.RandomAcces`, and `clojure.lang.IFn`.  This allows fluid manipulation of
 the datastructures (even mutation) from both languages.
 
-You can create a python function from a clojure function with create-function.  You can 
+You can create a python function from a clojure function with create-function.  You can
 create a new bridge type by implementing the `libpython_clj.jna.JVMBridge` interface:
 
 ```java
@@ -120,6 +120,28 @@ public interface JVMBridge extends AutoCloseable
 }
 ```
 
+If all you want to do is override the attribute map that is simple.  Here is the bridge
+for java.util.Map:
+
+```clojure
+(defn jvm-map->python
+  ^Pointer [^Map jvm-data]
+  (with-gil
+    (let [att-map
+          {"__contains__" (jvm-fn->python #(.containsKey jvm-data %))
+           "__eq__" (jvm-fn->python #(.equals jvm-data %))
+           "__getitem__" (jvm-fn->python #(.get jvm-data %))
+           "__setitem__" (jvm-fn->python #(.put jvm-data %1 %2))
+           "__hash__" (jvm-fn->python #(.hashCode jvm-data))
+           "__iter__" (jvm-fn->python #(.iterator ^Iterable jvm-data))
+           "__len__" (jvm-fn->python #(.size jvm-data))
+           "__str__" (jvm-fn->python #(.toString jvm-data))
+           "clear" (jvm-fn->python #(.clear jvm-data))
+           "keys" (jvm-fn->python #(seq (.keySet jvm-data)))
+           "values" (jvm-fn->python #(seq (.values jvm-data)))
+           "pop" (jvm-fn->python #(.remove jvm-data %))}]
+      (create-bridge-from-att-map jvm-data att-map))))
+```
 
 ### IO
 
