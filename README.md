@@ -181,8 +181,8 @@ hey
 {:globals #object[com.sun.jna.Pointer 0x5d583373 "native@0x7ff0dc04f3a8"],
  :locals #object[com.sun.jna.Pointer 0x5d583373 "native@0x7ff0dc04f3a8"],
  :result #object[com.sun.jna.Pointer 0x86d7ae5 "native@0x7ff0d6a6c150"]}
-```
-(python/run-simple-string "print('syntax-errrrrr")
+
+user> (python/run-simple-string "print('syntax-errrrrr")
 Execution error (ExceptionInfo) at libpython-clj.python.interpreter/check-error-throw (interpreter.clj:260).
   File "<string>", line 1
     print('syntax-errrrrr
