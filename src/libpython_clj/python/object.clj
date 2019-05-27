@@ -36,15 +36,20 @@
              :refer [log-error log-warn log-info]]
             [libpython-clj.jna.base :as libpy-base]
             [libpython-clj.jna :as libpy]
+            [clojure.stacktrace :as st]
             [tech.jna :as jna]
             [tech.resource :as resource]
             [tech.v2.datatype :as dtype]
             [tech.v2.datatype.protocols :as dtype-proto]
             [tech.v2.datatype.casting :as casting]
             [tech.v2.tensor :as dtt])
-  (:import [com.sun.jna Pointer]
+  (:import [com.sun.jna Pointer CallbackReference]
            [libpython_clj.jna
-            PyObject]
+            PyObject
+            CFunction$KeyWordFunction
+            CFunction$TupleFunction
+            CFunction$NoArgFunction
+            PyMethodDef]
            [java.nio.charset StandardCharsets]
            [tech.v2.datatype ObjectIter]
            [java.util RandomAccess Map Set Map$Entry]
@@ -79,6 +84,12 @@
   (->python [item options] item)
   PyObject
   (->python [item options] (.getPointer item)))
+
+
+(defn ->jvm
+  "Copy an object into the jvm (if it wasn't there already.)"
+  [item & [options]]
+  (py-proto/->jvm item options))
 
 
 (def ^:dynamic *object-reference-logging* false)
@@ -317,6 +328,91 @@
 (def ^:dynamic *item-tuple-cutoff* 8)
 
 
+(defn wrap-clojure-fn
+  [fn-obj]
+  (when-not (fn? fn-obj)
+    (throw (ex-info "This is not a function." {})))
+  (reify CFunction$TupleFunction
+    (pyinvoke [this self args]
+      (try
+        (let [retval
+              (apply fn-obj (->jvm args))]
+          (if (nil? retval)
+            (libpy/Py_None)
+            (->python retval)))
+        (catch Throwable e
+          (log-error     (format "%s:%s" e (with-out-str
+                                                     (st/print-stack-trace e))) )
+          (libpy/PyErr_SetString (libpy/PyExc_Exception)
+                                 (format "%s:%s" e (with-out-str
+                                                     (st/print-stack-trace e))))
+          nil)))))
+
+
+(defn apply-method-def-data!
+  [^PyMethodDef method-def {:keys [name
+                                   doc
+                                   function]
+                            :as method-data}]
+  (let [callback (if (or (instance? CFunction$KeyWordFunction function)
+                         (instance? CFunction$TupleFunction function)
+                         (instance? CFunction$NoArgFunction function))
+                     function
+                     (wrap-clojure-fn function))
+        meth-flags (long (cond
+                           (instance? CFunction$NoArgFunction callback)
+                           @libpy/METH_NOARGS
+
+                           (instance? CFunction$TupleFunction callback)
+                           @libpy/METH_VARARGS
+
+                           (instance? CFunction$KeyWordFunction callback)
+                           (bit-or @libpy/METH_KEYWORDS @libpy/METH_VARARGS)
+                           :else
+                           (throw (ex-info (format "Failed due to type: %s"
+                                                   (type callback))))))
+        name-ptr (jna/string->ptr name)
+        doc-ptr (jna/string->ptr doc)]
+    (set! (.ml_name method-def) name-ptr)
+    (set! (.ml_meth method-def) (CallbackReference/getFunctionPointer callback))
+    (set! (.ml_flags method-def) (int meth-flags))
+    (set! (.ml_doc method-def) doc-ptr)
+    (.write method-def)
+    (pyinterp/conj-forever! (assoc method-data
+                                   :name-ptr name-ptr
+                                   :doc-ptr doc-ptr
+                                   :callback-object callback
+                                   :method-definition method-def))
+    method-def))
+
+
+(defn method-def-data->method-def
+  [method-data]
+  (apply-method-def-data! (PyMethodDef.) method-data))
+
+
+(defn ->py-fn
+  "Create a python callback from a clojure fn.
+  If clojure fn, then tuple arguments are used.  If keyword arguments are desired,
+  the pass in something derived from: libpython-clj.jna.CFunction$KeyWordFunction.
+  If a pure fn is passed in, arguments are marshalled from python if possible and
+  then to-python in the case of successful execution.  An exception will set the error
+  indicator."
+  [fn-obj {:keys [method-name documentation py-self]
+           :or {method-name "unnamed_function"
+                documentation "not documented"}}]
+  (with-gil
+    (let [py-self (or py-self (->python {}))]
+      (wrap-pyobject (libpy/PyCFunction_New (method-def-data->method-def
+                                             {:name method-name
+                                              :doc documentation
+                                              :function fn-obj})
+                                            ;;This is a nice little tidbit, cfunction_new
+                                            ;;steals the reference.
+                                            (libpy/Py_IncRef py-self))))))
+
+
+
 (extend-protocol py-proto/PCopyToPython
   Number
   (->python [item options]
@@ -370,11 +466,13 @@
   (->python [item options] (.getPointer item))
   Object
   (->python [item options]
-    ;;This pathway covers the vast majority of all numeric types.
-    (if (casting/numeric-type? (dtype/get-datatype item))
+    (cond
+      (fn? item)
+      (->py-fn item {})
+      (casting/numeric-type? (dtype/get-datatype item))
       (-> (dtt/ensure-buffer-descriptor item)
           (->py-nd-array options))
-      ;;And some things may be left over and will get converted as linear lists.
+      :else
       (if-let [item-reader (dtype/->reader item)]
         (->py-list item-reader)
         ;;Out of sane options at the moment.
@@ -505,6 +603,8 @@
     (py-dir item))
   (has-attr? [item name] (has-attr? item name))
   (attr [item name] (get-attr item name))
+  (set-attr! [item item-name item-value]
+    (set-attr! item item-name item-value))
   (callable? [item] (= 1 (libpy/PyCallable_Check item)))
   (has-item? [item item-name] (obj-has-item? item item-name))
   (item [item item-name] (obj-get-item item item-name))
@@ -514,6 +614,8 @@
   (dir [item] (py-proto/dir (.getPointer item)))
   (has-attr? [item item-name] (py-proto/has-attr? (.getPointer item) item-name))
   (attr [item item-name] (py-proto/attr (.getPointer item) item-name))
+  (set-attr! [item item-name item-value]
+    (py-proto/set-attr! (.getPointer item) item-name item-value))
   (callable? [item] (py-proto/callable? (.getPointer item)))
   (has-item? [item item-name] (py-proto/has-item? (.getPointer item) item-name))
   (item [item item-name] (py-proto/item (.getPointer item) item-name))
@@ -547,11 +649,6 @@
     (py-proto/len (.getPointer item))))
 
 
-(defn- copy-to-jvm
-  [item]
-  (py-proto/->jvm item {}))
-
-
 (defn python->jvm-copy-hashmap
   [pyobj & [map-items]]
   (with-gil nil
@@ -561,7 +658,7 @@
     (->> (or map-items
              (libpy/PyMapping_Items pyobj)
              wrap-pyobject)
-         copy-to-jvm
+         ->jvm
          (into {}))))
 
 
@@ -576,7 +673,7 @@
          (mapv (fn [idx]
                  (-> (libpy/PySequence_GetItem pyobj idx)
                      wrap-pyobject
-                     copy-to-jvm))))))
+                     ->jvm))))))
 
 
 (defn python->jvm-iterable
@@ -589,7 +686,7 @@
       (throw (ex-info (format "object is not iterable: %s"
                               (python-type pyobj))
                       {})))
-    (let [item-conversion-fn (or item-conversion-fn copy-to-jvm)
+    (let [item-conversion-fn (or item-conversion-fn ->jvm)
           iter-callable (get-attr pyobj "__iter__")
           interpreter (ensure-bound-interpreter)]
       (reify
@@ -696,9 +793,3 @@
     :else
     {:type (python-type pyobj)
      :value (Pointer/nativeValue (jna/as-ptr pyobj))}))
-
-
-(defn ->jvm
-  "Copy an object into the jvm (if it wasn't there already.)"
-  [item & [options]]
-  (py-proto/->jvm item options))

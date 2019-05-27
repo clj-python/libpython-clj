@@ -2,6 +2,10 @@
   "Bridging classes to allow python and java to intermix."
   (:require [libpython-clj.jna :as libpy]
             [libpython-clj.jna.base :as libpy-base]
+            [libpython-clj.python.protocols
+             :refer [python-type has-attr? attr dir
+                     pyobject-as-jvm]
+             :as py-proto]
             [libpython-clj.python.interpreter
              :refer
              [with-gil
@@ -10,28 +14,24 @@
               check-error-throw]]
             [libpython-clj.python.object
              :refer
-             [py-type-keyword
-              copy-to-jvm
-              copy-to-python
-              py-string->string
-              has-attr?
-              get-attr
+             [->jvm
+              ->python
               stringable?
               stringable
               incref
-              py-dir
               incref-wrap-pyobject
               wrap-pyobject
               python->jvm-iterable
+              py-none
               ->py-list
               ->py-tuple
               ->py-dict
-              ->py-string]]
+              ->py-string
+              ->py-fn]]
             [libpython-clj.python.interop :as pyinterop
              :refer
              [expose-bridge-to-python!
-              pybridge->bridge
-              create-function]]
+              pybridge->bridge]]
             [clojure.stacktrace :as st]
             [tech.jna :as jna])
   (:import [java.util Map RandomAccess List Map$Entry Iterator]
@@ -43,7 +43,8 @@
             CFunction$KeyWordFunction
             CFunction$TupleFunction
             CFunction$NoArgFunction
-            PyFunction]))
+            PyFunction
+            PyObject]))
 
 
 (set! *warn-on-reflection* true)
@@ -56,7 +57,7 @@
 (defn bridgeable-python-type?
   [pyobj]
   (with-gil
-    (or (-> (py-type-keyword pyobj)
+    (or (-> (python-type pyobj)
             bridgeable-python-type-set
             boolean)
         (has-attr? pyobj "__iter__")
@@ -69,10 +70,8 @@
       (stringable? jvm-obj)
       (instance? jvm-obj RandomAccess)
       (instance? jvm-obj Map)
-      (instance? jvm-obj Iterable)))
-
-
-(declare python->jvm jvm->python)
+      (instance? jvm-obj Iterable)
+      (fn? jvm-obj)))
 
 
 (defn check-py-method-return
@@ -81,69 +80,152 @@
     (check-error-throw)))
 
 
+(defn as-jvm
+  "Bridge a python object into the jvm"
+  [item & [options]]
+  (if (or (not item)
+          (= :none-type (python-type item)))
+    nil
+    (py-proto/as-jvm item options)))
+
+
+(defn as-python
+  "Bridge a jvm object into python"
+  [item & [options]]
+  (if (not item)
+    (py-none)
+    (py-proto/as-python item options)))
+
+
+(extend-protocol py-proto/PBridgeToJVM
+  Pointer
+  (as-jvm [item options]
+    (pyobject-as-jvm item))
+  PyObject
+  (as-jvm [item options]
+    (pyobject-as-jvm (.getPointer item))))
+
+
+;; These cannot be bridged.  Why would you, anyway?
+
+(defmethod pyobject-as-jvm :int
+  [pyobj]
+  (->jvm pyobj))
+
+
+(defmethod pyobject-as-jvm :float
+  [pyobj]
+  (->jvm pyobj))
+
+
+(defmethod pyobject-as-jvm :str
+  [pyobj]
+  (->jvm pyobj))
+
+
+(defmethod pyobject-as-jvm :bool
+  [pyobj]
+  (->jvm pyobj))
+
+
+(defmacro bridge-pyobject
+  [pyobj & body]
+  `(reify
+     libpy-base/PToPyObjectPtr
+     (convertible-to-pyobject-ptr? [item#] true)
+     (->py-object-ptr [item#] (jna/as-ptr ~pyobj))
+     py-proto/PPythonType
+     (get-python-type [item] (py-proto/get-python-type ~pyobj))
+     py-proto/PCopyToPython
+     (->python [item# options#] ~pyobj)
+     py-proto/PBridgeToPython
+     (as-python [item# options#] ~pyobj)
+     py-proto/PCopyToJVM
+     (->jvm [item# options#] item#)
+     py-proto/PBridgeToJVM
+     (as-jvm [item# options#] item#)
+     py-proto/PPyObject
+     (dir [item#] (py-proto/dir ~pyobj))
+     (has-attr? [item# item-name#] (py-proto/has-attr? ~pyobj item-name#))
+     (attr [item# item-name#] (-> (py-proto/attr ~pyobj item-name#)
+                                  as-jvm))
+     (set-attr! [item# item-name# item-value#]
+       (py-proto/set-attr! ~pyobj item-name#
+                           (as-python item-value#)))
+     (callable? [item#] (py-proto/callable? ~pyobj))
+     (has-item? [item# item-name#] (py-proto/has-item? ~pyobj item-name#))
+     (item [item# item-name#] (-> (py-proto/item ~pyobj item-name#)
+                                   as-jvm))
+     (set-item! [item# item-name# item-value#]
+       (py-proto/set-item! ~pyobj item-name# (as-python item-value#)))
+     py-proto/PPyAttMap
+     (att-type-map [item#] (py-proto/att-type-map ~pyobj))
+     ~@body))
+
+
 (defn python-list->jvm
   [pyobj]
-  (when-not (= :list (py-type-keyword pyobj))
-    (throw (ex-info ("Object is not a list: %s" (py-type-keyword pyobj))
+  (when-not (= :list (python-type pyobj))
+    (throw (ex-info ("Object is not a list: %s" (python-type pyobj))
                     {})))
   (with-gil
     (let [interpreter (ensure-bound-interpreter)]
-      (reify
-        jna/PToPtr
-        (is-jna-ptr-convertible? [item] true)
-        (->ptr-backing-store [item] pyobj)
+      (bridge-pyobject
+       pyobj
+       ObjectReader
+       (lsize [reader]
+              (with-interpreter interpreter
+                (libpy/PyList_Size pyobj)))
+       (read [reader idx]
+             (with-interpreter interpreter
+               (-> (libpy/PyList_GetItem pyobj idx)
+                   incref-wrap-pyobject
+                   as-jvm)))
+       ObjectWriter
+       (write [writer idx value]
+              (with-interpreter interpreter
+                (->> (as-python value)
+                     incref
+                     (libpy/PyList_SetItem pyobj idx)
+                     (check-py-method-return))))
+       ObjectMutable
+       (insert [mutable idx value]
+               (with-interpreter interpreter
+                 (->> (as-python value)
+                      incref
+                      (libpy/PyList_Insert pyobj idx)
+                      check-py-method-return)))
+       (append [mutable value]
+               (with-interpreter interpreter
+                 (->> (as-python value)
+                      incref
+                      (libpy/PyList_Append pyobj)
+                      (check-py-method-return))))))))
 
-        ObjectReader
-        (lsize [reader]
-          (with-interpreter interpreter
-            (libpy/PyList_Size pyobj)))
-        (read [reader idx]
-          (with-interpreter interpreter
-            (-> (libpy/PyList_GetItem pyobj idx)
-                incref-wrap-pyobject
-                python->jvm)))
-        ObjectWriter
-        (write [writer idx value]
-          (with-interpreter interpreter
-            (->> (jvm->python value)
-                 incref
-                 (libpy/PyList_SetItem pyobj idx)
-                 (check-py-method-return))))
-        ObjectMutable
-        (insert [mutable idx value]
-          (with-interpreter interpreter
-            (->> (jvm->python value)
-                 incref
-                 (libpy/PyList_Insert pyobj idx)
-                 check-py-method-return)))
-        (append [mutable value]
-          (with-interpreter interpreter
-            (->> (jvm->python value)
-                 incref
-                 (libpy/PyList_Append pyobj)
-                 (check-py-method-return))))))))
+
+(defmethod pyobject-as-jvm :list
+  [pyobj]
+  (python-list->jvm pyobj))
 
 
 (defn python-tuple->jvm
   [pyobj]
-  (when-not (= :tuple (py-type-keyword pyobj))
-    (throw (ex-info ("Object is not a tuple: %s" (py-type-keyword pyobj))
+  (when-not (= :tuple (python-type pyobj))
+    (throw (ex-info ("Object is not a tuple: %s" (python-type pyobj))
                     {})))
   (with-gil
     (let [interpreter (ensure-bound-interpreter)
           n-elems (libpy/PyObject_Length pyobj)]
-      (reify
-        jna/PToPtr
-        (is-jna-ptr-convertible? [item] true)
-        (->ptr-backing-store [item] pyobj)
+      (bridge-pyobject
+       pyobj
 
-        ObjectReader
-        (lsize [reader] n-elems)
-        (read [reader idx]
-          (with-interpreter interpreter
-            (-> (libpy/PyTuple_GetItem pyobj idx)
-                incref-wrap-pyobject
-                (python->jvm))))))))
+       ObjectReader
+       (lsize [reader] n-elems)
+       (read [reader idx]
+             (with-interpreter interpreter
+               (-> (libpy/PyTuple_GetItem pyobj idx)
+                   incref-wrap-pyobject
+                   as-jvm)))))))
 
 
 (defn check-pybool-return
@@ -164,8 +246,7 @@
 
 (defn- get-dict-item
   [pyobj obj-key]
-  (->> obj-key
-       (jvm->python)
+  (->> (as-python obj-key)
        (libpy/PyDict_GetItem pyobj)))
 
 
@@ -198,8 +279,8 @@
 (defn python-dict->jvm
   [pyobj]
   (with-gil
-    (when-not (= :dict (py-type-keyword pyobj))
-      (throw (ex-info ("Function called on incorrect type: %s" (py-type-keyword pyobj))
+    (when-not (= :dict (python-type pyobj))
+      (throw (ex-info ("Function called on incorrect type: %s" (python-type pyobj))
                       {})))
     ;;This is going to be a motherfucker to get right thanks to the way instain mother of
     ;;the java map interface.
@@ -283,7 +364,7 @@
 
 (defn python-bridge->jvm
   [pyobj]
-  (when-not (= :jvm-bridge (py-type-keyword pyobj))
+  (when-not (= :jvm-bridge (python-type pyobj))
     (throw (ex-info "Object isn't a bridge object." {})))
   (let [real-bridge (pybridge->bridge pyobj)]
     (.wrappedObject real-bridge)))
@@ -375,7 +456,7 @@
   where the keys are the attributes."
   [pyobj]
   (with-gil nil
-    (if (= :none-type (py-type-keyword pyobj))
+    (if (= :none-type (python-type pyobj))
       nil
       (let [interpreter (ensure-bound-interpreter)
             key-set (->> (py-dir pyobj)
@@ -439,7 +520,7 @@
   [pyobj]
   (when pyobj
     (with-gil
-      (let [obj-type (py-type-keyword pyobj)]
+      (let [obj-type (python-type pyobj)]
         (case obj-type
           :none-type nil
           :int (copy-to-jvm pyobj)
