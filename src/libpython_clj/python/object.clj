@@ -1,4 +1,26 @@
 (ns libpython-clj.python.object
+  "Base support for python objects and python->jvm interop.  At this level (without
+  interop), we can only support the copying protocols; we can't do bridging.  Still,
+  copying gets you quite far and you can, for instance, call python functions and get
+  the attribute map from a python object.
+
+  Protocol functions implemented:
+  python-type
+  ->python
+  ->jvm
+  dir
+  has-attr?
+  attr
+  callable?
+  has-item?
+  item
+  set-item!
+  do-call-fn
+  len
+
+  Results of these, when they return python pointers, return the raw,unwrapped pointers.
+  Callers at this level are sitting just close enough to the actual libpy calls to still
+  get pointers back *but* they don't have to manage the gil."
   (:require [libpython-clj.python.interpreter
              :refer [with-gil
                      with-interpreter
@@ -6,38 +28,60 @@
                      ensure-bound-interpreter
                      check-error-throw]
              :as pyinterp]
+            [libpython-clj.python.protocols
+             :refer [pyobject->jvm
+                     python-type]
+             :as py-proto]
             [libpython-clj.python.logging
              :refer [log-error log-warn log-info]]
             [libpython-clj.jna.base :as libpy-base]
             [libpython-clj.jna :as libpy]
             [tech.jna :as jna]
             [tech.resource :as resource]
-            [tech.v2.datatype :as dtype])
+            [tech.v2.datatype :as dtype]
+            [tech.v2.datatype.protocols :as dtype-proto]
+            [tech.v2.datatype.casting :as casting]
+            [tech.v2.tensor :as dtt])
   (:import [com.sun.jna Pointer]
            [libpython_clj.jna
             PyObject]
            [java.nio.charset StandardCharsets]
            [tech.v2.datatype ObjectIter]
-           [java.util RandomAccess Map]))
+           [java.util RandomAccess Map Set Map$Entry]
+           [clojure.lang Symbol Keyword
+            IPersistentMap
+            IPersistentVector
+            IPersistentSet]))
 
 
 (set! *warn-on-reflection* true)
 
 
-(extend-type Object
-  libpy-base/PToPyObjectPtr
-  (convertible-to-pyobject-ptr? [item]
-    (jna/is-jna-ptr-convertible? item))
-  (->py-object-ptr [item]
-    (when-let [ptr-val (jna/as-ptr item)]
-      (PyObject. ptr-val))))
+
+(extend-protocol py-proto/PCopyToJVM
+  Pointer
+  (->jvm [item options]
+    (pyobject->jvm item))
+  PyObject
+  (->jvm [item options]
+    (pyobject->jvm (.getPointer item))))
 
 
-(defn ->pyobject
-  ^PyObject [item]
-  (when-not item
-    (throw (ex-info "Null item passed in" {})))
-  (libpy-base/->py-object-ptr item))
+(extend-protocol py-proto/PBridgeToPython
+  Pointer
+  (as-python [item options] item)
+  PyObject
+  (as-python [item options] (.getPointer item)))
+
+
+(extend-protocol py-proto/PCopyToPython
+  Pointer
+  (->python [item options] item)
+  PyObject
+  (->python [item options] (.getPointer item)))
+
+
+(def ^:dynamic *object-reference-logging* false)
 
 
 (defn wrap-pyobject
@@ -49,19 +93,25 @@
   (check-error-throw)
   (when pyobj
     (let [interpreter (ensure-bound-interpreter)
-          pyobj-value (Pointer/nativeValue (jna/as-ptr pyobj))]
-      (comment
-        (println "tracking object" pyobj-value))
+          pyobj-value (Pointer/nativeValue (jna/as-ptr pyobj))
+          py-type-name (name (python-type pyobj))]
+      (when *object-reference-logging*
+        (let [obj-data (PyObject. (Pointer. pyobj-value))]
+          (log-info (format "tracking object  - 0x%x:%4d:%s"
+                            pyobj-value
+                            (.ob_refcnt obj-data)
+                            py-type-name))))
       ;;We ask the garbage collector to track the python object and notify
       ;;us when it is released.  We then decref on that event.
       (resource/track pyobj
                       #(with-interpreter interpreter
                          (try
-                           (comment
-                             (println "releasing object" pyobj-value
-                                      "with refcount" (.ob_refcnt (PyObject.
-                                                                   (Pointer.
-                                                                    pyobj-value)))))
+                           (when *object-reference-logging*
+                             (let [obj-data (PyObject. (Pointer. pyobj-value))]
+                               (log-info (format "releasing object - 0x%x:%4d:%s"
+                                                 pyobj-value
+                                                 (.ob_refcnt obj-data)
+                                                 py-type-name))))
                            (libpy/Py_DecRef (Pointer. pyobj-value))
                            (catch Throwable e
                              (log-error "Exception while releasing object: %s" e))))
@@ -106,26 +156,39 @@
   (libpy/Py_NotImplemented))
 
 
+;; Now we can completely implement ->python
+(defn ->python
+  "Completely convert a jvm object to a python copy."
+  [item & [options]]
+  (if item
+    (py-proto/->python item options)
+    (py-none)))
+
+
 (defn py-raw-type
   ^Pointer [pyobj]
-  (let [pyobj (->pyobject pyobj)]
+  (let [pyobj (PyObject. (jna/as-ptr pyobj))]
     (.ob_type pyobj)))
 
 
-(defn py-type-keyword
-  [pyobj]
-  (with-gil
+(extend-protocol py-proto/PPythonType
+  Pointer
+  (get-python-type [pyobj]
+    (with-gil
     (-> pyobj
         py-raw-type
         pyinterp/py-type-keyword)))
+  PyObject
+  (get-python-type [item]
+    (py-proto/get-python-type (.getPointer item))))
 
 
 (defn py-string->string
   ^String [pyobj]
   (with-gil
-    (when-not (= :str (py-type-keyword pyobj))
+    (when-not (= :str (python-type pyobj))
       (throw (ex-info (format "Object passed in is not a string: %s"
-                              (py-type-keyword pyobj))
+                              (python-type pyobj))
                       {})))
     (let [size-obj (jna/size-t-ref)
           ^Pointer str-ptr (libpy/PyUnicode_AsUTF8AndSize pyobj size-obj)
@@ -134,10 +197,10 @@
           (.toString)))))
 
 
-(defn pyobj->string
+(defn py-str
   ^String [pyobj]
   (with-gil
-    (let [py-str (if (= :str (py-type-keyword pyobj))
+    (let [py-str (if (= :str (python-type pyobj))
                    pyobj
                    (-> (libpy/PyObject_Str pyobj)
                        wrap-pyobject))]
@@ -147,15 +210,9 @@
 (defn py-dir
   [pyobj]
   (with-gil
-    (let [item-dir (libpy/PyObject_Dir pyobj)]
-      (->> (range (libpy/PyObject_Length item-dir))
-           (mapv (fn [idx]
-                   (-> (libpy/PyObject_GetItem item-dir
-                                               (libpy/PyLong_FromLong idx))
-                       pyobj->string)))))))
-
-
-(declare copy-to-python)
+    (-> (libpy/PyObject_Dir pyobj)
+        wrap-pyobject
+        (py-proto/->jvm {}))))
 
 
 (defn ->py-long
@@ -186,8 +243,8 @@
   (with-gil
     (let [dict (libpy/PyDict_New)]
       (doseq [[k v] item]
-        (libpy/PyDict_SetItem dict (copy-to-python k)
-                              (copy-to-python v)))
+        (libpy/PyDict_SetItem dict (->python k)
+                              (->python v)))
       (wrap-pyobject
        dict))))
 
@@ -201,7 +258,7 @@
                           (libpy/PyList_SetItem
                            retval
                            idx
-                           (let [new-val (copy-to-python item)]
+                           (let [new-val (->python item)]
                              (libpy/Py_IncRef new-val)
                              new-val))))
            dorun)
@@ -218,59 +275,281 @@
                           (libpy/PyTuple_SetItem
                            new-tuple
                            idx
-                           (let [new-val (copy-to-python item)]
+                           (let [new-val (->python item)]
                              (libpy/Py_IncRef new-val)
                              new-val))))
            dorun)
       (wrap-pyobject new-tuple))))
 
 
-(defn copy-to-python
+(defn ->py-set
   [item]
-  (cond
-    (integer? item)
-    (->py-long item)
-    (number? item)
-    (->py-float item)
-    (boolean? item)
-    (if item
-      (libpy/Py_True)
-      (libpy/Py_False))
-    (string? item)
-    (->py-string item)
-    (keyword? item)
-    (copy-to-python (name item))
-    (or (instance? Map item)
-        (map? item))
-    (->py-dict item)
-    (or (instance? RandomAccess item)
-        (instance? Iterable item))
-    (if (and (< (count item) 4)
-             (vector? item))
-      (->py-tuple item)
-      (->py-list item))
-    :else
-    (libpy-base/->py-object-ptr item)))
+  (with-gil
+    (-> (libpy/PySet_New (->py-list item))
+        wrap-pyobject)))
+
 
 
 (extend-protocol libpy-base/PToPyObjectPtr
   Number
   (convertible-to-pyobject-ptr? [item] true)
   (->py-object-ptr [item]
-    (with-gil nil
-      (copy-to-python item)))
+    (with-gil
+      (->python item)))
   String
   (convertible-to-pyobject-ptr? [item] true)
   (->py-object-ptr [item]
-    (with-gil nil
-      (copy-to-python item)))
+    (with-gil
+      (->python item)))
   ;;The container classes are mirrored into python, not copied.
   ;;so no entries here for map, list, etc.
   )
 
 
+(defn ->py-nd-array [buffer-descriptor options]
+  (throw (ex-info "Not implemented at the moment" {})))
 
-(declare copy-to-jvm has-attr? get-attr)
+
+;; Chosen by fair dice roll, the item cutoff decides how many items
+;; a persistent vector should have in it before it is considered a list
+;; instead of a tuple.  If you know something should always be a tuple, then
+;; call ->py-tuple explicitly.
+(def ^:dynamic *item-tuple-cutoff* 8)
+
+
+(extend-protocol py-proto/PCopyToPython
+  Number
+  (->python [item options]
+    (if (integer? item)
+      (->py-long item)
+      (->py-float item)))
+  String
+  (->python [item options]
+    (->py-string item))
+  Symbol
+  (->python [item options]
+    (->py-string (name item)))
+  Keyword
+  (->python [item optins]
+    (->py-string (name item)))
+  Boolean
+  (->python [item options]
+    (if item
+      (py-true)
+      (py-false)))
+  IPersistentMap
+  (->python [item options]
+    (->py-dict item))
+  Map
+  (->python [item options]
+    (->py-dict item))
+  Map$Entry
+  (->python [item options]
+    (->py-tuple [(.getKey item) (.getValue item)]))
+  Set
+  (->python [item options]
+    (->py-set item))
+  IPersistentSet
+  (->python [item options]
+    (->py-set item))
+  RandomAccess
+  (->python [item options]
+    (->py-list item))
+  IPersistentVector
+  (->python [item options]
+    ;;Number chosen by fair dice roll
+    (if (< (count item) (long *item-tuple-cutoff*) 8)
+      (->py-tuple item)
+      (->py-list item)))
+  Iterable
+  (->python [item options]
+    (->py-list item))
+  Pointer
+  (->python [item options] item)
+  PyObject
+  (->python [item options] (.getPointer item))
+  Object
+  (->python [item options]
+    ;;This pathway covers the vast majority of all numeric types.
+    (if (casting/numeric-type? (dtype/get-datatype item))
+      (-> (dtt/ensure-buffer-descriptor item)
+          (->py-nd-array options))
+      ;;And some things may be left over and will get converted as linear lists.
+      (if-let [item-reader (dtype/->reader item)]
+        (->py-list item-reader)
+        ;;Out of sane options at the moment.
+        (throw (ex-info (format "Unable to convert java object to python: %s"
+                                (str item))
+                        {}))))))
+
+
+(extend-protocol py-proto/PPythonType
+  Number
+  (get-python-type [item]
+    (if (integer? item)
+      :int
+      :float))
+  Boolean
+  (get-python-type [item] :bool)
+  String
+  (get-python-type [item] :str)
+  Symbol
+  (get-python-type [item] :str)
+  Keyword
+  (get-python-type [item] :str)
+  Map
+  (get-python-type [item] :dict)
+  IPersistentMap
+  (get-python-type [item] :dict)
+  Map$Entry
+  (get-python-type [item] :tuple)
+  Set
+  (get-python-type [item] :set)
+  IPersistentSet
+  (get-python-type [item] :set)
+  IPersistentVector
+  (get-python-type [item]
+    ;; fair dice roll
+    (if (< (count item) (long *item-tuple-cutoff*))
+      :tuple
+      :list))
+  RandomAccess
+  (get-python-type [item] :list)
+  Iterable
+  (get-python-type [item] :list)
+  Object
+  (get-python-type [item]
+    (if (casting/numeric-type? (dtype/get-datatype item))
+      :nd-array
+      (if (dtype-proto/convertible-to-reader? item)
+        :list
+        :unknown-type))))
+
+
+(defn stringable?
+  [item]
+  (or (keyword? item)
+      (string? item)
+      (symbol? item)))
+
+
+(defn stringable
+  ^String [item]
+  (when (stringable? item)
+    (if (string? item)
+      item
+      (name item))))
+
+
+(defn has-attr?
+  [pyobj attr-name]
+  (with-gil
+    (= 1
+       (if (stringable? attr-name)
+         (libpy/PyObject_HasAttrString pyobj (stringable attr-name))
+         (libpy/PyObject_HasAttr pyobj (->python attr-name))))))
+
+
+(defn get-attr
+  [pyobj attr-name]
+  (with-gil
+    (-> (if (stringable? attr-name)
+          (libpy/PyObject_GetAttrString pyobj (stringable attr-name))
+          (libpy/PyObject_GetAttr pyobj (->python attr-name)))
+        wrap-pyobject)))
+
+
+(defn set-attr!
+  [pyobj attr-name attr-value]
+  (with-gil
+    (let [py-value (->python attr-value)]
+      (if (stringable? attr-name)
+        (libpy/PyObject_SetAttrString pyobj
+                                      (stringable attr-name)
+                                      py-value)
+        (libpy/PyObject_SetAttr pyobj
+                                (->python attr-name)
+                                py-value)))
+    pyobj))
+
+
+(defn obj-has-item?
+  [elem elem-name]
+  (with-gil
+    (= 1
+       (if (stringable? elem-name)
+         (libpy/PyMapping_HasKeyString elem (stringable elem-name))
+         (libpy/PyMapping_HasKey elem (->python elem-name))))))
+
+
+(defn obj-get-item
+  [elem elem-name]
+  (with-gil
+    (-> (libpy/PyObject_GetItem elem (->python elem-name))
+        wrap-pyobject)))
+
+
+(defn obj-set-item!
+  [elem elem-name elem-value]
+  (with-gil
+    (let [py-value (->python elem-value)]
+      (libpy/PyObject_SetItem elem
+                              (->python elem-name)
+                              (->python elem-value)))
+    elem))
+
+
+(extend-protocol py-proto/PPyObject
+  Pointer
+  (dir [item]
+    (py-dir item))
+  (has-attr? [item name] (has-attr? item name))
+  (attr [item name] (get-attr item name))
+  (callable? [item] (= 1 (libpy/PyCallable_Check item)))
+  (has-item? [item item-name] (obj-has-item? item item-name))
+  (item [item item-name] (obj-get-item item item-name))
+  (set-item! [item item-name item-value]
+    (obj-set-item! item item-name item-value))
+  PyObject
+  (dir [item] (py-proto/dir (.getPointer item)))
+  (has-attr? [item item-name] (py-proto/has-attr? (.getPointer item) item-name))
+  (attr [item item-name] (py-proto/attr (.getPointer item) item-name))
+  (callable? [item] (py-proto/callable? (.getPointer item)))
+  (has-item? [item item-name] (py-proto/has-item? (.getPointer item) item-name))
+  (item [item item-name] (py-proto/item (.getPointer item) item-name))
+  (set-item! [item item-name item-value] (py-proto/set-item! (.getPointer item) item-name
+                                                             item-value)))
+
+
+(extend-protocol py-proto/PyCall
+  Pointer
+  (do-call-fn [callable arglist kw-arg-map]
+    (with-gil nil
+      (-> (cond
+            (seq kw-arg-map)
+            (libpy/PyObject_Call callable (->py-tuple arglist) (->py-dict kw-arg-map))
+            (seq arglist)
+            (libpy/PyObject_CallObject callable (->py-tuple arglist))
+            :else
+            (libpy/PyObject_CallObject callable nil))
+          wrap-pyobject)))
+  PyObject
+  (do-call-fn [callable arglist kw-arg-map]
+    (py-proto/do-call-fn (.getPointer callable) arglist kw-arg-map)))
+
+
+(extend-protocol py-proto/PPyObjLength
+  Pointer
+  (len [item]
+    (libpy/PyObject_Length item))
+  PyObject
+  (len [item]
+    (py-proto/len (.getPointer item))))
+
+
+(defn- copy-to-jvm
+  [item]
+  (py-proto/->jvm item {}))
 
 
 (defn python->jvm-copy-hashmap
@@ -278,9 +557,9 @@
   (with-gil nil
     (when-not (= 1 (libpy/PyMapping_Check pyobj))
       (throw (ex-info (format "Object does not implement the mapping protocol: %s"
-                              (py-type-keyword pyobj)))))
+                              (python-type pyobj)))))
     (->> (or map-items
-             (-> (libpy/PyMapping_Items pyobj))
+             (libpy/PyMapping_Items pyobj)
              wrap-pyobject)
          copy-to-jvm
          (into {}))))
@@ -291,7 +570,7 @@
   (with-gil nil
     (when-not (= 1 (libpy/PySequence_Check pyobj))
       (throw (ex-info (format "Object does not implement sequence protocol: %s"
-                              (py-type-keyword pyobj)))))
+                              (python-type pyobj)))))
 
     (->> (range (libpy/PySequence_Length pyobj))
          (mapv (fn [idx]
@@ -301,12 +580,14 @@
 
 
 (defn python->jvm-iterable
-  "Create an iterable that auto-copies what it iterates completely into the jvm."
+  "Create an iterable that auto-copies what it iterates completely into the jvm.  It
+  maintains a reference to the python object, however, so this method isn't necessarily
+  safe."
   [pyobj & [item-conversion-fn]]
   (with-gil nil
     (when-not (has-attr? pyobj "__iter__")
       (throw (ex-info (format "object is not iterable: %s"
-                              (py-type-keyword pyobj))
+                              (python-type pyobj))
                       {})))
     (let [item-conversion-fn (or item-conversion-fn copy-to-jvm)
           iter-callable (get-attr pyobj "__iter__")
@@ -339,107 +620,85 @@
                 @cur-item-store))))))))
 
 
-(defn copy-to-jvm
+(defmethod pyobject->jvm :int
   [pyobj]
   (with-gil nil
-    (case (py-type-keyword pyobj)
-      :int
-      (libpy/PyLong_AsLongLong pyobj)
-      :float
-      (libpy/PyFloat_AsDouble pyobj)
-      :str
-      (py-string->string pyobj)
-      :none-type
-      nil
-      :tuple
-      (python->jvm-copy-persistent-vector pyobj)
-      :list
-      (python->jvm-copy-persistent-vector pyobj)
-      :dict
-      (python->jvm-copy-hashmap pyobj)
-      (cond
-        ;;Things could implement mapping and sequence logically so mapping
-        ;;takes precedence
-        (= 1 (libpy/PyMapping_Check pyobj))
-        (if-let [map-items (try (-> (libpy/PyMapping_Items pyobj)
-                                    wrap-pyobject)
-                                (catch Throwable e nil))]
-          (python->jvm-copy-hashmap pyobj map-items)
-          (do
-            ;;Ignore error.  The mapping check isn't thorough enough to work.
-            (libpy/PyErr_Clear)
-            (python->jvm-copy-persistent-vector pyobj)))
-        ;;Sequences become persistent vectors
-        (= 1 (libpy/PySequence_Check pyobj))
-        (python->jvm-copy-persistent-vector)
-        (has-attr? pyobj "__iter__")
-        (python->jvm-iterable pyobj copy-to-jvm)
-        :else
-        {:type (py-type-keyword pyobj)
-         :value pyobj}))))
+    (libpy/PyLong_AsLongLong pyobj)))
 
 
-(defn stringable?
-  [item]
-  (or (keyword? item)
-      (string? item)
-      (symbol? item)))
-
-
-(defn stringable
-  ^String [item]
-  (when (stringable? item)
-    (if (string? item)
-      item
-      (name item))))
-
-
-(defn has-attr?
-  [pyobj attr-name]
+(defmethod pyobject->jvm :float
+  [pyobj]
   (with-gil nil
-    (= 1
-       (if (stringable? attr-name)
-         (libpy/PyObject_HasAttrString pyobj (stringable attr-name))
-         (libpy/PyObject_HasAttr pyobj (copy-to-python attr-name))))))
+    (libpy/PyFloat_AsDouble pyobj)))
 
 
-(defn get-attr
-  [pyobj attr-name]
+(defmethod pyobject->jvm :none-type
+  [pyobj]
+  nil)
+
+
+(defmethod pyobject->jvm :str
+  [pyobj]
   (with-gil nil
-    (if (stringable? attr-name)
-      (wrap-pyobject (libpy/PyObject_GetAttrString pyobj (stringable attr-name)))
-      (wrap-pyobject (libpy/PyObject_GetAttr pyobj (copy-to-python attr-name))))))
+    (py-string->string pyobj)))
 
 
-(defn set-attr
-  [pyobj attr-name attr-value]
+(defn pyobj-true?
+  [pyobj]
   (with-gil nil
-    (if (stringable? attr-name)
-      (libpy/PyObject_SetAttrString pyobj (stringable attr-name) attr-value)
-      (libpy/PyObject_SetAttr pyobj attr-name attr-value))
-    pyobj))
+    (= 1 (libpy/PyObject_IsTrue pyobj))))
 
 
-(defn obj-has-item?
-  [elem elem-name]
-  (with-gil nil
-    (if (stringable? elem-name)
-      (libpy/PyMapping_HasKeyString elem (stringable elem-name))
-      (libpy/PyMapping_HasKey elem elem-name))))
+(defmethod pyobject->jvm :bool
+  [pyobj]
+  (pyobj-true? pyobj))
 
 
-(defn obj-get-item
-  [elem elem-name]
-  (with-gil nil
-    (if (stringable? elem-name)
-      (libpy/PyMapping_GetItemString elem (stringable elem-name))
-      (libpy/PyObject_GetItem elem elem-name))))
+(defmethod pyobject->jvm :tuple
+  [pyobj]
+  (python->jvm-copy-persistent-vector pyobj))
 
 
-(defn obj-set-item
-  [elem elem-name elem-value]
-  (with-gil nil
-    (if (stringable? elem-name)
-      (libpy/PyMapping_SetItemString elem (stringable elem-name) elem-value)
-      (libpy/PyObject_SetItem elem elem-name elem-value))
-    elem))
+(defmethod pyobject->jvm :list
+  [pyobj]
+  (python->jvm-copy-persistent-vector pyobj))
+
+
+(defmethod pyobject->jvm :dict
+  [pyobj]
+  (python->jvm-copy-hashmap pyobj))
+
+
+(defmethod pyobject->jvm :set
+  [pyobj]
+  (with-gil
+    (->> (python->jvm-iterable pyobj)
+         set)))
+
+
+(defmethod pyobject->jvm :default
+  [pyobj]
+  (cond
+    ;;Things could implement mapping and sequence logically so mapping
+    ;;takes precedence
+    (= 1 (libpy/PyMapping_Check pyobj))
+    (if-let [map-items (try (-> (libpy/PyMapping_Items pyobj)
+                                wrap-pyobject)
+                            (catch Throwable e nil))]
+      (python->jvm-copy-hashmap pyobj map-items)
+      (do
+        ;;Ignore error.  The mapping check isn't thorough enough to work.
+        (libpy/PyErr_Clear)
+        (python->jvm-copy-persistent-vector pyobj)))
+    ;;Sequences become persistent vectors
+    (= 1 (libpy/PySequence_Check pyobj))
+    (python->jvm-copy-persistent-vector)
+    :else
+    {:type (python-type pyobj)
+     :value (Pointer/nativeValue (jna/as-ptr pyobj))}))
+
+
+(defn ->jvm
+  "Copy an object into the jvm (if it wasn't there already.)"
+  [item & [options]]
+  (py-proto/->jvm item options))

@@ -31,7 +31,7 @@
    NULL to create a new empty set. Return the new set on success or NULL on
    failure. Raise TypeError if iterable is not actually iterable. The constructor is
    also useful for copying a set (c=set(s))."
-  PyObject
+  Pointer
   [iterable ensure-pyobj])
 
 
@@ -41,7 +41,7 @@
    Return a new frozenset containing objects returned by the iterable. The iterable may
    be NULL to create a new empty frozenset. Return the new set on success or NULL on
    failure. Raise TypeError if iterable is not actually iterable."
-  PyObject
+  Pointer
   [iterable ensure-pyobj])
 
 
@@ -83,7 +83,7 @@
    Return a new reference to an arbitrary object in the set, and removes the object from
    the set. Return NULL on failure. Raise KeyError if the set is empty. Raise a
    SystemError if set is not an instance of set or its subtype."
-  PyObject
+  Pointer
   [set ensure-pyobj])
 
 
