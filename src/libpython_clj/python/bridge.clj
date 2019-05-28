@@ -11,7 +11,8 @@
              [with-gil
               with-interpreter
               ensure-bound-interpreter
-              check-error-throw]]
+              check-error-throw]
+             :as pyinterp]
             [libpython-clj.python.object
              :refer
              [->jvm
@@ -129,41 +130,61 @@
 
 
 (defmacro bridge-pyobject
-  [pyobj & body]
-  `(reify
-     libpy-base/PToPyObjectPtr
-     (convertible-to-pyobject-ptr? [item#] true)
-     (->py-object-ptr [item#] (jna/as-ptr ~pyobj))
-     py-proto/PPythonType
-     (get-python-type [item] (py-proto/get-python-type ~pyobj))
-     py-proto/PCopyToPython
-     (->python [item# options#] ~pyobj)
-     py-proto/PBridgeToPython
-     (as-python [item# options#] ~pyobj)
-     py-proto/PCopyToJVM
-     (->jvm [item# options#] item#)
-     py-proto/PBridgeToJVM
-     (as-jvm [item# options#] item#)
-     py-proto/PPyObject
-     (dir [item#] (py-proto/dir ~pyobj))
-     (has-attr? [item# item-name#] (py-proto/has-attr? ~pyobj item-name#))
-     (attr [item# item-name#] (-> (py-proto/attr ~pyobj item-name#)
-                                  as-jvm))
-     (set-attr! [item# item-name# item-value#]
-       (py-proto/set-attr! ~pyobj item-name#
-                           (as-python item-value#)))
-     (callable? [item#] (py-proto/callable? ~pyobj))
-     (has-item? [item# item-name#] (py-proto/has-item? ~pyobj item-name#))
-     (item [item# item-name#] (-> (py-proto/item ~pyobj item-name#)
-                                   as-jvm))
-     (set-item! [item# item-name# item-value#]
-       (py-proto/set-item! ~pyobj item-name# (as-python item-value#)))
-     py-proto/PPyAttMap
-     (att-type-map [item#] (py-proto/att-type-map ~pyobj))
-     ~@body))
+  [pyobj interpreter & body]
+  `(let [pyobj# ~pyobj
+         interpreter# ~interpreter]
+     (reify
+       libpy-base/PToPyObjectPtr
+       (convertible-to-pyobject-ptr? [item#] true)
+       (->py-object-ptr [item#] (jna/as-ptr pyobj#))
+       py-proto/PPythonType
+       (get-python-type [item]
+         (with-interpreter interpreter#
+           (py-proto/get-python-type pyobj#)))
+       py-proto/PCopyToPython
+       (->python [item# options#] pyobj#)
+       py-proto/PBridgeToPython
+       (as-python [item# options#] pyobj#)
+       py-proto/PCopyToJVM
+       (->jvm [item# options#] item#)
+       py-proto/PBridgeToJVM
+       (as-jvm [item# options#] item#)
+       py-proto/PPyObject
+       (dir [item#]
+         (with-interpreter interpreter#
+           (py-proto/dir pyobj#)))
+       (has-attr? [item# item-name#]
+         (with-interpreter interpreter#
+           (py-proto/has-attr? pyobj# item-name#)))
+       (attr [item# item-name#]
+         (with-interpreter interpreter#
+           (-> (py-proto/attr pyobj# item-name#)
+               as-jvm)))
+       (set-attr! [item# item-name# item-value#]
+         (with-interpreter interpreter#
+           (py-proto/set-attr! pyobj# item-name#
+                               (as-python item-value#))))
+       (callable? [item#]
+         (with-interpreter interpreter#
+           (py-proto/callable? pyobj#)))
+       (has-item? [item# item-name#]
+         (with-interpreter interpreter#
+           (py-proto/has-item? pyobj# item-name#)))
+       (item [item# item-name#]
+         (with-interpreter interpreter#
+           (-> (py-proto/item pyobj# item-name#)
+               as-jvm)))
+       (set-item! [item# item-name# item-value#]
+         (with-interpreter interpreter#
+           (py-proto/set-item! pyobj# item-name# (as-python item-value#))))
+       py-proto/PPyAttMap
+       (att-type-map [item#]
+         (with-interpreter interpreter#
+           (py-proto/att-type-map pyobj#)))
+       ~@body)))
 
 
-(defn python-list->jvm
+(defn python-list-as-jvm
   [pyobj]
   (when-not (= :list (python-type pyobj))
     (throw (ex-info ("Object is not a list: %s" (python-type pyobj))
@@ -172,6 +193,7 @@
     (let [interpreter (ensure-bound-interpreter)]
       (bridge-pyobject
        pyobj
+       interpreter
        ObjectReader
        (lsize [reader]
               (with-interpreter interpreter
@@ -205,10 +227,10 @@
 
 (defmethod pyobject-as-jvm :list
   [pyobj]
-  (python-list->jvm pyobj))
+  (python-list-as-jvm pyobj))
 
 
-(defn python-tuple->jvm
+(defn python-tuple-as-jvm
   [pyobj]
   (when-not (= :tuple (python-type pyobj))
     (throw (ex-info ("Object is not a tuple: %s" (python-type pyobj))
@@ -218,7 +240,7 @@
           n-elems (libpy/PyObject_Length pyobj)]
       (bridge-pyobject
        pyobj
-
+       interpreter
        ObjectReader
        (lsize [reader] n-elems)
        (read [reader idx]
@@ -226,6 +248,11 @@
                (-> (libpy/PyTuple_GetItem pyobj idx)
                    incref-wrap-pyobject
                    as-jvm)))))))
+
+
+(defmethod pyobject-as-jvm :tuple
+  [pyobj]
+  (python-tuple-as-jvm pyobj))
 
 
 (defn check-pybool-return
@@ -252,21 +279,21 @@
 
 (defn- set-dict-item
   [pyobj obj-key obj-val]
-  (let [obj-val (jvm->python obj-val)]
-    (let [obj-key (jvm->python obj-key)]
-      (libpy/PyDict_SetItem pyobj obj-key obj-val))))
+  (let [obj-val (as-python obj-val)
+        obj-key (as-python obj-key)]
+    (libpy/PyDict_SetItem pyobj obj-key obj-val)))
 
 
 (defn- remove-dict-item
   [pyobj k]
-  (libpy/PyDict_DelItem pyobj (jvm->python k)))
+  (libpy/PyDict_DelItem pyobj (as-python k)))
 
 
 (defn- dict-mapentry-items
   ^Iterable [pyobj]
   (->> (libpy/PyDict_Items pyobj)
        (wrap-pyobject)
-       (python->jvm)
+       (as-jvm)
        (map (fn [[k v :as tuple]]
               (reify Map$Entry
                 (getKey [this] k)
@@ -276,7 +303,7 @@
                   (.equals ^Object tuple o)))))))
 
 
-(defn python-dict->jvm
+(defn python-dict-as-jvm
   [pyobj]
   (with-gil
     (when-not (= :dict (python-type pyobj))
@@ -284,82 +311,90 @@
                       {})))
     ;;This is going to be a motherfucker to get right thanks to the way instain mother of
     ;;the java map interface.
-    (let [n-elems (libpy/PyDict_Size pyobj)
-          interpreter (ensure-bound-interpreter)]
+    (let [interpreter (ensure-bound-interpreter)]
+      (bridge-pyobject
+       pyobj
+       interpreter
+       Map
+       (clear [this]
+              (with-interpreter interpreter
+                (libpy/PyDict_Clear pyobj)))
+       (containsKey [this obj-key]
+                    (with-interpreter interpreter
+                      (->> (as-python obj-key)
+                           (libpy/PyDict_Contains pyobj)
+                           check-pybool-return
+                           boolean)))
+       (entrySet [this]
+                 (with-interpreter interpreter
+                   (->> (dict-mapentry-items pyobj)
+                        set)))
+       (get [this obj-key]
+            (with-interpreter interpreter
+              (->> (get-dict-item pyobj obj-key)
+                   (checknil "Failed to get item from dictionary")
+                   (incref-wrap-pyobject)
+                   (as-jvm))))
+       (getOrDefault [this obj-key obj-default-value]
+                     (with-interpreter interpreter
+                       (->> (get-dict-item pyobj obj-key)
+                            (#(fn [dict-value]
+                                (if dict-value
+                                  (-> dict-value
+                                      (incref-wrap-pyobject)
+                                      (as-jvm))
+                                  obj-default-value))))))
+       (isEmpty [this]
+                (with-interpreter interpreter
+                  (= (libpy/PyDict_Size pyobj) 0)))
 
-      (reify
-        jna/PToPtr
-        (is-jna-ptr-convertible? [item] true)
-        (->ptr-backing-store [item] pyobj)
+       (keySet [this]
+               (with-interpreter interpreter
+                 (-> (libpy/PyDict_Keys pyobj)
+                     wrap-pyobject
+                     (python->jvm-iterable as-jvm)
+                     set)))
 
-        ;;oh fuck...
-        Map
-        (clear [this]
-          (with-interpreter interpreter
-            (libpy/PyDict_Clear pyobj)))
-        (containsKey [this obj-key]
-          (with-interpreter interpreter
-            (->> (jvm->python obj-key)
-                 (libpy/PyDict_Contains pyobj)
-                 check-pybool-return
-                 boolean)))
-        (entrySet [this]
-          (with-interpreter interpreter
-            (->> (dict-mapentry-items pyobj)
-                 set)))
-        (get [this obj-key]
-          (with-interpreter interpreter
-            (->> (get-dict-item pyobj obj-key)
-                 (checknil "Failed to get item from dictionary")
-                 (incref-wrap-pyobject)
-                 (python->jvm))))
-        (getOrDefault [this obj-key obj-default-value]
-          (with-interpreter interpreter
-            (->> (get-dict-item pyobj obj-key)
-                 (#(fn [dict-value]
-                     (if dict-value
-                       (-> dict-value
-                           (incref-wrap-pyobject)
-                           (python->jvm))
-                       obj-default-value))))))
-        (isEmpty [this]
-          (with-interpreter interpreter
-            (= (libpy/PyDict_Size pyobj) 0)))
-
-        (keySet [this]
-          (with-interpreter interpreter
-            (-> (libpy/PyDict_Keys pyobj)
-                wrap-pyobject
-                (python->jvm-iterable python->jvm)
-                set)))
-
-        (put [this k v]
-          (with-interpreter interpreter
-            (-> (set-dict-item pyobj k v)
-                check-pybool-return)
-            v))
-
-        (remove [this k]
-          (with-interpreter interpreter
-            (when-let [existing (get-dict-item pyobj k)]
-              (-> (remove-dict-item pyobj k)
+       (put [this k v]
+            (with-interpreter interpreter
+              (-> (set-dict-item pyobj k v)
                   check-pybool-return)
-              existing)))
+              v))
 
-        (size [this]
-          (with-interpreter interpreter
-            (libpy/PyDict_Size pyobj)))
+       (remove [this k]
+               (with-interpreter interpreter
+                 (when-let [existing (get-dict-item pyobj k)]
+                   (-> (remove-dict-item pyobj k)
+                       check-pybool-return)
+                   existing)))
 
-        (values [this]
-          (with-interpreter interpreter
-            (-> (libpy/PyDict_Values pyobj)
-                wrap-pyobject
-                python->jvm)))
-        Iterable
-        (iterator [this]
-          (with-interpreter interpreter
-            (-> (dict-mapentry-items pyobj)
-                (.iterator))))))))
+       (size [this]
+             (with-interpreter interpreter
+               (libpy/PyDict_Size pyobj)))
+
+       (values [this]
+               (with-interpreter interpreter
+                 (-> (libpy/PyDict_Values pyobj)
+                     wrap-pyobject
+                     as-jvm)))
+       Iterable
+       (iterator [this]
+                 (with-interpreter interpreter
+                   (-> (dict-mapentry-items pyobj)
+                       (.iterator))))
+       IFn
+       (invoke [this arg] (.get this arg))
+       (invoke [this k v] (.put this k v))
+       (applyTo [this arglist]
+                (let [arglist (vec arglist)]
+                  (case (count arglist)
+                    1 (.get this (first arglist))
+                    2 (.put this (first arglist) (second arglist)))))))))
+
+
+(defmethod pyobject-as-jvm :dict
+  [pyobj]
+  (python-dict-as-jvm pyobj))
 
 
 (defn python-bridge->jvm
@@ -374,65 +409,64 @@
   [pyobj]
   (with-gil
     (let [interpreter (ensure-bound-interpreter)]
-      (reify
-        jna/PToPtr
-        (is-jna-ptr-convertible? [item] true)
-        (->ptr-backing-store [item] pyobj)
+      (bridge-pyobject
+       pyobj
+       interpreter
+       IFn
+       ;;uggh
+       (invoke [this]
+               (with-interpreter interpreter
+                 (-> (libpy/PyObject_CallObject pyobj nil)
+                     wrap-pyobject
+                     as-jvm)))
 
-        IFn
-        ;;uggh
-        (invoke [this]
-          (with-interpreter interpreter
-            (-> (libpy/PyObject_CallObject pyobj nil)
-                wrap-pyobject
-                python->jvm)))
+       (invoke [this arg0]
+               (with-interpreter interpreter
+                 (-> (libpy/PyObject_CallObject pyobj (->py-tuple [arg0]))
+                     wrap-pyobject
+                     as-jvm)))
 
-        (invoke [this arg0]
-          (with-interpreter interpreter
-            (-> (libpy/PyObject_CallObject pyobj (->py-tuple [arg0]))
-                wrap-pyobject
-                python->jvm)))
+       (invoke [this arg0 arg1]
+               (with-interpreter interpreter
+                 (-> (libpy/PyObject_CallObject pyobj (->py-tuple [arg0 arg1]))
+                     wrap-pyobject
+                     as-jvm)))
 
-        (invoke [this arg0 arg1]
-          (with-interpreter interpreter
-            (-> (libpy/PyObject_CallObject pyobj (->py-tuple [arg0 arg1]))
-                wrap-pyobject
-                python->jvm)))
+       (invoke [this arg0 arg1 arg2]
+               (with-interpreter interpreter
+                 (-> (libpy/PyObject_CallObject pyobj (->py-tuple [arg0 arg1 arg2]))
+                     wrap-pyobject
+                     as-jvm)))
 
-        (invoke [this arg0 arg1 arg2]
-          (with-interpreter interpreter
-            (-> (libpy/PyObject_CallObject pyobj (->py-tuple [arg0 arg1 arg2]))
-                wrap-pyobject
-                python->jvm)))
-
-        (invoke [this arg0 arg1 arg2 arg3]
-          (with-interpreter interpreter
-            (-> (libpy/PyObject_CallObject pyobj (->py-tuple [arg0 arg1 arg2 arg3]))
-                wrap-pyobject
-                python->jvm)))
+       (invoke [this arg0 arg1 arg2 arg3]
+               (with-interpreter interpreter
+                 (-> (libpy/PyObject_CallObject pyobj (->py-tuple [arg0 arg1 arg2 arg3]))
+                     wrap-pyobject
+                     as-jvm)))
 
 
-        (invoke [this arg0 arg1 arg2 arg3 arg4]
-          (with-interpreter interpreter
-            (-> (libpy/PyObject_CallObject pyobj (->py-tuple [arg0 arg1 arg2 arg3 arg4]))
-                wrap-pyobject
-                python->jvm)))
+       (invoke [this arg0 arg1 arg2 arg3 arg4]
+               (with-interpreter interpreter
+                 (-> (libpy/PyObject_CallObject
+                      pyobj (->py-tuple [arg0 arg1 arg2 arg3 arg4]))
+                     wrap-pyobject
+                     as-jvm)))
 
-        (applyTo [this arglist]
-          (with-interpreter interpreter
-            (-> (libpy/PyObject_CallObject pyobj (->py-tuple arglist))
-                wrap-pyobject
-                python->jvm)))
-        PyFunction
-        (invokeKeyWords [this tuple-args keyword-args]
-          (-> (libpy/PyObject_Call pyobj
-                                   (->py-tuple tuple-args)
-                                   (->py-dict keyword-args))
-              wrap-pyobject
-              python->jvm))))))
+       (applyTo [this arglist]
+                (with-interpreter interpreter
+                  (-> (libpy/PyObject_CallObject pyobj (->py-tuple arglist))
+                      wrap-pyobject
+                      as-jvm)))
+       PyFunction
+       (invokeKeyWords [this tuple-args keyword-args]
+                       (-> (libpy/PyObject_Call pyobj
+                                                (->py-tuple tuple-args)
+                                                (->py-dict keyword-args))
+                           wrap-pyobject
+                           as-jvm))))))
 
 
-(defn python-iterable->jvm
+(defn python-iterable-as-jvm
   [pyobj]
   (python->jvm-iterable pyobj python->jvm))
 
@@ -451,16 +485,14 @@
                     (.equals ^Object tuple o))))))))
 
 
-(defn generic-python->jvm
+(defn generic-python-as-jvm
   "Given a generic pyobject, wrap it in a read-only map interface
   where the keys are the attributes."
   [pyobj]
   (with-gil nil
     (if (= :none-type (python-type pyobj))
       nil
-      (let [interpreter (ensure-bound-interpreter)
-            key-set (->> (py-dir pyobj)
-                         set)]
+      (let [interpreter (ensure-bound-interpreter)]
         (reify
           jna/PToPtr
           (is-jna-ptr-convertible? [item] true)

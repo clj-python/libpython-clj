@@ -450,11 +450,9 @@
     (->py-set item))
   RandomAccess
   (->python [item options]
-    (->py-list item))
-  IPersistentVector
-  (->python [item options]
-    ;;Number chosen by fair dice roll
-    (if (< (count item) (long *item-tuple-cutoff*) 8)
+    (println "rand-access")
+    (if (and (instance? IPersistentVector item)
+             (< (count item) (long *item-tuple-cutoff*)))
       (->py-tuple item)
       (->py-list item)))
   Iterable
