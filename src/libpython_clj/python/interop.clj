@@ -80,6 +80,13 @@
         incref-wrap-pyobject)))
 
 
+(defn module-dict
+  [module]
+  (with-gil
+    (-> (libpy/PyModule_GetDict module)
+        incref-wrap-pyobject)))
+
+
 (defn run-simple-string
   "Run a simple string returning boolean 1 or 0.
   Implemented in cpython as:

@@ -53,6 +53,7 @@
 (export-symbols libpython-clj.python.interop
                 import-module
                 add-module
+                module-dict
                 run-simple-string
                 run-string
                 libpython-clj-module-name)
