@@ -674,6 +674,30 @@
                      ->jvm))))))
 
 
+(defn python->jvm-iterator
+ [iter-fn item-conversion-fn]
+ (with-gil nil
+   (let [interpreter (ensure-bound-interpreter)]
+     (let [py-iter (py-proto/call iter-fn)
+           next-fn (fn [last-item]
+                     (with-interpreter interpreter
+                       (when-let [next-obj (libpy/PyIter_Next py-iter)]
+                         (-> next-obj
+                             (wrap-pyobject)
+                             item-conversion-fn))))
+           cur-item-store (atom (next-fn nil))]
+       (reify ObjectIter
+         jna/PToPtr
+         (is-jna-ptr-convertible? [item] true)
+         (->ptr-backing-store [item] py-iter)
+         (hasNext [obj-iter] (boolean @cur-item-store))
+         (next [obj-iter]
+           (-> (swap-vals! cur-item-store next-fn)
+               first))
+         (current [obj-iter]
+           @cur-item-store))))))
+
+
 (defn python->jvm-iterable
   "Create an iterable that auto-copies what it iterates completely into the jvm.  It
   maintains a reference to the python object, however, so this method isn't necessarily
@@ -693,26 +717,7 @@
         (->ptr-backing-store [item] pyobj)
         Iterable
         (iterator [item]
-          (let [py-iter (with-interpreter interpreter
-                          (-> (libpy/PyObject_CallObject iter-callable nil)
-                              wrap-pyobject))
-                next-fn (fn [last-item]
-                          (with-interpreter interpreter
-                            (when-let [next-obj (libpy/PyIter_Next py-iter)]
-                              (-> next-obj
-                                  (wrap-pyobject)
-                                  item-conversion-fn))))
-                cur-item-store (atom (next-fn nil))]
-            (reify ObjectIter
-              jna/PToPtr
-              (is-jna-ptr-convertible? [item] true)
-              (->ptr-backing-store [item] py-iter)
-              (hasNext [obj-iter] (boolean @cur-item-store))
-              (next [obj-iter]
-                (-> (swap-vals! cur-item-store next-fn)
-                    first))
-              (current [obj-iter]
-                @cur-item-store))))))))
+          (python->jvm-iterator iter-callable item-conversion-fn))))))
 
 
 (defmethod pyobject->jvm :int

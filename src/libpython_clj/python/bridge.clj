@@ -11,7 +11,8 @@
              [with-gil
               with-interpreter
               ensure-bound-interpreter
-              check-error-throw]
+              check-error-throw
+              initialize!]
              :as pyinterp]
             [libpython-clj.python.object
              :refer
@@ -23,6 +24,7 @@
               incref-wrap-pyobject
               wrap-pyobject
               python->jvm-iterable
+              python->jvm-iterator
               py-none
               ->py-list
               ->py-tuple
@@ -32,13 +34,15 @@
             [libpython-clj.python.interop :as pyinterop
              :refer
              [expose-bridge-to-python!
-              pybridge->bridge]]
+              pybridge->bridge
+              create-bridge-from-att-map]]
             [clojure.stacktrace :as st]
             [tech.jna :as jna])
   (:import [java.util Map RandomAccess List Map$Entry Iterator]
-           [clojure.lang IFn]
+           [clojure.lang IFn Symbol Keyword Seqable
+            Fn]
            [tech.v2.datatype ObjectReader ObjectWriter ObjectMutable
-            ObjectIter]
+            ObjectIter MutableRemove]
            [com.sun.jna Pointer]
            [libpython_clj.jna JVMBridge
             CFunction$KeyWordFunction
@@ -82,7 +86,10 @@
 
 
 (defn as-jvm
-  "Bridge a python object into the jvm"
+  "Bridge a python object into the jvm.  Attempts to build a jvm bridge that 'hides' the
+  python type.  This bridge is lazy and noncaching so use it wisely; it may be better to
+  just copy the type once into the JVM.  Bridging is recursive so any subtypes are also
+  bridged if possible or represented by a hashmap of {:type :value} if not."
   [item & [options]]
   (if (or (not item)
           (= :none-type (python-type item)))
@@ -181,78 +188,158 @@
        (att-type-map [item#]
          (with-interpreter interpreter#
            (py-proto/att-type-map pyobj#)))
+       py-proto/PyCall
+       (do-call-fn [callable# arglist# kw-arg-map#]
+         (-> (py-proto/do-call-fn pyobj# arglist# kw-arg-map#)
+             (as-jvm)))
        ~@body)))
 
 
-(defn python-list-as-jvm
+(defn as-tuple
+  [item-seq]
+  (->> (map as-python item-seq)
+       (->py-tuple)))
+
+
+(defn as-dict
+  [map-data]
+  (->> map-data
+       (map (fn [[k v]]
+              [(as-python k) (as-python v)]))
+       (->py-dict)))
+
+
+(defn- py-impl-call-as
+  [att-name att-map arglist]
+  (if-let [py-fn (get att-map att-name)]
+    (-> (py-proto/do-call-fn py-fn (map as-python arglist) nil)
+        as-jvm)
+    (throw (UnsupportedOperationException.
+            (format "Python object has no attribute: %s"
+                    att-name)))))
+
+
+(defn generic-python-as-map
   [pyobj]
-  (when-not (= :list (python-type pyobj))
-    (throw (ex-info ("Object is not a list: %s" (python-type pyobj))
-                    {})))
   (with-gil
-    (let [interpreter (ensure-bound-interpreter)]
+    (let [interpreter (ensure-bound-interpreter)
+          dict-atts #{"__len__" "__getitem__" "__setitem__" "__iter__" "__contains__"
+                      "__eq__" "__hash__" "clear" "keys" "values"
+                      "__delitem__"}
+          dict-att-map (->> (py-proto/dir pyobj)
+                            (filter dict-atts)
+                            (map (juxt identity (partial py-proto/attr pyobj)))
+                            (into {}))
+          py-call (fn [fn-name & args]
+                    (with-interpreter interpreter
+                      (py-impl-call-as fn-name dict-att-map args)))]
+
+      (bridge-pyobject
+       pyobj
+       interpreter
+       Map
+       (clear [item] (py-call "clear"))
+       (containsKey [item k] (boolean (py-call "__contains__" k)))
+       (entrySet
+        [this]
+        (->> (.iterator this)
+             iterator-seq
+             set))
+       (get [this obj-key]
+            (py-call "__getitem__" obj-key))
+       (getOrDefault [item obj-key obj-default-value]
+                     (if (.containsKey item obj-key)
+                       (.get item obj-key)
+                       obj-default-value))
+       (isEmpty [this] (= 0 (.size this)))
+       (keySet [this] (->> (py-call "keys")
+                           set))
+       (put [this k v]
+            (py-call "__setitem__" k v))
+
+       (remove [this k]
+               (py-call "__delitem__" k))
+
+       (size [this]
+             (int (py-call "__len__")))
+
+
+       (values [this]
+               (py-call "values"))
+       Iterable
+       (iterator
+        [this]
+        (let [mapentry-seq
+              (->> (py-call "__iter__")
+                   (map (juxt identity #(.get this %)))
+                   (map (fn [[k v :as tuple]]
+                          (reify Map$Entry
+                            (getKey [this] k)
+                            (getValue [this] v)
+                            (hashCode [this] (.hashCode ^Object tuple))
+                            (equals [this o]
+                              (.equals ^Object tuple o))))))]
+          (.iterator ^Iterable mapentry-seq)))
+       IFn
+       (invoke [this arg] (.get this arg))
+       (invoke [this k v] (.put this k v))
+       (applyTo [this arglist]
+                (let [arglist (vec arglist)]
+                  (case (count arglist)
+                    1 (.get this (first arglist))
+                    2 (.put this (first arglist) (second arglist)))))))))
+
+
+(defn generic-python-as-list
+  [pyobj]
+  (with-gil
+    (let [interpreter (ensure-bound-interpreter)
+          dict-atts #{"__len__" "__getitem__" "__setitem__" "__iter__" "__contains__"
+                      "__eq__" "__hash__" "clear" "insert" "pop" "append"
+                      "__delitem__" "sort"}
+          dict-att-map (->> (py-proto/dir pyobj)
+                            (filter dict-atts)
+                            (map (juxt identity (partial py-proto/attr pyobj)))
+                            (into {}))
+          py-call (fn [fn-name & args]
+                    (with-interpreter interpreter
+                      (py-impl-call-as fn-name dict-att-map args)))]
       (bridge-pyobject
        pyobj
        interpreter
        ObjectReader
        (lsize [reader]
-              (with-interpreter interpreter
-                (libpy/PyList_Size pyobj)))
+              (long (py-call "__len__")))
        (read [reader idx]
-             (with-interpreter interpreter
-               (-> (libpy/PyList_GetItem pyobj idx)
-                   incref-wrap-pyobject
-                   as-jvm)))
+             (py-call "__getitem__" idx))
+       (sort [reader obj-com]
+             (when-not (= nil obj-com)
+               (throw (ex-info "Python lists do not support comparators" {})))
+             (py-call "sort"))
        ObjectWriter
        (write [writer idx value]
-              (with-interpreter interpreter
-                (->> (as-python value)
-                     incref
-                     (libpy/PyList_SetItem pyobj idx)
-                     (check-py-method-return))))
+              (py-call "__setitem__" idx value))
+       (remove [writer ^int idx]
+               (py-call "__delitem__" idx))
        ObjectMutable
        (insert [mutable idx value]
-               (with-interpreter interpreter
-                 (->> (as-python value)
-                      incref
-                      (libpy/PyList_Insert pyobj idx)
-                      check-py-method-return)))
+               (py-call "insert" idx value))
        (append [mutable value]
-               (with-interpreter interpreter
-                 (->> (as-python value)
-                      incref
-                      (libpy/PyList_Append pyobj)
-                      (check-py-method-return))))))))
+               (py-call "append" value))
+       MutableRemove
+       (mremove [mutable idx]
+                (py-call "__delitem__" idx))))))
+
 
 
 (defmethod pyobject-as-jvm :list
   [pyobj]
-  (python-list-as-jvm pyobj))
-
-
-(defn python-tuple-as-jvm
-  [pyobj]
-  (when-not (= :tuple (python-type pyobj))
-    (throw (ex-info ("Object is not a tuple: %s" (python-type pyobj))
-                    {})))
-  (with-gil
-    (let [interpreter (ensure-bound-interpreter)
-          n-elems (libpy/PyObject_Length pyobj)]
-      (bridge-pyobject
-       pyobj
-       interpreter
-       ObjectReader
-       (lsize [reader] n-elems)
-       (read [reader idx]
-             (with-interpreter interpreter
-               (-> (libpy/PyTuple_GetItem pyobj idx)
-                   incref-wrap-pyobject
-                   as-jvm)))))))
+  (generic-python-as-list pyobj))
 
 
 (defmethod pyobject-as-jvm :tuple
   [pyobj]
-  (python-tuple-as-jvm pyobj))
+  (generic-python-as-list pyobj))
 
 
 (defn check-pybool-return
@@ -264,225 +351,15 @@
     (check-error-throw)))
 
 
-(defn checknil
-  [message item]
-  (when-not item
-    (throw (ex-info message {})))
-  item)
-
-
-(defn- get-dict-item
-  [pyobj obj-key]
-  (->> (as-python obj-key)
-       (libpy/PyDict_GetItem pyobj)))
-
-
-(defn- set-dict-item
-  [pyobj obj-key obj-val]
-  (let [obj-val (as-python obj-val)
-        obj-key (as-python obj-key)]
-    (libpy/PyDict_SetItem pyobj obj-key obj-val)))
-
-
-(defn- remove-dict-item
-  [pyobj k]
-  (libpy/PyDict_DelItem pyobj (as-python k)))
-
-
-(defn- dict-mapentry-items
-  ^Iterable [pyobj]
-  (->> (libpy/PyDict_Items pyobj)
-       (wrap-pyobject)
-       (as-jvm)
-       (map (fn [[k v :as tuple]]
-              (reify Map$Entry
-                (getKey [this] k)
-                (getValue [this] v)
-                (hashCode [this] (.hashCode ^Object tuple))
-                (equals [this o]
-                  (.equals ^Object tuple o)))))))
-
-
-(defn python-dict-as-jvm
-  [pyobj]
-  (with-gil
-    (when-not (= :dict (python-type pyobj))
-      (throw (ex-info ("Function called on incorrect type: %s" (python-type pyobj))
-                      {})))
-    ;;This is going to be a motherfucker to get right thanks to the way instain mother of
-    ;;the java map interface.
-    (let [interpreter (ensure-bound-interpreter)]
-      (bridge-pyobject
-       pyobj
-       interpreter
-       Map
-       (clear [this]
-              (with-interpreter interpreter
-                (libpy/PyDict_Clear pyobj)))
-       (containsKey [this obj-key]
-                    (with-interpreter interpreter
-                      (->> (as-python obj-key)
-                           (libpy/PyDict_Contains pyobj)
-                           check-pybool-return
-                           boolean)))
-       (entrySet [this]
-                 (with-interpreter interpreter
-                   (->> (dict-mapentry-items pyobj)
-                        set)))
-       (get [this obj-key]
-            (with-interpreter interpreter
-              (->> (get-dict-item pyobj obj-key)
-                   (checknil "Failed to get item from dictionary")
-                   (incref-wrap-pyobject)
-                   (as-jvm))))
-       (getOrDefault [this obj-key obj-default-value]
-                     (with-interpreter interpreter
-                       (->> (get-dict-item pyobj obj-key)
-                            (#(fn [dict-value]
-                                (if dict-value
-                                  (-> dict-value
-                                      (incref-wrap-pyobject)
-                                      (as-jvm))
-                                  obj-default-value))))))
-       (isEmpty [this]
-                (with-interpreter interpreter
-                  (= (libpy/PyDict_Size pyobj) 0)))
-
-       (keySet [this]
-               (with-interpreter interpreter
-                 (-> (libpy/PyDict_Keys pyobj)
-                     wrap-pyobject
-                     (python->jvm-iterable as-jvm)
-                     set)))
-
-       (put [this k v]
-            (with-interpreter interpreter
-              (-> (set-dict-item pyobj k v)
-                  check-pybool-return)
-              v))
-
-       (remove [this k]
-               (with-interpreter interpreter
-                 (when-let [existing (get-dict-item pyobj k)]
-                   (-> (remove-dict-item pyobj k)
-                       check-pybool-return)
-                   existing)))
-
-       (size [this]
-             (with-interpreter interpreter
-               (libpy/PyDict_Size pyobj)))
-
-       (values [this]
-               (with-interpreter interpreter
-                 (-> (libpy/PyDict_Values pyobj)
-                     wrap-pyobject
-                     as-jvm)))
-       Iterable
-       (iterator [this]
-                 (with-interpreter interpreter
-                   (-> (dict-mapentry-items pyobj)
-                       (.iterator))))
-       IFn
-       (invoke [this arg] (.get this arg))
-       (invoke [this k v] (.put this k v))
-       (applyTo [this arglist]
-                (let [arglist (vec arglist)]
-                  (case (count arglist)
-                    1 (.get this (first arglist))
-                    2 (.put this (first arglist) (second arglist)))))))))
-
-
 (defmethod pyobject-as-jvm :dict
   [pyobj]
-  (python-dict-as-jvm pyobj))
-
-
-(defn python-bridge->jvm
-  [pyobj]
-  (when-not (= :jvm-bridge (python-type pyobj))
-    (throw (ex-info "Object isn't a bridge object." {})))
-  (let [real-bridge (pybridge->bridge pyobj)]
-    (.wrappedObject real-bridge)))
-
-
-(defn python-callable->jvm
-  [pyobj]
-  (with-gil
-    (let [interpreter (ensure-bound-interpreter)]
-      (bridge-pyobject
-       pyobj
-       interpreter
-       IFn
-       ;;uggh
-       (invoke [this]
-               (with-interpreter interpreter
-                 (-> (libpy/PyObject_CallObject pyobj nil)
-                     wrap-pyobject
-                     as-jvm)))
-
-       (invoke [this arg0]
-               (with-interpreter interpreter
-                 (-> (libpy/PyObject_CallObject pyobj (->py-tuple [arg0]))
-                     wrap-pyobject
-                     as-jvm)))
-
-       (invoke [this arg0 arg1]
-               (with-interpreter interpreter
-                 (-> (libpy/PyObject_CallObject pyobj (->py-tuple [arg0 arg1]))
-                     wrap-pyobject
-                     as-jvm)))
-
-       (invoke [this arg0 arg1 arg2]
-               (with-interpreter interpreter
-                 (-> (libpy/PyObject_CallObject pyobj (->py-tuple [arg0 arg1 arg2]))
-                     wrap-pyobject
-                     as-jvm)))
-
-       (invoke [this arg0 arg1 arg2 arg3]
-               (with-interpreter interpreter
-                 (-> (libpy/PyObject_CallObject pyobj (->py-tuple [arg0 arg1 arg2 arg3]))
-                     wrap-pyobject
-                     as-jvm)))
-
-
-       (invoke [this arg0 arg1 arg2 arg3 arg4]
-               (with-interpreter interpreter
-                 (-> (libpy/PyObject_CallObject
-                      pyobj (->py-tuple [arg0 arg1 arg2 arg3 arg4]))
-                     wrap-pyobject
-                     as-jvm)))
-
-       (applyTo [this arglist]
-                (with-interpreter interpreter
-                  (-> (libpy/PyObject_CallObject pyobj (->py-tuple arglist))
-                      wrap-pyobject
-                      as-jvm)))
-       PyFunction
-       (invokeKeyWords [this tuple-args keyword-args]
-                       (-> (libpy/PyObject_Call pyobj
-                                                (->py-tuple tuple-args)
-                                                (->py-dict keyword-args))
-                           wrap-pyobject
-                           as-jvm))))))
+  (generic-python-as-map pyobj))
 
 
 (defn python-iterable-as-jvm
   [pyobj]
-  (python->jvm-iterable pyobj python->jvm))
+  (python->jvm-iterable pyobj ->jvm))
 
-
-(defn- generic-mapentry-items
-  ^Iterable [^Map pymap]
-  (->> (.keySet pymap)
-       (map (fn [k]
-              (let [v (.get pymap k)
-                    tuple [k v]]
-                (reify Map$Entry
-                  (getKey [this] k)
-                  (getValue [this] v)
-                  (hashCode [this] (.hashCode ^Object tuple))
-                  (equals [this o]
-                    (.equals ^Object tuple o))))))))
 
 
 (defn generic-python-as-jvm
@@ -493,80 +370,94 @@
     (if (= :none-type (python-type pyobj))
       nil
       (let [interpreter (ensure-bound-interpreter)]
-        (reify
-          jna/PToPtr
-          (is-jna-ptr-convertible? [item] true)
-          (->ptr-backing-store [item] pyobj)
+        (if (py-proto/callable? pyobj)
+          (bridge-pyobject
+           pyobj
+           interpreter
+           Iterable
+           (iterator [this]
+                     (with-interpreter interpreter
+                       (let [iter-fn (py-proto/attr pyobj "__iter__")]
+                         (python->jvm-iterator iter-fn ->jvm))))
+           py-proto/PPyObjectBridgeToMap
+           (as-map [item]
+                   (generic-python-as-map pyobj))
+           py-proto/PPyObjectBridgeToList
+           (as-list [item]
+                    (generic-python-as-list pyobj))
+           IFn
+           ;;uggh
+           (invoke [this]
+                   (with-interpreter interpreter
+                     (-> (libpy/PyObject_CallObject pyobj nil)
+                         wrap-pyobject
+                         as-jvm)))
 
-          Map
-          (containsKey [this k]
-            (contains? key-set k))
-          (entrySet [this] (->> (generic-mapentry-items this)
-                                set))
-          (keySet [this] key-set)
-          (hashCode [this]
-            (with-interpreter interpreter
-              (int
-               (if (has-attr? pyobj "__hash__")
-                 (-> (get-attr pyobj "__hash__")
-                     (libpy/PyObject_CallObject nil)
-                     wrap-pyobject
-                     (python->jvm))
-                 (Pointer/nativeValue (jna/as-ptr pyobj))))))
-          (equals [this obj]
-            (with-interpreter
-              (boolean
-               (if (has-attr? pyobj "__eq__")
-                 (= 1
-                    (-> (get-attr pyobj "__eq__")
-                        (libpy/PyObject_CallObject (->py-tuple [(jvm->python obj)]))
-                        wrap-pyobject
-                        (python->jvm)))
-                 (when-let [obj-ptr (jna/as-ptr obj)]
-                   (= (Pointer/nativeValue (jna/as-ptr pyobj))
-                      (Pointer/nativeValue obj-ptr)))))))
-          (get [this k]
-            (with-interpreter interpreter
-              (-> (get-attr pyobj (str k))
-                  python->jvm)))
-          (values [this]
-            (->> key-set
-                 (with-interpreter interpreter
-                   (->> key-set
-                        (map #(.get this %))
-                        doall))))
-          (size [this] (count key-set))
-          (isEmpty [this] (= 0 (.size this)))
-          Iterable
-          (iterator [this]
-            (->> (generic-mapentry-items this)
-                 .iterator)))))))
+           (invoke [this arg0]
+                   (with-interpreter interpreter
+                     (-> (libpy/PyObject_CallObject pyobj (as-tuple [arg0]))
+                         wrap-pyobject
+                         as-jvm)))
+
+           (invoke [this arg0 arg1]
+                   (with-interpreter interpreter
+                     (-> (libpy/PyObject_CallObject pyobj (as-tuple [arg0 arg1]))
+                         wrap-pyobject
+                         as-jvm)))
+
+           (invoke [this arg0 arg1 arg2]
+                   (with-interpreter interpreter
+                     (-> (libpy/PyObject_CallObject pyobj (as-tuple [arg0 arg1 arg2]))
+                         wrap-pyobject
+                         as-jvm)))
+
+           (invoke [this arg0 arg1 arg2 arg3]
+                   (with-interpreter interpreter
+                     (-> (libpy/PyObject_CallObject
+                          pyobj (as-tuple [arg0 arg1 arg2 arg3]))
+                         wrap-pyobject
+                         as-jvm)))
 
 
-(defn python->jvm
-  "Attempts to build a jvm bridge that 'hides' the python type.  This bridge is lazy and
-  noncaching so use it wisely; it may be better to just copy the type once into the JVM.
-  Returns map of {:type :value} if the type isn't bridgeable.  Atomic objects
-  (string,number) are copied always.  Bridging is recursive so any subtypes are also
-  bridged if possible or represented by a hashmap of {:type :value} if not."
+           (invoke [this arg0 arg1 arg2 arg3 arg4]
+                   (with-interpreter interpreter
+                     (-> (libpy/PyObject_CallObject
+                          pyobj (as-tuple [arg0 arg1 arg2 arg3 arg4]))
+                         wrap-pyobject
+                         as-jvm)))
+
+           (applyTo [this arglist]
+                    (with-interpreter interpreter
+                      (-> (libpy/PyObject_CallObject pyobj (as-tuple arglist))
+                          wrap-pyobject
+                          as-jvm)))
+           ;;Mark this as executable
+           Fn
+           PyFunction
+           (invokeKeyWords [this tuple-args keyword-args]
+                           (-> (libpy/PyObject_Call pyobj
+                                                    (as-tuple tuple-args)
+                                                    (->py-dict keyword-args))
+                               wrap-pyobject
+                               as-jvm)))
+          (bridge-pyobject
+           pyobj
+           interpreter
+           Iterable
+           (iterator [this]
+                     (with-interpreter interpreter
+                       (let [iter-fn (py-proto/attr pyobj "__iter__")]
+                         (python->jvm-iterator iter-fn ->jvm))))
+           py-proto/PPyObjectBridgeToMap
+           (as-map [item]
+                   (generic-python-as-map pyobj))
+           py-proto/PPyObjectBridgeToList
+           (as-list [item]
+                    (generic-python-as-list pyobj))))))))
+
+(defmethod pyobject-as-jvm :default
   [pyobj]
-  (when pyobj
-    (with-gil
-      (let [obj-type (python-type pyobj)]
-        (case obj-type
-          :none-type nil
-          :int (copy-to-jvm pyobj)
-          :float (copy-to-jvm pyobj)
-          :str (py-string->string pyobj)
-          :list (python-list->jvm pyobj)
-          :tuple (python-tuple->jvm pyobj)
-          :dict (python-dict->jvm pyobj)
-          :jvm-bridge (python-bridge->jvm pyobj)
-          (cond
-            (= 1 (libpy/PyCallable_Check pyobj))
-            (python-callable->jvm pyobj)
-            :else
-            (generic-python->jvm pyobj)))))))
+  (generic-python-as-jvm pyobj))
 
 (defmacro wrap-jvm-context
   [& body]
@@ -584,9 +475,9 @@
   `(reify CFunction$TupleFunction
      (pyinvoke [this# ~'self ~'args]
        (wrap-jvm-context
-        (-> (let [~'args (python->jvm ~'args)]
+        (-> (let [~'args (as-jvm ~'args)]
               ~@body)
-            jvm->python)))))
+            as-python)))))
 
 
 (defn jvm-fn->iface
@@ -595,78 +486,60 @@
    (apply jvm-fn args)))
 
 
-(defn jvm-fn->python
+(defn as-py-fn
   [jvm-fn]
   (-> (jvm-fn->iface jvm-fn)
-      create-function))
+      ->py-fn))
 
 
-(defn create-bridge-from-att-map
-  [src-item att-map]
-  (let [interpreter (ensure-bound-interpreter)
-        dir-data (->> (keys att-map)
-                      sort
-                      (into-array String))
-        bridge
-        (reify JVMBridge
-          (getAttr [bridge att-name]
-            (if-let [retval (get att-map att-name)]
-              (incref retval)
-              (libpy/Py_None)))
-          (setAttr [bridge att-name att-value]
-            (throw (ex-info "Cannot set attributes" {})))
-          (dir [bridge] dir-data)
-          (interpreter [bridge] interpreter)
-          (wrappedObject [bridge] src-item))]
-    (expose-bridge-to-python! bridge)))
-
-
-(defn jvm-iterator->python
+(defn jvm-iterator-as-python
   ^Pointer [^Iterator item]
   (with-gil nil
     (let [att-map
-          {"__next__" (jvm-fn->python
+          {"__next__" (as-py-fn
                        #(when (.hasNext item)
                           (.next item)))}]
       (create-bridge-from-att-map item att-map))))
 
 
-(defn jvm-map->python
+(defn jvm-map-as-python
   ^Pointer [^Map jvm-data]
   (with-gil
     (let [att-map
-          {"__contains__" (jvm-fn->python #(.containsKey jvm-data %))
-           "__eq__" (jvm-fn->python #(.equals jvm-data %))
-           "__getitem__" (jvm-fn->python #(.get jvm-data %))
-           "__setitem__" (jvm-fn->python #(.put jvm-data %1 %2))
-           "__hash__" (jvm-fn->python #(.hashCode jvm-data))
-           "__iter__" (jvm-fn->python #(.iterator ^Iterable jvm-data))
-           "__len__" (jvm-fn->python #(.size jvm-data))
-           "__str__" (jvm-fn->python #(.toString jvm-data))
-           "clear" (jvm-fn->python #(.clear jvm-data))
-           "keys" (jvm-fn->python #(seq (.keySet jvm-data)))
-           "values" (jvm-fn->python #(seq (.values jvm-data)))
-           "pop" (jvm-fn->python #(.remove jvm-data %))}]
+          {"__contains__" (as-py-fn #(.containsKey jvm-data %))
+           "__eq__" (as-py-fn #(.equals jvm-data %))
+           "__getitem__" (as-py-fn #(.get jvm-data %))
+           "__setitem__" (as-py-fn #(.put jvm-data %1 %2))
+           "__delitem__" (as-py-fn #(.remove jvm-data %))
+           "__hash__" (as-py-fn #(.hashCode jvm-data))
+           "__iter__" (as-py-fn #(.iterator ^Iterable jvm-data))
+           "__len__" (as-py-fn #(.size jvm-data))
+           "__str__" (as-py-fn #(.toString jvm-data))
+           "clear" (as-py-fn #(.clear jvm-data))
+           "keys" (as-py-fn #(seq (.keySet jvm-data)))
+           "values" (as-py-fn #(seq (.values jvm-data)))
+           "pop" (as-py-fn #(.remove jvm-data %))}]
       (create-bridge-from-att-map jvm-data att-map))))
 
 
-(defn jvm-list->python
+(defn jvm-list-as-python
   ^Pointer [^List jvm-data]
   (with-gil
     (let [att-map
-          {"__contains__" (jvm-fn->python #(.contains jvm-data %))
-           "__eq__" (jvm-fn->python #(.equals jvm-data %))
-           "__getitem__" (jvm-fn->python #(.get jvm-data (int %)))
-           "__setitem__" (jvm-fn->python #(.set jvm-data (int %1) %2))
-           "__hash__" (jvm-fn->python #(.hashCode jvm-data))
-           "__iter__" (jvm-fn->python #(.iterator jvm-data))
-           "__len__" (jvm-fn->python #(.size jvm-data))
-           "__str__" (jvm-fn->python #(.toString jvm-data))
-           "clear" (jvm-fn->python #(.clear jvm-data))
-           "sort" (jvm-fn->python #(.sort jvm-data nil))
-           "append" (jvm-fn->python #(.add jvm-data %))
-           "insert" (jvm-fn->python #(.add jvm-data (int %1) %2))
-           "pop" (jvm-fn->python (fn [& args]
+          {"__contains__" (as-py-fn #(.contains jvm-data %))
+           "__eq__" (as-py-fn #(.equals jvm-data %))
+           "__getitem__" (as-py-fn #(.get jvm-data (int %)))
+           "__setitem__" (as-py-fn #(.set jvm-data (int %1) %2))
+           "__delitem__" (as-py-fn #(.remove jvm-data (int %)))
+           "__hash__" (as-py-fn #(.hashCode jvm-data))
+           "__iter__" (as-py-fn #(.iterator jvm-data))
+           "__len__" (as-py-fn #(.size jvm-data))
+           "__str__" (as-py-fn #(.toString jvm-data))
+           "clear" (as-py-fn #(.clear jvm-data))
+           "sort" (as-py-fn #(.sort jvm-data nil))
+           "append" (as-py-fn #(.add jvm-data %))
+           "insert" (as-py-fn #(.add jvm-data (int %1) %2))
+           "pop" (as-py-fn (fn [& args]
                                    (let [index (int (if (first args)
                                                       (first args)
                                                       -1))
@@ -677,40 +550,45 @@
       (create-bridge-from-att-map jvm-data att-map))))
 
 
-(defn jvm-iterable->python
+(defn jvm-iterable-as-python
   ^Pointer [^Iterable jvm-data]
   (with-gil
     (let [att-map
-          {"__iter__" (jvm-fn->python #(.iterator jvm-data))
-           "__eq__" (jvm-fn->python #(.equals jvm-data %))
-           "__hash__" (jvm-fn->python #(.hashCode jvm-data))}]
+          {"__iter__" (as-py-fn #(.iterator jvm-data))
+           "__eq__" (as-py-fn #(.equals jvm-data %))
+           "__hash__" (as-py-fn #(.hashCode jvm-data))
+           "__str__" (as-py-fn #(.toString jvm-data))}]
       (create-bridge-from-att-map jvm-data att-map))))
 
 
-(defn jvm->python
-  [jvm-obj]
-  (with-gil nil
-    (if jvm-obj
-      (cond
-        (libpy-base/convertible-to-pyobject-ptr? jvm-obj)
-        (libpy-base/->py-object-ptr jvm-obj)
-        (number? jvm-obj)
-        (copy-to-python jvm-obj)
-        (boolean? jvm-obj)
-        (copy-to-python jvm-obj)
-        (stringable? jvm-obj)
-        (copy-to-python (stringable jvm-obj))
-        (instance? Map jvm-obj)
-        (jvm-map->python jvm-obj)
-        (instance? Map$Entry jvm-obj)
-        (jvm->python [(.getKey ^Map$Entry jvm-obj)
-                      (.getValue ^Map$Entry jvm-obj)])
-        (instance? RandomAccess jvm-obj)
-        (jvm-list->python jvm-obj)
-        (instance? Iterable jvm-obj)
-        (jvm-iterable->python jvm-obj)
-        (instance? Iterator jvm-obj)
-        (jvm-iterator->python jvm-obj)
-        :else
-        (throw (ex-info "not implemented yet" {})))
-      (libpy/Py_None))))
+(extend-protocol py-proto/PBridgeToPython
+  Number
+  (as-python [item options] (->python item))
+  String
+  (as-python [item options] (->python item))
+  Symbol
+  (as-python [item options] (->python item))
+  Keyword
+  (as-python [item options] (->python item))
+  Boolean
+  (as-python [item options] (->python item))
+  Iterable
+  (as-python [item options]
+    (cond
+      (instance? item Map)
+      (jvm-map-as-python item)
+      (instance? item RandomAccess)
+      (jvm-list-as-python item)
+      :else
+      (jvm-iterable-as-python item)))
+  Iterator
+  (as-python [item options]
+    (jvm-iterator-as-python item))
+  Object
+  (as-python [item options]
+    (cond
+      (fn? item)
+      (as-py-fn item)
+      :else
+      (throw (ex-info (format "Unable to convert objects of type: %s"
+                              (type item)))))))
