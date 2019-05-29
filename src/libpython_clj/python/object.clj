@@ -450,7 +450,6 @@
     (->py-set item))
   RandomAccess
   (->python [item options]
-    (println "rand-access")
     (if (and (instance? IPersistentVector item)
              (< (count item) (long *item-tuple-cutoff*)))
       (->py-tuple item)

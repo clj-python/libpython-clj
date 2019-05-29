@@ -17,6 +17,27 @@
 (set! *warn-on-reflection* true)
 
 
+(export-symbols libpython-clj.python.protocols
+                python-type
+                dir
+                att-type-map
+                attr
+                has-attr?
+                set-attr!
+                callable?
+                has-item?
+                item
+                set-item!
+                call
+                call-kw
+                call-attr
+                call-attr-kw
+                len
+                as-map
+                as-list
+                as-tensor)
+
+
 (export-symbols libpython-clj.python.object
                 ->py-dict
                 ->py-float
@@ -24,29 +45,9 @@
                 ->py-long
                 ->py-string
                 ->py-tuple
-                ->pyobject
-                copy-to-jvm
-                copy-to-python
-                get-attr
-                has-attr?
-                incref-wrap-pyobject
-                obj-get-item
-                obj-has-item?
-                obj-set-item
-                py-dir
-                py-false
-                py-none
-                py-not-implemented
-                py-raw-type
-                py-string->string
-                py-true
-                py-type-keyword
-                pyobj->string
-                python->jvm-copy-hashmap
-                python->jvm-iterable
-                python->jvm-copy-persistent-vector
-                set-attr
-                wrap-pyobject)
+                ->py-fn
+                ->python
+                ->jvm)
 
 
 (export-symbols libpython-clj.python.interop
@@ -54,13 +55,12 @@
                 add-module
                 run-simple-string
                 run-string
-                create-function
                 libpython-clj-module-name)
 
 
 (export-symbols libpython-clj.python.bridge
-                python->jvm
-                jvm->python)
+                as-jvm
+                as-python)
 
 
 (defn initialize!
