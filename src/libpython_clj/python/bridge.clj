@@ -37,12 +37,19 @@
               pybridge->bridge
               create-bridge-from-att-map]]
             [clojure.stacktrace :as st]
-            [tech.jna :as jna])
+            [tech.jna :as jna]
+            [tech.v2.tensor :as dtt]
+            [tech.v2.datatype.casting :as casting]
+            [tech.v2.datatype.functional :as dtype-fn]
+            [tech.v2.datatype :as dtype]
+            [tech.resource :as resource])
   (:import [java.util Map RandomAccess List Map$Entry Iterator]
            [clojure.lang IFn Symbol Keyword Seqable
             Fn]
            [tech.v2.datatype ObjectReader ObjectWriter ObjectMutable
             ObjectIter MutableRemove]
+           [tech.v2.datatype.typed_buffer TypedBuffer]
+           [tech.v2.tensor.impl Tensor]
            [com.sun.jna Pointer]
            [libpython_clj.jna JVMBridge
             CFunction$KeyWordFunction
@@ -581,6 +588,12 @@
       (jvm-list-as-python item)
       :else
       (jvm-iterable-as-python item)))
+  TypedBuffer
+  (as-python [item options]
+    (py-proto/as-numpy item options))
+  Tensor
+  (as-python [item options]
+    (py-proto/as-numpy item options))
   Iterator
   (as-python [item options]
     (jvm-iterator-as-python item))
@@ -592,3 +605,57 @@
       :else
       (throw (ex-info (format "Unable to convert objects of type: %s"
                               (type item)))))))
+
+
+(defn datatype->ptr-type-name
+  [dtype]
+  (case dtype
+    :int8 "c_byte"
+    :uint8 "c_ubyte"
+    :int16 "c_short"
+    :uint16 "c_ushort"
+    :int32 "c_long"
+    :uint32 "c_ulong"
+    :int64 "c_longlong"
+    :uint64 "c_ulonglong"
+    :float32 "c_float"
+    :float64 "c_double"))
+
+
+(extend-type Object
+  py-proto/PJvmToNumpy
+  (as-numpy [item options]
+    (let [{:keys [ptr shape strides datatype] :as buffer-desc}
+          (dtt/ensure-buffer-descriptor item)
+          stride-tricks (-> (pyinterop/import-module "numpy.lib.stride_tricks")
+                            as-jvm)
+          ctypes (-> (pyinterop/import-module "ctypes")
+                     as-jvm)
+          np-ctypes (-> (pyinterop/import-module "numpy.ctypeslib")
+                        as-jvm)
+          dtype-size (casting/numeric-byte-width datatype)
+          max-stride-idx (dtype-fn/argmax strides)
+          buffer-len (* (long (dtype/get-value shape max-stride-idx))
+                        (long (dtype/get-value strides max-stride-idx)))
+          n-elems (quot buffer-len dtype-size)
+          lvalue (Pointer/nativeValue ^Pointer ptr)
+          void-p (py-proto/call-attr ctypes "c_void_p" lvalue)
+          actual-ptr (py-proto/call-attr
+                      ctypes "cast" void-p
+                      (py-proto/call-attr
+                       ctypes "POINTER"
+                       (py-proto/attr ctypes
+                                      (datatype->ptr-type-name datatype))))
+
+          initial-buffer (py-proto/call-attr
+                          np-ctypes "as_array"
+                          actual-ptr (->py-tuple [n-elems]))
+
+          retval (py-proto/call-attr stride-tricks "as_strided"
+                                     initial-buffer
+                                     (->py-tuple shape)
+                                     (->py-tuple strides))
+          ]
+      ;;Make sure the original pointer is linked to the return value via the
+      ;;gc mechanism.
+      (resource/track retval #(get buffer-desc :ptr) [:gc]))))

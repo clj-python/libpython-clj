@@ -139,6 +139,10 @@ incomplete especially if the object has no 'keys' attribute."))
     "Return a List implementation using __getitem__, __setitem__."))
 
 
+(defprotocol PJvmToNumpy
+  (as-numpy [item options]))
+
+
 (defprotocol PPyObjectBridgeToTensor
   (as-tensor [item]
     "Return a tech.v2.tensor object from the item that shares the data backing store."))

@@ -36,7 +36,7 @@ There are 3 rough sections of code:
    collectors work with each other to add to this layer.
 
 3. A public API layer.  Details like managing the GIL or messing with garbage collection
-   in general not leak out to this layer.
+   in general do not leak out to this layer.
 
 
 
@@ -85,13 +85,13 @@ aside from potentially (and damn rarely) a `(System/gc)` call.
 ### Copying Vs. Bridging
 
 
-Objects either in python or in java may be either copied or mirrored into the other
-ecosystem.  Mirroring allows sharing complex and potentially changing datastructures
+Objects either in python or in java may be either copied or bridged into the other
+ecosystem.  Bridging allows sharing complex and potentially changing datastructures
 while copying allows a cleaner partitioning of concerns and frees both garbage
 collection systems to act more independently.  Numeric buffers that have a direct
 representation as a C-ptr (the datatype native-buffer type) have a zero-copy pathway via
-numpy.  If you want access to object functionality that object needs to be mirrored; so
-for example if you want to call numpy functions then you need to mirror that object.
+numpy.  If you want access to object functionality that object needs to be bridged; so
+for example if you want to call numpy functions then you need to bridge that object.
 Tensors are always represented in python as numpy objects using zero-copy where possible
 in all cases.
 

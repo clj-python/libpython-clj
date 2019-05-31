@@ -42,7 +42,7 @@
             [tech.v2.datatype :as dtype]
             [tech.v2.datatype.protocols :as dtype-proto]
             [tech.v2.datatype.casting :as casting]
-            [tech.v2.tensor :as dtt])
+            [tech.v2.tensor])
   (:import [com.sun.jna Pointer CallbackReference]
            [libpython_clj.jna
             PyObject
@@ -52,6 +52,8 @@
             PyMethodDef]
            [java.nio.charset StandardCharsets]
            [tech.v2.datatype ObjectIter]
+           [tech.v2.datatype.typed_buffer TypedBuffer]
+           [tech.v2.tensor.impl Tensor]
            [java.util RandomAccess Map Set Map$Entry]
            [clojure.lang Symbol Keyword
             IPersistentMap
@@ -317,10 +319,6 @@
   )
 
 
-(defn ->py-nd-array [buffer-descriptor options]
-  (throw (ex-info "Not implemented at the moment" {})))
-
-
 ;; Chosen by fair dice roll, the item cutoff decides how many items
 ;; a persistent vector should have in it before it is considered a list
 ;; instead of a tuple.  If you know something should always be a tuple, then
@@ -341,8 +339,8 @@
             (libpy/Py_None)
             (->python retval)))
         (catch Throwable e
-          (log-error     (format "%s:%s" e (with-out-str
-                                                     (st/print-stack-trace e))) )
+          (log-error (format "%s:%s" e (with-out-str
+                                         (st/print-stack-trace e))))
           (libpy/PyErr_SetString (libpy/PyExc_Exception)
                                  (format "%s:%s" e (with-out-str
                                                      (st/print-stack-trace e))))
@@ -461,14 +459,17 @@
   (->python [item options] item)
   PyObject
   (->python [item options] (.getPointer item))
+  Tensor
+  (->python [item options] (py-proto/as-numpy item options))
+  TypedBuffer
+  (->python [item options] (py-proto/as-numpy item options))
   Object
   (->python [item options]
     (cond
       (fn? item)
       (->py-fn item {})
       (casting/numeric-type? (dtype/get-datatype item))
-      (-> (dtt/ensure-buffer-descriptor item)
-          (->py-nd-array options))
+      (py-proto/as-numpy item options)
       :else
       (if-let [item-reader (dtype/->reader item)]
         (->py-list item-reader)

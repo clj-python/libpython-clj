@@ -51,12 +51,35 @@
 
 
 (export-symbols libpython-clj.python.interop
-                import-module
-                add-module
-                module-dict
                 run-simple-string
                 run-string
                 libpython-clj-module-name)
+
+
+(export-symbols libpython-clj.python.bridge
+                as-jvm
+                as-python)
+
+
+(defn import-module
+  "Import a python module.  Returns a bridge"
+  [modname]
+  (-> (pyinterop/import-module modname)
+      (as-jvm)))
+
+
+(defn add-module
+  "Add a python module.  Returns a bridge"
+  [modname]
+  (-> (pyinterop/add-module modname)
+      (as-jvm)))
+
+
+(defn module-dict
+  "Get the module dictionary.  Returns bridge."
+  [module]
+  (-> (pyinterop/module-dict module)
+      as-jvm))
 
 
 (export-symbols libpython-clj.python.bridge
