@@ -84,11 +84,6 @@
       as-jvm))
 
 
-(export-symbols libpython-clj.python.bridge
-                as-jvm
-                as-python)
-
-
 (defn initialize!
   [& {:keys [program-name no-io-redirect?]}]
   (when-not @pyinterp/*main-interpreter*

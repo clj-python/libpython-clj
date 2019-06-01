@@ -1,5 +1,7 @@
 (ns libpython-clj.python-test
   (:require [libpython-clj.python :as py]
+            [tech.v2.datatype :as dtype]
+            [tech.v2.tensor :as dtt]
             [clojure.test :refer :all])
   (:import [java.io StringWriter]
            [java.util Map List]))
@@ -62,5 +64,44 @@
     (is (instance? Map globals))
     (.put globals "item" 100)
     (py/set-item! globals "item2" 200)
+    ;;During run-simple-string, if nothing else is specified the
+    ;;global map is used as a local map.
     (py/run-simple-string "item3 = item + item2")
     (is (= 300 (globals "item3")))))
+
+
+(deftest numpy-and-back
+  (py/initialize!)
+  (let [jvm-tens (dtt/->tensor (->> (range 9)
+                                    (partition 3)))]
+    ;;zero-copy can't work on jvm datastructures with current JNA tech.
+    ;;IT would require 'pinning' which isn't yet available.
+    (is (nil? (py/as-numpy jvm-tens)))
+    (let [py-tens (py/->numpy jvm-tens)]
+      (is (= [[0.0 1.0 2.0] [3.0 4.0 5.0] [6.0 7.0 8.0]]
+             (-> (py/as-tensor py-tens)
+                 dtt/->jvm)))
+      ;;This operation is in-place
+      (let [py-trans (py/call-attr py-tens "transpose" [1 0])]
+        (is (= [[0.0 1.0 2.0] [3.0 4.0 5.0] [6.0 7.0 8.0]]
+             (-> (py/as-tensor py-tens)
+                 dtt/->jvm)))
+        (is (= [[0.0 3.0 6.0] [1.0 4.0 7.0] [2.0 5.0 8.0]]
+             (-> (py/as-tensor py-trans)
+                 dtt/->jvm)))
+        ;;But they are sharing backing store, so mutation will travel both
+        ;;ways.  Creepy action at a distance indeed
+        (dtype/copy! [5 6 7] (py/as-tensor py-trans))
+        (is (= [[5.0 1.0 2.0] [6.0 4.0 5.0] [7.0 7.0 8.0]]
+               (-> (py/as-tensor py-tens)
+                   dtt/->jvm))))
+      (let [main-module (py/add-module "__main__")
+            ^Map globals (-> (py/module-dict main-module)
+                             (py/as-jvm))]
+        (py/set-item! globals "np_ary" py-tens)
+        (py/run-simple-string "np_ary[2,2] = 100")
+        (is (= [[5.0 1.0 2.0] [6.0 4.0 5.0] [7.0 7.0 100.0]]
+               ;;zero copy always works the other way, however.  So there is
+               ;;py/->tensor available.
+               (-> (py/as-tensor py-tens)
+                   dtt/->jvm)))))))

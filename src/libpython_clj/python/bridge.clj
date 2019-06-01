@@ -385,7 +385,7 @@
 
 
 (def dtype->py-dtype-map
-  (c-set/map-invert py-dtype-name->dtype-map))
+  (c-set/map-invert py-dtype->dtype-map))
 
 
 (defn obj-dtype->dtype
