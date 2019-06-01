@@ -58,7 +58,9 @@
 
 (export-symbols libpython-clj.python.bridge
                 as-jvm
-                as-python)
+                as-python
+                ->numpy
+                as-numpy)
 
 
 (defn import-module
@@ -102,17 +104,3 @@
 (defn finalize!
   []
   (pyinterp/finalize!))
-
-
-(comment
-  (initialize!)
-  (def mm (create-module "mm"))
-  (def tt (pyinterop/register-bridge-type! mm))
-  (def writer-iface (pyinterop/wrap-var-writer #'*err*))
-  (def writer (pyinterop/expose-bridge-to-python! writer-iface mm))
-  (pyinterop/setup-std-writer #'*err* mm "stderr")
-  (pyinterop/setup-std-writer #'*out* mm "stdout")
-  (def sys-module (py-import-module "sys"))
-  (def stderr-item (get-attr sys-module "stderr"))
-  (def test-fn (get-attr stderr-item "write"))
-  )

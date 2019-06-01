@@ -3,8 +3,11 @@
   (:require [libpython-clj.jna :as libpy]
             [libpython-clj.jna.base :as libpy-base]
             [libpython-clj.python.protocols
-             :refer [python-type has-attr? attr dir
-                     pyobject-as-jvm]
+             :refer [python-type
+                     has-attr? attr call-attr
+                     dir att-type-map
+                     pyobject-as-jvm
+                     as-list]
              :as py-proto]
             [libpython-clj.python.interpreter
              :refer
@@ -42,7 +45,8 @@
             [tech.v2.datatype.casting :as casting]
             [tech.v2.datatype.functional :as dtype-fn]
             [tech.v2.datatype :as dtype]
-            [tech.resource :as resource])
+            [tech.resource :as resource]
+            [clojure.set :as c-set])
   (:import [java.util Map RandomAccess List Map$Entry Iterator]
            [clojure.lang IFn Symbol Keyword Seqable
             Fn]
@@ -368,6 +372,62 @@
   (python->jvm-iterable pyobj ->jvm))
 
 
+(def py-dtype->dtype-map
+  (->> (concat (for [bit-width [8 16 32 64]
+                     unsigned? [true false]]
+                 (str (if unsigned?
+                        "uint"
+                        "int")
+                      bit-width))
+               ["float32" "float64"])
+       (map (juxt identity keyword))
+       (into {})))
+
+
+(def dtype->py-dtype-map
+  (c-set/map-invert py-dtype-name->dtype-map))
+
+
+(defn obj-dtype->dtype
+  [py-dtype]
+  (if-let [retval (->> (py-proto/attr py-dtype "name")
+                       (get py-dtype->dtype-map))]
+    retval
+    (throw (ex-info (format "Unable to find datatype: %s"
+                            (py-proto/attr py-dtype "name"))
+                    {}))))
+
+
+(defn numpy->desc
+  [np-obj]
+  (with-gil
+    (let [np-obj (as-jvm np-obj)
+          np (-> (pyinterop/import-module "numpy")
+                 (as-jvm))
+          ctypes (attr np-obj "ctypes")
+          ptr-dtype (-> (call-attr np "dtype" "p")
+                        obj-dtype->dtype)
+          obj-dtype (attr np-obj "dtype")
+          np-dtype  (obj-dtype->dtype obj-dtype)
+          _ (when-let [fields (attr obj-dtype "fields")]
+              (throw (ex-info (format "Cannot convert numpy object with fields: %s"
+                                      (call-attr fields "__str__"))
+                              {})))
+          shape (-> (attr ctypes "shape")
+                    (as-list)
+                    vec)
+          strides (-> (attr ctypes "strides")
+                    (as-list)
+                    vec)
+          long-addr (attr ctypes "data")
+          hash-ary {:ctypes-map ctypes}
+          ptr-val (-> (Pointer. long-addr)
+                      (resource/track #(get hash-ary :ctypes-map) [:gc]))]
+      {:ptr ptr-val
+       :datatype np-dtype
+       :shape shape
+       :strides strides})))
+
 
 (defn generic-python-as-jvm
   "Given a generic pyobject, wrap it in a read-only map interface
@@ -460,7 +520,12 @@
                    (generic-python-as-map pyobj))
            py-proto/PPyObjectBridgeToList
            (as-list [item]
-                    (generic-python-as-list pyobj))))))))
+                    (generic-python-as-list pyobj))
+           py-proto/PPyObjectBridgeToTensor
+           (as-tensor [item]
+                      (-> (numpy->desc item)
+                          dtt/buffer-descriptor->tensor))))))))
+
 
 (defmethod pyobject-as-jvm :default
   [pyobj]
@@ -622,12 +687,10 @@
     :float64 "c_double"))
 
 
-(extend-type Object
-  py-proto/PJvmToNumpy
-  (as-numpy [item options]
-    (let [{:keys [ptr shape strides datatype] :as buffer-desc}
-          (dtt/ensure-buffer-descriptor item)
-          stride-tricks (-> (pyinterop/import-module "numpy.lib.stride_tricks")
+(defn descriptor->numpy
+  [{:keys [ptr shape strides datatype] :as buffer-desc}]
+  (with-gil
+    (let [stride-tricks (-> (pyinterop/import-module "numpy.lib.stride_tricks")
                             as-jvm)
           ctypes (-> (pyinterop/import-module "ctypes")
                      as-jvm)
@@ -639,23 +702,42 @@
                         (long (dtype/get-value strides max-stride-idx)))
           n-elems (quot buffer-len dtype-size)
           lvalue (Pointer/nativeValue ^Pointer ptr)
-          void-p (py-proto/call-attr ctypes "c_void_p" lvalue)
-          actual-ptr (py-proto/call-attr
+          void-p (call-attr ctypes "c_void_p" lvalue)
+          actual-ptr (call-attr
                       ctypes "cast" void-p
-                      (py-proto/call-attr
+                      (call-attr
                        ctypes "POINTER"
                        (py-proto/attr ctypes
                                       (datatype->ptr-type-name datatype))))
 
-          initial-buffer (py-proto/call-attr
+          initial-buffer (call-attr
                           np-ctypes "as_array"
                           actual-ptr (->py-tuple [n-elems]))
 
-          retval (py-proto/call-attr stride-tricks "as_strided"
-                                     initial-buffer
-                                     (->py-tuple shape)
-                                     (->py-tuple strides))
-          ]
-      ;;Make sure the original pointer is linked to the return value via the
-      ;;gc mechanism.
+          retval (call-attr stride-tricks "as_strided"
+                            initial-buffer
+                            (->py-tuple shape)
+                            (->py-tuple strides))]
       (resource/track retval #(get buffer-desc :ptr) [:gc]))))
+
+
+(extend-type Object
+  py-proto/PJvmToNumpy
+  (->numpy [item options]
+    (-> (dtt/ensure-buffer-descriptor item)
+        descriptor->numpy))
+  py-proto/PJvmToNumpyBridge
+  (as-numpy [item options]
+    (when-let [desc (-> (dtt/ensure-tensor item)
+                        dtype/as-buffer-descriptor)]
+      (descriptor->numpy desc))))
+
+
+(defn ->numpy
+  [item & [options]]
+  (py-proto/->numpy item options))
+
+
+(defn as-numpy
+  [item & [options]]
+  (py-proto/as-numpy item options))

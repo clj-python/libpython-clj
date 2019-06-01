@@ -139,8 +139,14 @@ incomplete especially if the object has no 'keys' attribute."))
     "Return a List implementation using __getitem__, __setitem__."))
 
 
+(defprotocol PJvmToNumpyBridge
+  (as-numpy [item options]
+    "Never copy data, operation returns nil of would require copy."))
+
+
 (defprotocol PJvmToNumpy
-  (as-numpy [item options]))
+  (->numpy [item options]
+    "Never return nil.  Copy or otherwise, numpy or bust."))
 
 
 (defprotocol PPyObjectBridgeToTensor
