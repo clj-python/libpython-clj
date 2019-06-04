@@ -475,7 +475,7 @@
         (->py-list item-reader)
         ;;Out of sane options at the moment.
         (throw (ex-info (format "Unable to convert java object to python: %s"
-                                (str item))
+                                (type item))
                         {}))))))
 
 

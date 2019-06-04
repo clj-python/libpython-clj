@@ -101,7 +101,8 @@
         (py/set-item! globals "np_ary" py-tens)
         (py/run-simple-string "np_ary[2,2] = 100")
         (is (= [[5.0 1.0 2.0] [6.0 4.0 5.0] [7.0 7.0 100.0]]
-               ;;zero copy always works the other way, however.  So there is
-               ;;py/->tensor available.
+               ;;zero copy almost always works the other way, however.  So there is
+               ;;py/->tensor available.  Copying the numpy object will allow the
+               ;;zero copy pathway to work.
                (-> (py/as-tensor py-tens)
                    dtt/->jvm)))))))

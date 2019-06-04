@@ -359,6 +359,7 @@
             (->jvm [item options] src-item)
             py-proto/PBridgeToJVM
             (as-jvm [item options] src-item))]
+      (expose-bridge-to-python! bridge)
       (libpy-base/->py-object-ptr bridge))))
 
 
@@ -381,7 +382,11 @@
     (create-bridge-from-att-map
      writer-var
      {"write" (->python (fn [& args]
-                          (.write ^Writer @writer-var (str (first args)))))})))
+                          (.write ^Writer @writer-var (str (first args)))))
+      "flush" (->python (fn [& args]))
+      "isatty" (->python (fn [& args]
+                           (libpy/Py_False)))
+      })))
 
 
 (defn get-or-create-var-writer
