@@ -106,3 +106,17 @@
                ;;zero copy pathway to work.
                (-> (py/as-tensor py-tens)
                    dtt/->jvm)))))))
+
+
+(deftest numpy-scalars
+  (py/initialize!)
+  (let [np (py/import-module "numpy")
+        scalar-constructors (concat ["float64"
+                                     "float32"]
+                                    (for [int-type ["int" "uint"]
+                                          int-width [8 16 32 64]]
+                                      (str int-type int-width)))]
+    (doseq [constructor scalar-constructors]
+      (is (= 3.0 (-> (py/call-attr np constructor 3)
+                     py/->jvm
+                     double))))))

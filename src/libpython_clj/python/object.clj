@@ -776,6 +776,64 @@
          set)))
 
 
+;;numpy types
+(defn numpy-scalar->jvm
+  [pyobj]
+  (with-gil nil
+    (-> (py-proto/attr pyobj "data")
+        (py-proto/item (->py-tuple []))
+        ->jvm)))
+
+(defmethod pyobject->jvm :uint-8
+  [pyobj]
+  (numpy-scalar->jvm pyobj))
+
+
+(defmethod pyobject->jvm :int-8
+  [pyobj]
+  (numpy-scalar->jvm pyobj))
+
+
+(defmethod pyobject->jvm :uint-16
+  [pyobj]
+  (numpy-scalar->jvm pyobj))
+
+
+(defmethod pyobject->jvm :int-16
+  [pyobj]
+  (numpy-scalar->jvm pyobj))
+
+
+(defmethod pyobject->jvm :uint-32
+  [pyobj]
+  (numpy-scalar->jvm pyobj))
+
+
+(defmethod pyobject->jvm :int-32
+  [pyobj]
+  (numpy-scalar->jvm pyobj))
+
+
+(defmethod pyobject->jvm :uint-64
+  [pyobj]
+  (numpy-scalar->jvm pyobj))
+
+
+(defmethod pyobject->jvm :int-64
+  [pyobj]
+  (numpy-scalar->jvm pyobj))
+
+
+(defmethod pyobject->jvm :float-64
+  [pyobj]
+  (numpy-scalar->jvm pyobj))
+
+
+(defmethod pyobject->jvm :float-32
+  [pyobj]
+  (numpy-scalar->jvm pyobj))
+
+
 (defmethod pyobject->jvm :default
   [pyobj]
   (cond

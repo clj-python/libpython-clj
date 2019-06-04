@@ -100,7 +100,7 @@ are converted into a {:type :pyobject-address} pairs."))
 
 
 (defn call-kw
-  [callable arglist & {:as kw-args}]
+  [callable arglist kw-args]
   (do-call-fn callable arglist kw-args))
 
 (defn call-attr
@@ -111,7 +111,7 @@ are converted into a {:type :pyobject-address} pairs."))
 
 
 (defn call-attr-kw
-  [item att-name arglist & {:as kw-map}]
+  [item att-name arglist kw-map]
   (-> (attr item att-name)
       (do-call-fn arglist kw-map)))
 

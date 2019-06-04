@@ -2,8 +2,13 @@
   "https://machinelearningmastery.com/tutorial-first-neural-network-python-keras/"
   (:require [libpython-clj.python
              :refer [import-module
+                     item
+                     attr
+                     python-type
                      call-attr
-                     call-attr-kw]
+                     call-attr-kw
+                     att-type-map
+                     ->py-dict]
              :as py]
             [clojure.pprint :as pp]))
 
@@ -30,8 +35,8 @@
 
 
 (defonce initial-data (call-attr-kw np "loadtxt"
-                                   ["pima-indians-diabetes.data.csv"]
-                                   "delimiter" ","))
+                                    ["pima-indians-diabetes.data.csv"]
+                                    {"delimiter" ","}))
 
 
 (defonce features (call-attr initial-data "__getitem__"
@@ -42,8 +47,8 @@
 
 
 (defn dense-layer
-  [output-size & kwords]
-  (apply call-attr-kw keras-layers "Dense" [output-size] (flatten kwords)))
+  [output-size & {:as kwords}]
+  (call-attr-kw keras-layers "Dense" [output-size] kwords))
 
 
 (defn sequential-model
@@ -57,9 +62,9 @@
   model)
 
 (defn compile-model!
-  [model & kw-args]
-  (apply call-attr-kw model "compile" []
-         kw-args)
+  [model & {:as kw-args}]
+  (call-attr-kw model "compile" []
+                kw-args)
   model)
 
 
@@ -74,10 +79,10 @@
 ;;model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy'])
 
 (defn fit-model
-  [model features labels & kw-args]
-  (apply call-attr-kw model "fit"
-         [features labels]
-         (flatten kw-args))
+  [model features labels & {:as kw-args}]
+  (call-attr-kw model "fit"
+                [features labels]
+                kw-args)
   model)
 
 (defonce fitted-model (fit-model model features labels
@@ -104,7 +109,6 @@
 
 
 (def scores (eval-model fitted-model features labels))
-
 
 
 (pp/pprint scores)

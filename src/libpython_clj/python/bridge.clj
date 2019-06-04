@@ -137,6 +137,56 @@
   (->jvm pyobj))
 
 
+(defmethod pyobject-as-jvm :int-8
+  [pyobj]
+  (->jvm pyobj))
+
+
+(defmethod pyobject-as-jvm :uint-8
+  [pyobj]
+  (->jvm pyobj))
+
+
+(defmethod pyobject-as-jvm :int-16
+  [pyobj]
+  (->jvm pyobj))
+
+
+(defmethod pyobject-as-jvm :uint-16
+  [pyobj]
+  (->jvm pyobj))
+
+
+(defmethod pyobject-as-jvm :int-32
+  [pyobj]
+  (->jvm pyobj))
+
+
+(defmethod pyobject-as-jvm :uint-32
+  [pyobj]
+  (->jvm pyobj))
+
+
+(defmethod pyobject-as-jvm :int-64
+  [pyobj]
+  (->jvm pyobj))
+
+
+(defmethod pyobject-as-jvm :uint-64
+  [pyobj]
+  (->jvm pyobj))
+
+
+(defmethod pyobject-as-jvm :float-64
+  [pyobj]
+  (->jvm pyobj))
+
+
+(defmethod pyobject-as-jvm :float-32
+  [pyobj]
+  (->jvm pyobj))
+
+
 (defmethod pyobject-as-jvm :str
   [pyobj]
   (->jvm pyobj))
