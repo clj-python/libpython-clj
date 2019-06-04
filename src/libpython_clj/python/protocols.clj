@@ -43,10 +43,6 @@ Items may fallback to as-python if copying is untenable."))
     to numpy implementations that share the backing store."))
 
 
-(extend-type Object
-  PBridgeToPython
-  (as-python [item options] nil))
-
 
 (defprotocol PCopyToJVM
   (->jvm [item options]
@@ -57,6 +53,15 @@ are converted into a {:type :pyobject-address} pairs."))
 (defprotocol PBridgeToJVM
   (as-jvm [item options]
     "Return a pyobject implementation that wraps the python object."))
+
+
+(extend-type Object
+  PBridgeToPython
+  (as-python [item options] nil)
+  PCopyToJVM
+  (->jvm [item options] item)
+  PBridgeToJVM
+  (as-jvm [item options] item))
 
 
 (extend-type Object

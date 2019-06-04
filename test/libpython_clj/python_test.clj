@@ -117,6 +117,6 @@
                                           int-width [8 16 32 64]]
                                       (str int-type int-width)))]
     (doseq [constructor scalar-constructors]
-      (is (= 3.0 (-> (py/call-attr np constructor 3)
-                     py/->jvm
-                     double))))))
+      (is (= 3.0 (-> (py/call-attr np constructor 3.0)
+                     double))
+          (str "Item type " constructor)))))
