@@ -21,12 +21,12 @@
                 python-type
                 dir
                 att-type-map
-                attr
+                get-attr
                 has-attr?
                 set-attr!
                 callable?
                 has-item?
-                item
+                get-item
                 set-item!
                 call
                 call-kw

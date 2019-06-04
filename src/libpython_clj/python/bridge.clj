@@ -4,7 +4,7 @@
             [libpython-clj.jna.base :as libpy-base]
             [libpython-clj.python.protocols
              :refer [python-type
-                     has-attr? attr call-attr
+                     has-attr? get-attr call-attr
                      dir att-type-map
                      pyobject-as-jvm
                      as-list]
@@ -224,9 +224,9 @@
        (has-attr? [item# item-name#]
          (with-interpreter interpreter#
            (py-proto/has-attr? pyobj# item-name#)))
-       (attr [item# item-name#]
+       (get-attr [item# item-name#]
          (with-interpreter interpreter#
-           (-> (py-proto/attr pyobj# item-name#)
+           (-> (py-proto/get-attr pyobj# item-name#)
                as-jvm)))
        (set-attr! [item# item-name# item-value#]
          (with-interpreter interpreter#
@@ -238,9 +238,9 @@
        (has-item? [item# item-name#]
          (with-interpreter interpreter#
            (py-proto/has-item? pyobj# item-name#)))
-       (item [item# item-name#]
+       (get-item [item# item-name#]
          (with-interpreter interpreter#
-           (-> (py-proto/item pyobj# item-name#)
+           (-> (py-proto/get-item pyobj# item-name#)
                as-jvm)))
        (set-item! [item# item-name# item-value#]
          (with-interpreter interpreter#
@@ -289,7 +289,7 @@
                       "__delitem__"}
           dict-att-map (->> (py-proto/dir pyobj)
                             (filter dict-atts)
-                            (map (juxt identity (partial py-proto/attr pyobj)))
+                            (map (juxt identity (partial py-proto/get-attr pyobj)))
                             (into {}))
           py-call (fn [fn-name & args]
                     (with-interpreter interpreter
@@ -360,7 +360,7 @@
                       "__delitem__" "sort"}
           dict-att-map (->> (py-proto/dir pyobj)
                             (filter dict-atts)
-                            (map (juxt identity (partial py-proto/attr pyobj)))
+                            (map (juxt identity (partial py-proto/get-attr pyobj)))
                             (into {}))
           py-call (fn [fn-name & args]
                     (with-interpreter interpreter
@@ -440,11 +440,11 @@
 
 (defn obj-dtype->dtype
   [py-dtype]
-  (if-let [retval (->> (py-proto/attr py-dtype "name")
+  (if-let [retval (->> (py-proto/get-attr py-dtype "name")
                        (get py-dtype->dtype-map))]
     retval
     (throw (ex-info (format "Unable to find datatype: %s"
-                            (py-proto/attr py-dtype "name"))
+                            (py-proto/get-attr py-dtype "name"))
                     {}))))
 
 
@@ -454,22 +454,22 @@
     (let [np-obj (as-jvm np-obj)
           np (-> (pyinterop/import-module "numpy")
                  (as-jvm))
-          ctypes (attr np-obj "ctypes")
+          ctypes (get-attr np-obj "ctypes")
           ptr-dtype (-> (call-attr np "dtype" "p")
                         obj-dtype->dtype)
-          obj-dtype (attr np-obj "dtype")
+          obj-dtype (get-attr np-obj "dtype")
           np-dtype  (obj-dtype->dtype obj-dtype)
-          _ (when-let [fields (attr obj-dtype "fields")]
+          _ (when-let [fields (get-attr obj-dtype "fields")]
               (throw (ex-info (format "Cannot convert numpy object with fields: %s"
                                       (call-attr fields "__str__"))
                               {})))
-          shape (-> (attr ctypes "shape")
+          shape (-> (get-attr ctypes "shape")
                     (as-list)
                     vec)
-          strides (-> (attr ctypes "strides")
+          strides (-> (get-attr ctypes "strides")
                     (as-list)
                     vec)
-          long-addr (attr ctypes "data")
+          long-addr (get-attr ctypes "data")
           hash-ary {:ctypes-map ctypes}
           ptr-val (-> (Pointer. long-addr)
                       (resource/track #(get hash-ary :ctypes-map) [:gc]))]
@@ -494,7 +494,7 @@
            Iterable
            (iterator [this]
                      (with-interpreter interpreter
-                       (let [iter-fn (py-proto/attr pyobj "__iter__")]
+                       (let [iter-fn (py-proto/get-attr pyobj "__iter__")]
                          (python->jvm-iterator iter-fn ->jvm))))
            py-proto/PPyObjectBridgeToMap
            (as-map [item]
@@ -563,7 +563,7 @@
            Iterable
            (iterator [this]
                      (with-interpreter interpreter
-                       (let [iter-fn (py-proto/attr pyobj "__iter__")]
+                       (let [iter-fn (py-proto/get-attr pyobj "__iter__")]
                          (python->jvm-iterator iter-fn ->jvm))))
            py-proto/PPyObjectBridgeToMap
            (as-map [item]
@@ -757,8 +757,8 @@
                       ctypes "cast" void-p
                       (call-attr
                        ctypes "POINTER"
-                       (py-proto/attr ctypes
-                                      (datatype->ptr-type-name datatype))))
+                       (py-proto/get-attr ctypes
+                                          (datatype->ptr-type-name datatype))))
 
           initial-buffer (call-attr
                           np-ctypes "as_array"

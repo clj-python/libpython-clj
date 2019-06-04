@@ -600,25 +600,23 @@
   (dir [item]
     (py-dir item))
   (has-attr? [item name] (has-attr? item name))
-  (attr [item name] (get-attr item name))
-  (set-attr! [item item-name item-value]
-    (set-attr! item item-name item-value))
+  (get-attr [item name] (get-attr item name))
+  (set-attr! [item item-name item-value] (set-attr! item item-name item-value))
   (callable? [item] (= 1 (libpy/PyCallable_Check item)))
   (has-item? [item item-name] (obj-has-item? item item-name))
-  (item [item item-name] (obj-get-item item item-name))
-  (set-item! [item item-name item-value]
-    (obj-set-item! item item-name item-value))
+  (get-item [item item-name] (obj-get-item item item-name))
+  (set-item! [item item-name item-value] (obj-set-item! item item-name item-value))
   PyObject
   (dir [item] (py-proto/dir (.getPointer item)))
   (has-attr? [item item-name] (py-proto/has-attr? (.getPointer item) item-name))
-  (attr [item item-name] (py-proto/attr (.getPointer item) item-name))
+  (get-attr [item item-name] (py-proto/get-attr (.getPointer item) item-name))
   (set-attr! [item item-name item-value]
     (py-proto/set-attr! (.getPointer item) item-name item-value))
   (callable? [item] (py-proto/callable? (.getPointer item)))
   (has-item? [item item-name] (py-proto/has-item? (.getPointer item) item-name))
-  (item [item item-name] (py-proto/item (.getPointer item) item-name))
-  (set-item! [item item-name item-value] (py-proto/set-item! (.getPointer item) item-name
-                                                             item-value)))
+  (item [item item-name] (py-proto/get-item (.getPointer item) item-name))
+  (set-item! [item item-name item-value]
+    (py-proto/set-item! (.getPointer item) item-name item-value)))
 
 
 (extend-protocol py-proto/PyCall
@@ -780,8 +778,8 @@
 (defn numpy-scalar->jvm
   [pyobj]
   (with-gil nil
-    (-> (py-proto/attr pyobj "data")
-        (py-proto/item (->py-tuple []))
+    (-> (py-proto/get-attr pyobj "data")
+        (py-proto/get-item (->py-tuple []))
         ->jvm)))
 
 (defmethod pyobject->jvm :uint-8

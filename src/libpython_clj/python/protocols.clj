@@ -73,11 +73,11 @@ are converted into a {:type :pyobject-address} pairs."))
   (dir [item]
     "Get sorted list of all attribute names.")
   (has-attr? [item item-name])
-  (attr [item item-name])
+  (get-attr [item item-name])
   (set-attr! [item item-name item-value])
   (callable? [item])
   (has-item? [item item-name])
-  (item [item item-name])
+  (get-item [item item-name])
   (set-item! [item item-name item-value]))
 
 
@@ -89,10 +89,10 @@ are converted into a {:type :pyobject-address} pairs."))
 (extend-type Object
   PPyAttMap
   (att-type-map [item]
-    (->> (dir item)
-         (map (juxt identity (comp python-type
-                                   (partial attr item))))
-         (into (sorted-map)))))
+()    (->> (dir item)
+        (map (juxt identity (comp python-type
+                                  (partial get-attr item))))
+        (into (sorted-map)))))
 
 
 (defprotocol PyCall
@@ -111,13 +111,13 @@ are converted into a {:type :pyobject-address} pairs."))
 (defn call-attr
   "Call an object attribute"
   [item att-name & args]
-  (-> (attr item att-name)
+  (-> (get-attr item att-name)
       (do-call-fn args nil)))
 
 
 (defn call-attr-kw
   [item att-name arglist kw-map]
-  (-> (attr item att-name)
+  (-> (get-attr item att-name)
       (do-call-fn arglist kw-map)))
 
 

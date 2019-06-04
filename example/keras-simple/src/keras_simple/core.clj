@@ -2,8 +2,8 @@
   "https://machinelearningmastery.com/tutorial-first-neural-network-python-keras/"
   (:require [libpython-clj.python
              :refer [import-module
-                     item
-                     attr
+                     get-item
+                     get-attr
                      python-type
                      call-attr
                      call-attr-kw
@@ -39,12 +39,9 @@
                                     {"delimiter" ","}))
 
 
-(defonce features (call-attr initial-data "__getitem__"
-                            [(slice) (slice 0 8)]))
+(def features (get-item initial-data [(slice) (slice 0 8)]))
 
-(defonce labels (call-attr initial-data "__getitem__"
-                           [(slice) (slice 8 9)]))
-
+(def labels (get-item initial-data [(slice) (slice 8 9)]))
 
 (defn dense-layer
   [output-size & {:as kwords}]
@@ -85,25 +82,17 @@
                 kw-args)
   model)
 
-(defonce fitted-model (fit-model model features labels
-                                 "epochs" 150
-                                 "batch_size" 10))
 
-
-(defn numpy-num->jvm
-  [np-obj]
-  (when-not (= (py/python-type np-obj) :float-64)
-    (throw (ex-info "Incorrect python type." {})))
-  (-> (py/attr np-obj "data")
-      (call-attr "__getitem__" (py/->py-tuple []))))
+(def fitted-model (fit-model model features labels
+                             "epochs" 150
+                             "batch_size" 10))
 
 
 (defn eval-model
   [model features lables]
-  (let [model-names (->> (py/attr model "metrics_names")
+  (let [model-names (->> (get-attr model "metrics_names")
                          (mapv keyword))]
     (->> (call-attr model "evaluate" features labels)
-         (map numpy-num->jvm)
          (map vector model-names)
          (into {}))))
 
