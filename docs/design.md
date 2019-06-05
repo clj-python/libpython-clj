@@ -57,7 +57,8 @@ interpreter currently bound to this thread or throws.
 
 ### Garbage Collection
 
-The system uses the tech.resource library to attach a GC hook to appropriate java object
+The system uses the [tech.resource](https://github.com/techascent/tech.resource) 
+library to attach a GC hook to appropriate java object
 that releases the associated python object if the java object goes out of scope.
 Bridges use a similar technique to unregister the bridge on destruction of their python
 counterpart.  There should be no need for manual addref/release calls in any user code
