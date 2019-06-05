@@ -210,7 +210,7 @@ distance.
 ## Further Information
 
 * [design documentation](docs/design.md)
-* [keras example](examples/keras-simple)
+* [keras example](example/keras-simple)
 
 
 ## Resources
