@@ -2,6 +2,8 @@
 
 JNA libpython bindings to the tech ecosystem.
 
+[![Clojars Project](https://img.shields.io/clojars/v/cnuernber/libpython-clj.svg)](https://clojars.org/cnuernber/libpython-clj)
+
 
 * The exact same binary can run top of on multiple version of python reducing version
   dependency chain management issues.
