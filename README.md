@@ -83,7 +83,7 @@ user> (:globals bridged)
 We can get and set global variables here.  If we run another string, these are in the
 environment.  The globals map itself is the global dict of the main module:
 
-```console
+```clojure
 (def main-globals (-> (add-module "__main__")
                             (module-dict)))
 #'user/main-globals
