@@ -1,3 +1,0 @@
-[submodule "example/spacy-cpp"]
-	path = example/spacy-cpp
-	url = git@github.com:d99kris/spacy-cpp.git
