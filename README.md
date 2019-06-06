@@ -18,7 +18,7 @@ Python objects are essentially two dictionaries, one for 'attributes' and one fo
 'items'.  When you use python and use the '.' operator, you are referencing attributes.
 If you use the '[]' operator, then you are referencing items.  Attributes are built in,
 item access is optional and happens via the `__getitem__` and `__setitem__` attributes.
-This is important to realize in that the code below doesn't like python because we are
+This is important to realize in that the code below doesn't look like python because we are
 referencing the item and attribute systems by name and not via '.' or '[]'.
 
 
