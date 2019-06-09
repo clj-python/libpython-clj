@@ -22,3 +22,11 @@ Type "help", "copyright", "credits" or "license" for more information.
 Using TensorFlow backend.
 >>>
 ```
+
+## Virtual Environments
+
+
+This was lightly tested with venv it worked.  Simply activate the virtual environment
+before you launch the repl and things should work fine assuming the base python
+executable versions line up.  Again, see readme if they do not in order to override the
+version loaded.
