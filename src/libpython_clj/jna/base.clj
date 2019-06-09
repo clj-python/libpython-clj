@@ -1,8 +1,6 @@
 (ns libpython-clj.jna.base
-  (:require [tech.v2.datatype :as dtype]
-            [tech.jna :as jna]
+  (:require [tech.jna :as jna]
             [tech.jna.base :as jna-base]
-            [tech.v2.datatype.typecast :as typecast]
             [camel-snake-kebab.core :refer [->kebab-case]])
   (:import [com.sun.jna Pointer NativeLibrary]
            [libpython_clj.jna PyObject]))
