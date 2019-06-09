@@ -26,7 +26,7 @@ Using TensorFlow backend.
 ## Virtual Environments
 
 
-This was lightly tested with venv it worked.  Simply activate the virtual environment
+This was lightly tested with `python3 -m venv venv`.  Simply activate the virtual environment in the same console
 before you launch the repl and things should work fine assuming the base python
 executable versions line up.  Again, see readme if they do not in order to override the
 version loaded.
