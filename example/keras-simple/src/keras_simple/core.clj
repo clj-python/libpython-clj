@@ -13,6 +13,12 @@
             [clojure.pprint :as pp]))
 
 
+;;Uncomment this line to load a different version of your python shared library:
+
+
+;;(alter-var-root #'libpython-clj.jna.base/*python-library* (constantly "python3.7m"))
+
+
 (py/initialize!)
 
 
