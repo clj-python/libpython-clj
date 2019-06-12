@@ -109,7 +109,8 @@
   (let [retval (->Interpreter (atom {:thread-state thread-state
                                      :bridge-objects {}
                                      :sub-interpreters []})
-                              ;;This that have to live as long as the main interpreter does
+                              ;;This that have to live as long as the main interpreter
+                              ;;does
                               (atom {:type-symbol-table type-symbol-table
                                      :forever []}))]
     (reset! *main-interpreter* retval)
