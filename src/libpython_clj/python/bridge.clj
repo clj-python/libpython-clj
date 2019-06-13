@@ -270,15 +270,27 @@
        (->py-dict)))
 
 
-(defn- py-impl-call-as
+
+(defn- py-impl-call-raw
   [att-name att-map arglist]
   (if-let [py-fn (get att-map att-name)]
-    (-> (py-proto/do-call-fn py-fn (map as-python arglist) nil)
-        as-jvm)
+    (-> (py-proto/do-call-fn py-fn (map as-python arglist) nil))
     (throw (UnsupportedOperationException.
             (format "Python object has no attribute: %s"
                     att-name)))))
 
+
+(defn- py-impl-call-as
+  [att-name att-map arglist]
+  (-> (py-impl-call-raw att-name att-map arglist)
+      as-jvm))
+
+(defn- raw-python-iterator
+  [att-map]
+  (when-not (get att-map "__iter__")
+    (throw (ex-info "Object is not iterable!" {})))
+  (let [py-iter (python->jvm-iterator (get att-map "__iter__") identity)]
+    py-iter))
 
 (defn generic-python-as-map
   [pyobj]
@@ -331,15 +343,19 @@
        (iterator
         [this]
         (let [mapentry-seq
-              (->> (py-call "__iter__")
-                   (map (juxt identity #(.get this %)))
-                   (map (fn [[k v :as tuple]]
-                          (reify Map$Entry
-                            (getKey [this] k)
-                            (getValue [this] v)
-                            (hashCode [this] (.hashCode ^Object tuple))
-                            (equals [this o]
-                              (.equals ^Object tuple o))))))]
+              (->> (raw-python-iterator dict-att-map)
+                   iterator-seq
+                   (map (fn [pyobj-key]
+                          (with-interpreter interpreter
+                            (let [k (as-jvm pyobj-key)
+                                  v (.get this pyobj-key)
+                                  tuple [k v]]
+                              (reify Map$Entry
+                                (getKey [this] k)
+                                (getValue [this] v)
+                                (hashCode [this] (.hashCode ^Object tuple))
+                                (equals [this o]
+                                  (.equals ^Object tuple o))))))))]
           (.iterator ^Iterable mapentry-seq)))
        IFn
        (invoke [this arg] (.get this arg))
@@ -697,9 +713,9 @@
   Iterable
   (as-python [item options]
     (cond
-      (instance? item Map)
+      (instance? Map item)
       (jvm-map-as-python item)
-      (instance? item RandomAccess)
+      (instance? RandomAccess item)
       (jvm-list-as-python item)
       :else
       (jvm-iterable-as-python item)))

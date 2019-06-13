@@ -120,3 +120,16 @@
       (is (= 3.0 (-> (py/call-attr np constructor 3.0)
                      double))
           (str "Item type " constructor)))))
+
+
+(deftest dict-with-complex-key
+  (py/initialize!)
+  (let [py-dict (py/->python {["a" "b"] 1
+                              ["c" "d"] 2})
+        bridged (py/as-jvm py-dict)]
+    (is (= #{["a" "b"]
+             ["c" "d"]}
+           (->> (keys bridged)
+                ;;Bridged tuples are lists, not persistent vectors.
+                (map vec)
+                set)))))

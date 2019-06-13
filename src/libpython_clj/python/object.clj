@@ -396,18 +396,20 @@
   If a pure fn is passed in, arguments are marshalled from python if possible and
   then to-python in the case of successful execution.  An exception will set the error
   indicator."
-  [fn-obj {:keys [method-name documentation py-self]
-           :or {method-name "unnamed_function"
-                documentation "not documented"}}]
-  (with-gil
-    (let [py-self (or py-self (->python {}))]
-      (wrap-pyobject (libpy/PyCFunction_New (method-def-data->method-def
-                                             {:name method-name
-                                              :doc documentation
-                                              :function fn-obj})
-                                            ;;This is a nice little tidbit, cfunction_new
-                                            ;;steals the reference.
-                                            (libpy/Py_IncRef py-self))))))
+  ([fn-obj {:keys [method-name documentation py-self]
+             :or {method-name "unnamed_function"
+                  documentation "not documented"}}]
+   (with-gil
+     (let [py-self (or py-self (->python {}))]
+       (wrap-pyobject (libpy/PyCFunction_New (method-def-data->method-def
+                                              {:name method-name
+                                               :doc documentation
+                                               :function fn-obj})
+                                             ;;This is a nice little tidbit, cfunction_new
+                                             ;;steals the reference.
+                                             (libpy/Py_IncRef py-self))))))
+  ([fn-obj]
+   (->py-fn fn-obj {})))
 
 
 
@@ -431,30 +433,28 @@
     (if item
       (py-true)
       (py-false)))
-  IPersistentMap
-  (->python [item options]
-    (->py-dict item))
-  Map
-  (->python [item options]
-    (->py-dict item))
-  Map$Entry
-  (->python [item options]
-    (->py-tuple [(.getKey item) (.getValue item)]))
-  Set
-  (->python [item options]
-    (->py-set item))
-  IPersistentSet
-  (->python [item options]
-    (->py-set item))
-  RandomAccess
-  (->python [item options]
-    (if (and (instance? IPersistentVector item)
-             (< (count item) (long *item-tuple-cutoff*)))
-      (->py-tuple item)
-      (->py-list item)))
   Iterable
   (->python [item options]
-    (->py-list item))
+    (cond
+      (instance? RandomAccess item)
+      (if (and (instance? IPersistentVector item)
+               (< (count item) (long *item-tuple-cutoff*)))
+        (->py-tuple item)
+        (->py-list item))
+      (instance? Map$Entry item)
+      (->py-tuple [(.getKey ^Map$Entry item)
+                   (.getValue ^Map$Entry item)])
+      (or (set? item)
+          (instance? Set item))
+      (->py-set item)
+      ;;Careful here!
+      (fn? item)
+      (->py-fn item)
+      (or (map? item)
+          (instance? Map item))
+      (->py-dict item)
+      :else
+      (->py-list item)))
   Pointer
   (->python [item options] item)
   PyObject
