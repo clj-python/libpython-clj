@@ -133,3 +133,9 @@
                 ;;Bridged tuples are lists, not persistent vectors.
                 (map vec)
                 set)))))
+
+
+(deftest simple-print-crashed
+  (py/initialize!)
+  (let [numpy (py/import-module "numpy")]
+    (println (py/as-tensor (py/call-attr numpy "ones" [3 3])))))
