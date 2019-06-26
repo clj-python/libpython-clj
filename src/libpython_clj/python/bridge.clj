@@ -55,6 +55,7 @@
            [tech.v2.datatype.typed_buffer TypedBuffer]
            [tech.v2.tensor.impl Tensor]
            [com.sun.jna Pointer]
+           [java.io Writer]
            [libpython_clj.jna JVMBridge
             CFunction$KeyWordFunction
             CFunction$TupleFunction
@@ -201,59 +202,69 @@
   [pyobj interpreter & body]
   `(let [pyobj# ~pyobj
          interpreter# ~interpreter]
-     (reify
-       libpy-base/PToPyObjectPtr
-       (convertible-to-pyobject-ptr? [item#] true)
-       (->py-object-ptr [item#] (jna/as-ptr pyobj#))
-       py-proto/PPythonType
-       (get-python-type [item]
-         (with-interpreter interpreter#
-           (py-proto/get-python-type pyobj#)))
-       py-proto/PCopyToPython
-       (->python [item# options#] pyobj#)
-       py-proto/PBridgeToPython
-       (as-python [item# options#] pyobj#)
-       py-proto/PCopyToJVM
-       (->jvm [item# options#] item#)
-       py-proto/PBridgeToJVM
-       (as-jvm [item# options#] item#)
-       py-proto/PPyObject
-       (dir [item#]
-         (with-interpreter interpreter#
-           (py-proto/dir pyobj#)))
-       (has-attr? [item# item-name#]
-         (with-interpreter interpreter#
-           (py-proto/has-attr? pyobj# item-name#)))
-       (get-attr [item# item-name#]
-         (with-interpreter interpreter#
-           (-> (py-proto/get-attr pyobj# item-name#)
-               as-jvm)))
-       (set-attr! [item# item-name# item-value#]
-         (with-interpreter interpreter#
-           (py-proto/set-attr! pyobj# item-name#
-                               (as-python item-value#))))
-       (callable? [item#]
-         (with-interpreter interpreter#
-           (py-proto/callable? pyobj#)))
-       (has-item? [item# item-name#]
-         (with-interpreter interpreter#
-           (py-proto/has-item? pyobj# item-name#)))
-       (get-item [item# item-name#]
-         (with-interpreter interpreter#
-           (-> (py-proto/get-item pyobj# item-name#)
-               as-jvm)))
-       (set-item! [item# item-name# item-value#]
-         (with-interpreter interpreter#
-           (py-proto/set-item! pyobj# item-name# (as-python item-value#))))
-       py-proto/PPyAttMap
-       (att-type-map [item#]
-         (with-interpreter interpreter#
-           (py-proto/att-type-map pyobj#)))
-       py-proto/PyCall
-       (do-call-fn [callable# arglist# kw-arg-map#]
-         (-> (py-proto/do-call-fn pyobj# arglist# kw-arg-map#)
-             (as-jvm)))
-       ~@body)))
+     (with-meta
+       (reify
+         libpy-base/PToPyObjectPtr
+         (convertible-to-pyobject-ptr? [item#] true)
+         (->py-object-ptr [item#] (jna/as-ptr pyobj#))
+         py-proto/PPythonType
+         (get-python-type [item]
+           (with-interpreter interpreter#
+             (py-proto/get-python-type pyobj#)))
+         py-proto/PCopyToPython
+         (->python [item# options#] pyobj#)
+         py-proto/PBridgeToPython
+         (as-python [item# options#] pyobj#)
+         py-proto/PCopyToJVM
+         (->jvm [item# options#] item#)
+         py-proto/PBridgeToJVM
+         (as-jvm [item# options#] item#)
+         py-proto/PPyObject
+         (dir [item#]
+           (with-interpreter interpreter#
+             (py-proto/dir pyobj#)))
+         (has-attr? [item# item-name#]
+           (with-interpreter interpreter#
+             (py-proto/has-attr? pyobj# item-name#)))
+         (get-attr [item# item-name#]
+           (with-interpreter interpreter#
+             (-> (py-proto/get-attr pyobj# item-name#)
+                 as-jvm)))
+         (set-attr! [item# item-name# item-value#]
+           (with-interpreter interpreter#
+             (py-proto/set-attr! pyobj# item-name#
+                                 (as-python item-value#))))
+         (callable? [item#]
+           (with-interpreter interpreter#
+             (py-proto/callable? pyobj#)))
+         (has-item? [item# item-name#]
+           (with-interpreter interpreter#
+             (py-proto/has-item? pyobj# item-name#)))
+         (get-item [item# item-name#]
+           (with-interpreter interpreter#
+             (-> (py-proto/get-item pyobj# item-name#)
+                 as-jvm)))
+         (set-item! [item# item-name# item-value#]
+           (with-interpreter interpreter#
+             (py-proto/set-item! pyobj# item-name# (as-python item-value#))))
+         py-proto/PPyAttMap
+         (att-type-map [item#]
+           (with-interpreter interpreter#
+             (py-proto/att-type-map pyobj#)))
+         py-proto/PyCall
+         (do-call-fn [callable# arglist# kw-arg-map#]
+           (-> (py-proto/do-call-fn pyobj# arglist# kw-arg-map#)
+               (as-jvm)))
+         Object
+         (toString [this#]
+           (->jvm (py-proto/call-attr pyobj# "__str__")))
+         ~@body)
+       {:type :pyobject})))
+
+
+(defmethod print-method :pyobject
+  [pyobj w]
+  (.write ^Writer w ^String (.toString ^Object pyobj)))
 
 
 (defn as-tuple
