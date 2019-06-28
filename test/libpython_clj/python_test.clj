@@ -139,3 +139,11 @@
   (py/initialize!)
   (let [numpy (py/import-module "numpy")]
     (println (py/as-tensor (py/call-attr numpy "ones" [3 3])))))
+
+
+(deftest true-false-list
+  (py/initialize!)
+  (is (= [false true]
+         (-> '(false true)
+             py/->py-list
+             py/->jvm))))

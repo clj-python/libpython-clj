@@ -173,9 +173,9 @@
 (defn ->python
   "Completely convert a jvm object to a python copy."
   [item & [options]]
-  (if item
-    (py-proto/->python item options)
-    (py-none)))
+  (if (nil? item)
+    (py-none)
+    (py-proto/->python item options)))
 
 
 (defn py-raw-type
