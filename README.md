@@ -32,23 +32,29 @@ pip3 install numpy
 
 ```clojure
 user>
+
 user> (require '[libpython-clj.python
                  :refer [as-python as-jvm
                          ->python ->jvm
                          get-attr call-attr call-attr-kw
-						 get-item att-type-map
+                         get-item att-type-map
                          call call-kw initialize!
-						 as-numpy as-tensor ->numpy
-						 run-simple-string
-						 add-module module-dict
-						 import-module
-						 python-type]])
-:tech.resource.gc Reference thread starting
+                         as-numpy as-tensor ->numpy
+                         run-simple-string
+                         add-module module-dict
+                         import-module
+                         python-type]])
 nil
 
+
 user> (initialize!)
-info: executing python initialize!
-Library python3.6m found at [:system "python3.6m"]
+Jun 30, 2019 4:47:39 PM clojure.tools.logging$eval7369$fn__7372 invoke
+INFO: executing python initialize!
+Jun 30, 2019 4:47:39 PM clojure.tools.logging$eval7369$fn__7372 invoke
+INFO: Library python3.6m found at [:system "python3.6m"]
+Jun 30, 2019 4:47:39 PM clojure.tools.logging$eval7369$fn__7372 invoke
+INFO: Reference thread starting
+:ok
 ```
 
 This dynamically finds the python shared library and loads it.  If you desire a
@@ -67,8 +73,7 @@ hey
 {:globals
  {'__name__': '__main__', '__doc__': None, '__package__': None, '__loader__': <class '_frozen_importlib.BuiltinImporter'>, '__spec__': None, '__annotations__': {}, '__builtins__': <module 'builtins' (built-in)>},
  :locals
- {'__name__': '__main__', '__doc__': None, '__package__': None, '__loader__': <class '_frozen_importlib.BuiltinImporter'>, '__spec__': None, '__annotations__': {}, '__builtins__': <module 'builtins' (built-in)>},
- :result nil}
+ {'__name__': '__main__', '__doc__': None, '__package__': None, '__loader__': <class '_frozen_importlib.BuiltinImporter'>, '__spec__': None, '__annotations__': {}, '__builtins__': <module 'builtins' (built-in)>}}
 ```
 
 The results have been 'bridged' into java meaning they are still python objects but
@@ -111,8 +116,7 @@ your variable is:200
 {:globals
  {'__name__': '__main__', '__doc__': None, '__package__': None, '__loader__': <class '_frozen_importlib.BuiltinImporter'>, '__spec__': None, '__annotations__': {}, '__builtins__': <module 'builtins' (built-in)>, 'my_var': 200},
  :locals
- {'__name__': '__main__', '__doc__': None, '__package__': None, '__loader__': <class '_frozen_importlib.BuiltinImporter'>, '__spec__': None, '__annotations__': {}, '__builtins__': <module 'builtins' (built-in)>, 'my_var': 200},
- :result nil}
+ {'__name__': '__main__', '__doc__': None, '__package__': None, '__loader__': <class '_frozen_importlib.BuiltinImporter'>, '__spec__': None, '__annotations__': {}, '__builtins__': <module 'builtins' (built-in)>, 'my_var': 200}}
 ```
 
 Running python isn't ever really necessary, however, although it may at times be
@@ -217,8 +221,7 @@ user> (run-simple-string "print(ones_ary)")
        [5., 5., 5.]])},
  :locals
  {'__name__': '__main__', '__doc__': None, '__package__': None, '__loader__': <class '_frozen_importlib.BuiltinImporter'>, '__spec__': None, '__annotations__': {}, '__builtins__': <module 'builtins' (built-in)>, 'my_var': 200, 'ones_ary': array([[5., 5., 5.],
-       [5., 5., 5.]])},
- :result nil}
+       [5., 5., 5.]])}}
 ```
 
 So heavy data has a zero-copy route.  Anything backed by a `:native-buffer` has a

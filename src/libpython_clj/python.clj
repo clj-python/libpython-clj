@@ -68,6 +68,9 @@
   of the cpython implementation with the exception of returning the various maps
   used.
 
+  Note this will never return the result of the expression:
+  https://mail.python.org/pipermail/python-list/1999-April/018011.html
+
   Globals, locals may be provided but are not necessary.
 
   Implemented in cpython as:

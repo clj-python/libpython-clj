@@ -88,7 +88,11 @@
 
 
 (defn run-simple-string
-  "Run a simple string returning boolean 1 or 0.
+  "Run a simple string returning boolean 1 or 0.  Note this will never
+  return the result of the expression:
+
+  https://mail.python.org/pipermail/python-list/1999-April/018011.html
+
   Implemented in cpython as:
 
     PyObject *m, *d, *v;
@@ -114,8 +118,7 @@
                                          globals locals)
                      wrap-pyobject)]
       {:globals globals
-       :locals locals
-       :result retval})))
+       :locals locals})))
 
 
 (defn run-string
