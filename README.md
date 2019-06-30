@@ -61,25 +61,26 @@ different shared library you can override
 `*out*` and `*err*` capture python stdout and stderr respectively.
 
 ```clojure
+
 user> (run-simple-string "print('hey')")
 hey
-{:globals #object[com.sun.jna.Pointer 0x5d583373 "native@0x7ff0dc04f3a8"],
- :locals #object[com.sun.jna.Pointer 0x5d583373 "native@0x7ff0dc04f3a8"],
- :result #object[com.sun.jna.Pointer 0x86d7ae5 "native@0x7ff0d6a6c150"]}
+{:globals
+ {'__name__': '__main__', '__doc__': None, '__package__': None, '__loader__': <class '_frozen_importlib.BuiltinImporter'>, '__spec__': None, '__annotations__': {}, '__builtins__': <module 'builtins' (built-in)>},
+ :locals
+ {'__name__': '__main__', '__doc__': None, '__package__': None, '__loader__': <class '_frozen_importlib.BuiltinImporter'>, '__spec__': None, '__annotations__': {}, '__builtins__': <module 'builtins' (built-in)>},
+ :result nil}
 ```
-The results are pure jna pointers.  Let's convert them to something a bit easier
-to understand:
+
+The results have been 'bridged' into java meaning they are still python objects but
+there are java wrappers over the top of them.  For instance, `Object.toString` forwards
+its implementation to the python function `__str__`.
 
 ```clojure
-user> (def bridged (->> *1
-                        (map (fn [[k v]]
-                               [k (as-jvm v)]))
-                        (into {})))
-#'user/bridged
+
 (instance? java.util.Map (:globals bridged))
 true
 user> (:globals bridged)
-{"__name__" "__main__", "__doc__" nil, "__package__" nil, "__loader__" #object[libpython_clj.python.bridge$generic_python_as_jvm$fn$reify__27727 0x4536b202 "libpython_clj.python.bridge$generic_python_as_jvm$fn$reify__27727@4536b202"], "__spec__" nil, "__annotations__" {}, "__builtins__" #object[libpython_clj.python.bridge$generic_python_as_jvm$fn$reify__27765 0x10a6eb20 "libpython_clj.python.bridge$generic_python_as_jvm$fn$reify__27765@10a6eb20"]}
+{'__name__': '__main__', '__doc__': None, '__package__': None, '__loader__': <class '_frozen_importlib.BuiltinImporter'>, '__spec__': None, '__annotations__': {}, '__builtins__': <module 'builtins' (built-in)>}
 ```
 
 We can get and set global variables here.  If we run another string, these are in the
@@ -89,6 +90,9 @@ environment.  The globals map itself is the global dict of the main module:
 (def main-globals (-> (add-module "__main__")
                             (module-dict)))
 #'user/main-globals
+
+user> main-globals
+{'__name__': '__main__', '__doc__': None, '__package__': None, '__loader__': <class '_frozen_importlib.BuiltinImporter'>, '__spec__': None, '__annotations__': {}, '__builtins__': <module 'builtins' (built-in)>}
 user> (keys main-globals)
 ("__name__"
  "__doc__"
@@ -97,18 +101,18 @@ user> (keys main-globals)
  "__spec__"
  "__annotations__"
  "__builtins__")
-
 user> (get main-globals "__name__")
-"__main__"
-(get (:globals bridged) "__name__")
 "__main__"
 user> (.put main-globals "my_var" 200)
 nil
+
 user> (run-simple-string "print('your variable is:' + str(my_var))")
 your variable is:200
-{:globals #object[com.sun.jna.Pointer 0x5cf3170a "native@0x7f89080573a8"],
- :locals #object[com.sun.jna.Pointer 0x5cf3170a "native@0x7f89080573a8"],
- :result #object[com.sun.jna.Pointer 0x59b7efc4 "native@0x7f8903d6f150"]}
+{:globals
+ {'__name__': '__main__', '__doc__': None, '__package__': None, '__loader__': <class '_frozen_importlib.BuiltinImporter'>, '__spec__': None, '__annotations__': {}, '__builtins__': <module 'builtins' (built-in)>, 'my_var': 200},
+ :locals
+ {'__name__': '__main__', '__doc__': None, '__package__': None, '__loader__': <class '_frozen_importlib.BuiltinImporter'>, '__spec__': None, '__annotations__': {}, '__builtins__': <module 'builtins' (built-in)>, 'my_var': 200},
+ :result nil}
 ```
 
 Running python isn't ever really necessary, however, although it may at times be
@@ -119,8 +123,18 @@ user> (def np (import-module "numpy"))
 #'user/np
 user> (def ones-ary (call-attr np "ones" [2 3]))
 #'user/ones-ary
-user> (get-attr ones-ary "shape")
-[2 3]
+(def ones-shape *1)
+#'user/ones-shape
+user> (type ones-shape)
+:pyobject
+user> ones-shape
+(2, 3)
+user> (println ones-shape)
+(2, 3)
+nil
+user> ones-ary
+[[1. 1. 1.]
+ [1. 1. 1.]]
 ```
 
 
@@ -182,6 +196,7 @@ user> (println tens-data)
 #tech.v2.tensor<float64>[2 3]
 [[1.000 1.000 1.000]
  [1.000 1.000 1.000]]
+nil
 
 
 user> (require '[tech.v2.datatype :as dtype])
@@ -193,12 +208,17 @@ Syntax error compiling at (*cider-repl cnuernber/libpython-clj:localhost:39019(c
 Unable to resolve symbol: ones_ary in this context
 user> (.put main-globals "ones_ary" ones-ary)
 nil
+
 user> (run-simple-string "print(ones_ary)")
 [[5. 5. 5.]
  [5. 5. 5.]]
-{:globals #object[com.sun.jna.Pointer 0x515f9c6c "native@0x7f89080573a8"],
- :locals #object[com.sun.jna.Pointer 0x515f9c6c "native@0x7f89080573a8"],
- :result #object[com.sun.jna.Pointer 0x1610b946 "native@0x7f8903d6f150"]}
+{:globals
+ {'__name__': '__main__', '__doc__': None, '__package__': None, '__loader__': <class '_frozen_importlib.BuiltinImporter'>, '__spec__': None, '__annotations__': {}, '__builtins__': <module 'builtins' (built-in)>, 'my_var': 200, 'ones_ary': array([[5., 5., 5.],
+       [5., 5., 5.]])},
+ :locals
+ {'__name__': '__main__', '__doc__': None, '__package__': None, '__loader__': <class '_frozen_importlib.BuiltinImporter'>, '__spec__': None, '__annotations__': {}, '__builtins__': <module 'builtins' (built-in)>, 'my_var': 200, 'ones_ary': array([[5., 5., 5.],
+       [5., 5., 5.]])},
+ :result nil}
 ```
 
 So heavy data has a zero-copy route.  Anything backed by a `:native-buffer` has a

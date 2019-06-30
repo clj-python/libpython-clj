@@ -51,8 +51,6 @@
 
 
 (export-symbols libpython-clj.python.interop
-                run-simple-string
-                run-string
                 libpython-clj-module-name)
 
 
@@ -61,6 +59,47 @@
                 as-python
                 ->numpy
                 as-numpy)
+
+
+(defn run-simple-string
+  "Run a string expression returning a map of
+  {:globals :locals :result}.
+  This uses the global __main__ dict under the covers so it matches the behavior
+  of the cpython implementation with the exception of returning the various maps
+  used.
+
+  Globals, locals may be provided but are not necessary.
+
+  Implemented in cpython as:
+
+    PyObject *m, *d, *v;
+    m = PyImport_AddModule(\"__main__\");
+    if (m == NULL)
+        return -1;
+    d = PyModule_GetDict(m);
+    v = PyRun_StringFlags(command, Py_file_input, d, d, flags);
+    if (v == NULL) {
+        PyErr_Print();
+        return -1;
+    }
+    Py_DECREF(v);
+    return 0;"
+  [program & {:keys [globals locals]}]
+  (->> (pyinterop/run-simple-string program :globals globals :locals locals)
+       (map (fn [[k v]]
+              [k (as-jvm v)]))
+       (into {})))
+
+
+(defn run-string
+  "Wrapper around the python c runtime PyRun_String method.  This requires you to
+  understand what needs to be in the globals and locals dict in order for everything
+  to work out right and for this reason we recommend run-simple-string."
+  [program & {:keys [globals locals]}]
+  (->> (pyinterop/run-string program :globals globals :locals locals)
+       (map (fn [[k v]]
+              [k (as-jvm v)]))
+       (into {})))
 
 
 (defn import-module
