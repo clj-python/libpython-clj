@@ -237,6 +237,7 @@ distance.
 * [design documentation](docs/design.md)
 * [keras example](example/keras-simple)
 * [docker example](https://github.com/scicloj/docker-hub)
+* [pandas bindings (!!)](https://github.com/alanmarazzi/panthera)
 
 
 ## Resources
