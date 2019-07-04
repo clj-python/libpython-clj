@@ -53,7 +53,7 @@
            [tech.v2.datatype ObjectReader ObjectWriter ObjectMutable
             ObjectIter MutableRemove]
            [tech.v2.datatype.typed_buffer TypedBuffer]
-           [tech.v2.tensor.impl Tensor]
+           [tech.v2.tensor.protocols PTensor]
            [com.sun.jna Pointer]
            [java.io Writer]
            [libpython_clj.jna JVMBridge
@@ -733,7 +733,7 @@
   TypedBuffer
   (as-python [item options]
     (py-proto/as-numpy item options))
-  Tensor
+  PTensor
   (as-python [item options]
     (py-proto/as-numpy item options))
   Iterator

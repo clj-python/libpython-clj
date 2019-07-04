@@ -53,7 +53,7 @@
            [java.nio.charset StandardCharsets]
            [tech.v2.datatype ObjectIter]
            [tech.v2.datatype.typed_buffer TypedBuffer]
-           [tech.v2.tensor.impl Tensor]
+           [tech.v2.tensor.protocols PTensor]
            [java.util RandomAccess Map Set Map$Entry]
            [clojure.lang Symbol Keyword
             IPersistentMap
@@ -459,7 +459,7 @@
   (->python [item options] item)
   PyObject
   (->python [item options] (.getPointer item))
-  Tensor
+  PTensor
   (->python [item options] (py-proto/as-numpy item options))
   TypedBuffer
   (->python [item options] (py-proto/as-numpy item options))
@@ -493,26 +493,24 @@
   (get-python-type [item] :str)
   Keyword
   (get-python-type [item] :str)
-  Map
-  (get-python-type [item] :dict)
-  IPersistentMap
-  (get-python-type [item] :dict)
   Map$Entry
   (get-python-type [item] :tuple)
-  Set
-  (get-python-type [item] :set)
-  IPersistentSet
-  (get-python-type [item] :set)
-  IPersistentVector
-  (get-python-type [item]
-    ;; fair dice roll
-    (if (< (count item) (long *item-tuple-cutoff*))
-      :tuple
-      :list))
-  RandomAccess
-  (get-python-type [item] :list)
   Iterable
-  (get-python-type [item] :list)
+  (get-python-type [item]
+    (cond
+      (instance? RandomAccess item)
+      (if (and (instance? IPersistentVector item)
+               (< (count item) (long *item-tuple-cutoff*)))
+        :tuple
+        :list)
+      (or (instance? Set item)
+          (instance? IPersistentSet item))
+      :set
+      (or (instance? Map item)
+          (instance? IPersistentMap item))
+      :dict
+      :else
+      :list))
   Object
   (get-python-type [item]
     (if (casting/numeric-type? (dtype/get-datatype item))
