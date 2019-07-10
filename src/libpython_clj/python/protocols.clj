@@ -167,3 +167,10 @@ incomplete especially if the object has no 'keys' attribute."))
 (defmulti pyobject-as-jvm
   (fn [pyobj]
     (python-type pyobj)))
+
+(defmulti python-obj-iterator
+  "Given a python object, produce an iterator.  Python is fairly confused about
+  what an iterator is or does, so some things require iteritems and some things
+  require calling __iter__."
+  (fn [pyobj interpreter]
+    (python-type pyobj)))
