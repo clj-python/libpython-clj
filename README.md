@@ -24,7 +24,9 @@ referencing the item and attribute systems by name and not via '.' or '[]'.
 
 ```console
 sudo apt install libpython3.6-dev
-pip3 install numpy
+# numpy and pandas are required for unit tests.  Numpy is required for
+# zero copy support.
+python3.6 -m pip install numpy pandas --user
 ```
 
 
