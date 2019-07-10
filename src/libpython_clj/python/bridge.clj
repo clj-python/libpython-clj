@@ -506,6 +506,13 @@
        :strides strides})))
 
 
+(defmethod py-proto/python-obj-iterator :default
+  [pyobj interpreter]
+  (with-interpreter interpreter
+    (let [iter-fn (py-proto/get-attr pyobj "__iter__")]
+      (python->jvm-iterator iter-fn as-jvm))))
+
+
 (defn generic-python-as-jvm
   "Given a generic pyobject, wrap it in a read-only map interface
   where the keys are the attributes."
@@ -520,9 +527,7 @@
            interpreter
            Iterable
            (iterator [this]
-                     (with-interpreter interpreter
-                       (let [iter-fn (py-proto/get-attr pyobj "__iter__")]
-                         (python->jvm-iterator iter-fn ->jvm))))
+                     (py-proto/python-obj-iterator pyobj interpreter))
            py-proto/PPyObjectBridgeToMap
            (as-map [item]
                    (generic-python-as-map pyobj))
@@ -589,9 +594,7 @@
            interpreter
            Iterable
            (iterator [this]
-                     (with-interpreter interpreter
-                       (let [iter-fn (py-proto/get-attr pyobj "__iter__")]
-                         (python->jvm-iterator iter-fn ->jvm))))
+                     (py-proto/python-obj-iterator pyobj interpreter))
            py-proto/PPyObjectBridgeToMap
            (as-map [item]
                    (generic-python-as-map pyobj))

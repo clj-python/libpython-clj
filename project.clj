@@ -6,5 +6,5 @@
   :dependencies [[org.clojure/clojure "1.10.1"]
                  [techascent/tech.datatype "4.0-beta1"]
                  [camel-snake-kebab "0.4.0"]]
-  :repl-options {:init-ns clj-libpython.core}
+  :repl-options {:init-ns user}
   :java-source-paths ["java"])
