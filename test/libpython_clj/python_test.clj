@@ -107,7 +107,6 @@
                (-> (py/as-tensor py-tens)
                    dtt/->jvm)))))))
 
-
 (deftest numpy-scalars
   (py/initialize!)
   (let [np (py/import-module "numpy")
@@ -147,3 +146,11 @@
          (-> '(false true)
              py/->py-list
              py/->jvm))))
+
+(deftest true-false-true-numpy
+  (py/initialize!)
+  (let [numpy (py/import-module "numpy")]
+    (is (= [true false true]
+           (->> (for [a (py/call-attr numpy "array" [true false true])]
+                  a)
+                vec)))))

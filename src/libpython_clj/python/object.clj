@@ -671,27 +671,32 @@
 
 
 (defn python->jvm-iterator
+  "This is a tough function to get right.  The iterator could return nil as in
+  you could have a list of python none types or something so you have to iterate
+  till you get a StopIteration error."
  [iter-fn item-conversion-fn]
  (with-gil nil
    (let [interpreter (ensure-bound-interpreter)]
      (let [py-iter (py-proto/call iter-fn)
            next-fn (fn [last-item]
                      (with-interpreter interpreter
-                       (when-let [next-obj (libpy/PyIter_Next py-iter)]
-                         (-> next-obj
-                             (wrap-pyobject)
-                             item-conversion-fn))))
+                       (try
+                         [(-> (py-proto/call-attr py-iter "__next__")
+                              item-conversion-fn)]
+                         (catch Throwable e
+                           nil))))
            cur-item-store (atom (next-fn nil))]
        (reify ObjectIter
          jna/PToPtr
          (is-jna-ptr-convertible? [item] true)
          (->ptr-backing-store [item] py-iter)
-         (hasNext [obj-iter] (boolean @cur-item-store))
+         (hasNext [obj-iter]
+           (not (nil? @cur-item-store)))
          (next [obj-iter]
            (-> (swap-vals! cur-item-store next-fn)
-               first))
+               ffirst))
          (current [obj-iter]
-           @cur-item-store))))))
+           (first @cur-item-store)))))))
 
 
 (defn python->jvm-iterable
