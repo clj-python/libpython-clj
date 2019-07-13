@@ -2,7 +2,8 @@
   (:require [libpython-clj.python :as py]
             [tech.v2.datatype :as dtype]
             [tech.v2.tensor :as dtt]
-            [clojure.java.io :as io])
+            [clojure.java.io :as io]
+            [clojure.java.shell :as sh])
   (:import [java.awt.image BufferedImage]
            [javax.imageio ImageIO]))
 
@@ -58,10 +59,6 @@
   (dtype/shape tens)
   (dtt/tensor->buffer tens)
 
-
-  (import [java.awt.image BufferedImage])
-  (import [javax.imageio ImageIO])
-
   (def bufimage (BufferedImage. 480 640 BufferedImage/TYPE_4BYTE_ABGR))
   (def pixels (-> bufimage
                   (.getRaster)
@@ -86,6 +83,8 @@
 
   (ImageIO/write bufimage "PNG" (io/file "test.png"))
 
+  ;;Maybe you are using ubuntu:
+  (sh/sh "xdg-open" "test.png")
 
   ;;The image looks like several things are wrong.  First let's fix the striding:
 
