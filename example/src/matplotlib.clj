@@ -14,9 +14,9 @@
   (def plt (py/import-module "matplotlib.pyplot"))
 
 
-  plt.plot(x, x, label='linear')
-  plt.plot(x, x**2, label='quadratic')
-  plt.plot(x, x**3, label='cubic')
+  ;; plt.plot(x, x, label='linear')
+  ;; plt.plot(x, x**2, label='quadratic')
+  ;; plt.plot(x, x**3, label='cubic')
 
   (py/call-attr-kw plt "plot" [x x] {"label" "linear"})
   (py/call-attr-kw plt "plot" [x (py/call-attr x "__pow__" 2)] {"label" "quadratic"})
@@ -29,6 +29,9 @@
   (def fig (py/call-attr plt "figure"))
   (def canvas (py/get-attr fig "canvas"))
   (def agg-canvas (py/call-attr magg "FigureCanvasAgg" fig))
+
+  ;; Redo all the drawing above
+
   (py/call-attr agg-canvas "draw")
   (def np-data (py/call-attr np "array"
                              (py/call-attr agg-canvas "buffer_rgba")))
