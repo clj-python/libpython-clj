@@ -9,6 +9,11 @@ JNA libpython bindings to the tech ecosystem.
   dependency chain management issues.
 * Development of new functionality is faster because it can be done from purely from the
   REPL.
+  
+  
+If you want to quickly start using python from clojure your fastest path is probably
+the [panthera](https://github.com/alanmarazzi/panthera) library in addition to
+learning how the primitives in this library work.
 
 
 ## Usage
@@ -237,8 +242,8 @@ distance.
 ## Further Information
 
 * [design documentation](docs/design.md)
-* [keras example](example/keras-simple)
-* [docker example](https://github.com/scicloj/docker-hub)
+* [examples](example/README.md)
+* [docker setup](https://github.com/scicloj/docker-hub)
 * [pandas bindings (!!)](https://github.com/alanmarazzi/panthera)
 
 
