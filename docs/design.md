@@ -85,7 +85,7 @@ in all cases.
 Python Callables implement `clojure.lang.IFn` along with a python specific interface so
 in general you can call them like any other function but you also can use keyword
 arguments if you know you are dealing with a python function.  Python dicts implement
-`java.util.Map and clojure.lang.IFn` and lists are `java.util.List`,
+`java.util.Map` and `clojure.lang.IFn` and lists are `java.util.List`,
 `java.util.RandomAccess`, and `clojure.lang.IFn`.  This allows fluid manipulation of
 the datastructures (even mutation) from both languages.
 
