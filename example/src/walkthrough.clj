@@ -42,4 +42,13 @@
   ;;--------
   ;;>>> np.linspace(2.0, 3.0, num=5)
   (def np-ary (py/call-attr-kw np "linspace" [2.0 3.0] {:num 5}))
-  )
+
+  ;;Now we can bridge the numpy object into a tensor
+  (def tens (py/as-tensor np-ary))
+
+  ;;This means they share the backing store.
+  (require '[tech.v2.datatype :as dtype])
+  (dtype/set-value! tens 2 6677)
+
+  (println (vec np-ary))
+  (println (vec tens)))
