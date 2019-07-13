@@ -22,7 +22,7 @@ Using TensorFlow backend.
 ## Examples
 
 
-* [walkthough](src/walkthough.clj) - Simple, quick exploration of libpython features.
+* [walkthrough](src/walkthrough.clj) - Simple, quick exploration of libpython features.
 * [keras-simple](src/keras_simple.clj) - Keras example taken from [here](https://machinelearningmastery.com/tutorial-first-neural-network-python-keras/).
 * [matplotlib](src/matplotlib.clj) - Quick demo of matplotlib, numpy including zero-copy pathways.
 
