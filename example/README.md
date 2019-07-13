@@ -1,16 +1,12 @@
-# Simple Keras Example
-
-
-Example source taken from [here](https://machinelearningmastery.com/tutorial-first-neural-network-python-keras/).
+# libpython-clj Examples
 
 
 ## Usage
 
-
 ```console
-pip3 install tensorflow keras --user
+scripts/get-data.sh
+python3.6 -m pip install tensorflow keras matplotlib --user
 ```
-
 
 Then, potentially check that everything is installed.  From python console:
 
@@ -22,6 +18,14 @@ Type "help", "copyright", "credits" or "license" for more information.
 Using TensorFlow backend.
 >>>
 ```
+
+## Examples
+
+
+* [walkthough](src/walkthough.clj) - Simple, quick exploration of libpython features.
+* [keras-simple](src/keras-simple.clj) - Keras example taken from [here](https://machinelearningmastery.com/tutorial-first-neural-network-python-keras/).
+* [matplotlib](src/matplotlib.clj) - Quick demo of matplotlib, numpy including zero-copy pathways.
+
 
 ## Virtual Environments
 
