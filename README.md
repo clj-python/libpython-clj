@@ -9,13 +9,15 @@ JNA libpython bindings to the tech ecosystem.
   dependency chain management issues.
 * Development of new functionality is faster because it can be done from purely from the
   REPL.
+  
+  
+A walkthough using libpython-clj to render some graphs via matplotlib is on
+[nextjournal](https://nextjournal.com/a/LQdePhjQ5Y36XEHKjfZv1?token=hBgt2hweEkzXs1XSbaXCG)
 
 
 If you want to quickly start using python from clojure your fastest path is probably
 the [panthera](https://github.com/alanmarazzi/panthera) library in addition to
 learning how the primitives in this library work.
-
-A [live notebook](https://nextjournal.com/a/LQdePhjQ5Y36XEHKjfZv1?token=hBgt2hweEkzXs1XSbaXCG)
 
 
 ## Usage
