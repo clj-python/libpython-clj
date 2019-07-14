@@ -12,7 +12,7 @@ JNA libpython bindings to the tech ecosystem.
   
   
 A walkthough using libpython-clj to render some graphs via matplotlib is on
-[nextjournal](https://nextjournal.com/a/LQdePhjQ5Y36XEHKjfZv1?token=hBgt2hweEkzXs1XSbaXCG).
+[nextjournal](https://nextjournal.com/chrisn/fun-with-matplotlib)
 
 
 If you want to quickly start using python from clojure your fastest path is probably
@@ -249,7 +249,7 @@ distance.
 * [examples](example/README.md)
 * [docker setup](https://github.com/scicloj/docker-hub)
 * [pandas bindings (!!)](https://github.com/alanmarazzi/panthera)
-* [nextjournal notebook](https://nextjournal.com/a/LQdePhjQ5Y36XEHKjfZv1?token=hBgt2hweEkzXs1XSbaXCG)
+* [nextjournal notebook](https://nextjournal.com/chrisn/fun-with-matplotlib)
 
 ## Resources
 
