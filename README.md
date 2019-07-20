@@ -250,6 +250,7 @@ distance.
 * [docker setup](https://github.com/scicloj/docker-hub)
 * [pandas bindings (!!)](https://github.com/alanmarazzi/panthera)
 * [nextjournal notebook](https://nextjournal.com/chrisn/fun-with-matplotlib)
+* [scicloj video](https://www.youtube.com/watch?v=ajDiGS73i2o)
 
 ## Resources
 
