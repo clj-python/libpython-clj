@@ -9,8 +9,8 @@ JNA libpython bindings to the tech ecosystem.
   dependency chain management issues.
 * Development of new functionality is faster because it can be done from purely from the
   REPL.
-  
-  
+
+
 A walkthough using libpython-clj to render some graphs via matplotlib is on
 [nextjournal](https://nextjournal.com/chrisn/fun-with-matplotlib).
 
@@ -134,22 +134,19 @@ Running python isn't ever really necessary, however, although it may at times be
 convenient.  You can call attributes from clojure easily:
 
 ```clojure
-user> (def np (import-module "numpy"))
-#'user/np
-user> (def ones-ary (call-attr np "ones" [2 3]))
+
+user> (def ones-ary (py/call-attr np "ones" [2 3]))
 #'user/ones-ary
-(def ones-shape *1)
-#'user/ones-shape
-user> (type ones-shape)
-:pyobject
-user> ones-shape
-(2, 3)
-user> (println ones-shape)
-(2, 3)
-nil
 user> ones-ary
 [[1. 1. 1.]
  [1. 1. 1.]]
+user> (py/attr ones-ary "shape")
+Syntax error compiling at (*cider-repl cnuernber/libpython-clj:localhost:35457(clj)*:66:7).
+No such var: py/attr
+user> (py/get-attr ones-ary "shape")
+(2, 3)
+user> (vec (py/get-attr ones-ary "shape"))
+[2 3]
 ```
 
 
