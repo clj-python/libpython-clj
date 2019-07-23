@@ -285,6 +285,7 @@ distance.
 * [pandas bindings (!!)](https://github.com/alanmarazzi/panthera)
 * [nextjournal notebook](https://nextjournal.com/chrisn/fun-with-matplotlib)
 * [scicloj video](https://www.youtube.com/watch?v=ajDiGS73i2o)
+* [libpython-clj slack channel](https://app.slack.com/client/T03RZGPFR/CLR5FD4ET)
 
 ## Resources
 
