@@ -134,19 +134,56 @@ Running python isn't ever really necessary, however, although it may at times be
 convenient.  You can call attributes from clojure easily:
 
 ```clojure
-
-user> (def ones-ary (py/call-attr np "ones" [2 3]))
+user> (def np (import-module "numpy"))
+#'user/np
+user> (def ones-ary (call-attr np "ones" [2 3]))
 #'user/ones-ary
 user> ones-ary
 [[1. 1. 1.]
  [1. 1. 1.]]
-user> (py/attr ones-ary "shape")
-Syntax error compiling at (*cider-repl cnuernber/libpython-clj:localhost:35457(clj)*:66:7).
-No such var: py/attr
-user> (py/get-attr ones-ary "shape")
+user> (call-attr ones-ary "__len__")
+2
+user> (vec ones-ary)
+[[1. 1. 1.] [1. 1. 1.]]
+user> (type (first *1))
+:pyobject
+user> (get-attr ones-ary "shape")
 (2, 3)
-user> (vec (py/get-attr ones-ary "shape"))
+user> (vec (get-attr ones-ary "shape"))
 [2 3]
+
+user> (att-type-map ones-ary)
+{"T" :ndarray,
+ "__abs__" :method-wrapper,
+ "__add__" :method-wrapper,
+ "__and__" :method-wrapper,
+ "__array__" :builtin-function-or-method,
+ "__array_finalize__" :none-type,
+ "__array_function__" :builtin-function-or-method,
+ "__array_interface__" :dict,
+ "__array_prepare__" :builtin-function-or-method,
+ "__array_priority__" :float,
+ "__array_struct__" :py-capsule,
+ "__array_ufunc__" :builtin-function-or-method,
+ "__array_wrap__" :builtin-function-or-method,
+ "__bool__" :method-wrapper,
+ "__class__" :type,
+ "__complex__" :builtin-function-or-method,
+ "__contains__" :method-wrapper,
+ ...
+ "std" :builtin-function-or-method,
+ "strides" :tuple,
+ "sum" :builtin-function-or-method,
+ "swapaxes" :builtin-function-or-method,
+ "take" :builtin-function-or-method,
+ "tobytes" :builtin-function-or-method,
+ "tofile" :builtin-function-or-method,
+ "tolist" :builtin-function-or-method,
+ "tostring" :builtin-function-or-method,
+ "trace" :builtin-function-or-method,
+ "transpose" :builtin-function-or-method,
+ "var" :builtin-function-or-method,
+ "view" :builtin-function-or-method}
 ```
 
 
