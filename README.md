@@ -4,11 +4,22 @@ JNA libpython bindings to the tech ecosystem.
 
 [![Clojars Project](https://img.shields.io/clojars/v/cnuernber/libpython-clj.svg)](https://clojars.org/cnuernber/libpython-clj)
 
-
+* Bridge between JVM objects and Python objects easily; use Python in your Java and
+  use some Java in your Python.
+* Python objects are linked to the JVM GC such that when they are no longer reachable
+  from the JVM their references are released.
 * The exact same binary can run top of on multiple version of python reducing version
   dependency chain management issues.
 * Development of new functionality is faster because it can be done from purely from the
   REPL.
+
+
+We have a [video](https://www.youtube.com/watch?v=ajDiGS73i2o) up of a scicloj community
+discussion with demos.
+
+
+Techascent has a [blog post](www.techascent.com/blogs/functions-across-languages.html) 
+up about how the inter-language bindings actually work at a very low level.
 
 
 A walkthough using libpython-clj to render some graphs via matplotlib is on
@@ -18,6 +29,11 @@ A walkthough using libpython-clj to render some graphs via matplotlib is on
 If you want to quickly start using python from clojure your fastest path is probably
 the [panthera](https://github.com/alanmarazzi/panthera) library in addition to
 learning how the primitives in this library work.
+
+
+New to Clojure or the JVM?  Try remixing the nextjournal entry and playing around
+there.  For more resources on learning and getting more comfortable with Clojure,
+we have an [introductory document](docs/so-many-parenthesis.md).
 
 
 ## Usage
@@ -285,6 +301,7 @@ distance.
 * [pandas bindings (!!)](https://github.com/alanmarazzi/panthera)
 * [nextjournal notebook](https://nextjournal.com/chrisn/fun-with-matplotlib)
 * [scicloj video](https://www.youtube.com/watch?v=ajDiGS73i2o)
+* [Clojure/Python interop technical blog post](www.techascent.com/blogs/functions-across-languages.html)
 * [libpython-clj slack channel](https://app.slack.com/client/T03RZGPFR/CLR5FD4ET)
 
 ## Resources
