@@ -12,7 +12,7 @@ LISP stand for List Processing and it was originally designed by John McCarthy
 around 1958.  It was the first language with a garbage collector making it the first
 truly high level language assuming you don't consider Fortran a high level language.
 Here is Dr. McCarthy's [seminal paper](http://www-formal.stanford.edu/jmc/recursive.pdf)
-and for a must better intro than I can give please see
+and for a much better intro than I can give please see
 [here](http://www.paulgraham.com/rootsoflisp.html).
 
 
@@ -100,7 +100,7 @@ some caveats and one of those is that learning Clojure takes time and patience. 
 community is here to support you, however, so check us out:
 
 
-* [clojurians slack](https://clojurians.slack.com]
+* [clojurians slack](https://clojurians.slack.com)
 * [Clojure on Zulip](https://clojurians.zulipchat.com/)
 * [r/Clojure reddit](https://www.reddit.com/r/Clojure/)
 * [r/Clojurescript reddit](https://www.reddit.com/r/Clojurescript/)
