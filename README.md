@@ -302,7 +302,6 @@ distance.
 * [nextjournal notebook](https://nextjournal.com/chrisn/fun-with-matplotlib)
 * [scicloj video](https://www.youtube.com/watch?v=ajDiGS73i2o)
 * [Clojure/Python interop technical blog post](www.techascent.com/blogs/functions-across-languages.html)
-* [libpython-clj slack channel](https://app.slack.com/client/T03RZGPFR/CLR5FD4ET)
 
 ## Resources
 
