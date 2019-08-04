@@ -38,9 +38,9 @@ more of middle ground between what a human and a machine can understand.
 Clojure is a deeply functional language with pragmatic pathways built for mutation.  All
 of the basic datastructures of Clojure are immutable.  Learning to program in a
 functional manner will mean learning things like `map` and `reduce` and basically
-re-wiring how you think about problems.  It is this re-wiring that is most beneficial in
-the long term regardless of whether you become some functional programming God or just
-dabble for a while.
+re-wiring how you think about problems.  I believe it is this re-wiring that is most
+beneficial in the long term regardless of whether you become some functional programming
+God or just dabble for a while.
 
 
 Many systems, regardless of language, are designed in a functional manner because
@@ -53,9 +53,9 @@ You can easily write mutable code if you like.
 
 Finally, Clojure has a [version](https://clojurescript.org/) that compiles to JavaScript
 so that you can write one language both server and frontend side.  Many Clojure projects
-are just one repository and one artifact that when run produces the server and client
-side of the equation.  This is truly one of Clojure's greatest strengths and one that
-the Clojure community has strongly embraced.
+are just one repository and one artifact that when run produces both the server and
+client side of the equation.  This is truly one of Clojure's greatest strengths and one
+that the Clojure community has strongly embraced.
 
 
 
