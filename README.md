@@ -33,7 +33,7 @@ learning how the primitives in this library work.
 
 New to Clojure or the JVM?  Try remixing the nextjournal entry and playing around
 there.  For more resources on learning and getting more comfortable with Clojure,
-we have an [introductory document](docs/so-many-parenthesis.md).
+we have an [introductory document](docs/new-to-clojure.md).
 
 
 ## Usage
