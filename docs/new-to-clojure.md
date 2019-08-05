@@ -4,10 +4,6 @@
 ## About Clojure
 
 
-First let me tell you a bit about the history of Clojure as I think it will help with
-the process of understanding how things came to be the way they are.
-
-
 LISP stand for List Processing and it was originally designed by John McCarthy
 around 1958.  It was the first language with a garbage collector making it the first
 truly high level language assuming you don't consider Fortran a high level language.
@@ -22,6 +18,8 @@ CommonLisp and was hooked.  There are many youtube videos and documents that Ric
 produced but [simple made easy](https://www.infoq.com/presentations/Simple-Made-Easy/)
 is one I found very compelling.  If you enjoy that video, don't stop there; Rich has
 many interesting, profound, and sometimes provocative things to add to the conversation.
+For his reasoning behind clojure, please check out his 
+[rationale](https://clojure.org/about/rationale).
 
 
 To address the parenthesis, we need to talk about
