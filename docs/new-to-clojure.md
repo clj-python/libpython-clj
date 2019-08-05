@@ -103,7 +103,15 @@ If you like to learn by programming then we have seen success in the [Clojure Ko
 
 ### IDE's/Editors
 
-There are many more than listed here but these editors and IDE's are often used:
+There are many more IDE's available than listed here; these ones are just very popular.
+One thing to be sure of, regardless of IDE, is to use some form of 
+[structural editing](https://shaunlebron.github.io/parinfer/).  All the better IDE's 
+have it; all the IDE's listed here have it, and I personally really struggle without it.
+When I have a form of [structure editing](https://wikemacs.org/wiki/Paredit-mode), however, 
+I can move code around much faster than I can in Java, Python, or C++. This is another 
+benefit of the homoiconicity we spoke ealier in that we can transform the program easily 
+because it is just a datastructure and this includes editor level transformations and
+analysis.
 
 
 1.  [Calva](https://marketplace.visualstudio.com/items?itemName=betterthantomorrow.calva)
