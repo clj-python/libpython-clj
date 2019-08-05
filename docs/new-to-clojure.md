@@ -31,8 +31,20 @@ you type symbols into a file or repl, you get back a datastructure of the langua
 itself.  This means that several parts of the programmers toolbox can be simpler and you
 can load a file as data, transform it, and then execute some portion of it all without
 leaving the language.  This isn't something you will really need to understand today,
-but the point is that the look and structure of the language is a tradeoff to make it
+but the point is that the look and structure of the language is a sweet spot to make it
 more of middle ground between what a human and a machine can understand.
+
+
+The fallout from having a language that is both a language and a datastructure is that
+you can extend the language without needing to change the compiler.  For example, the
+very first standardized 'object oriented programming' system was
+[CLOS](https://en.wikipedia.org/wiki/Common_Lisp_Object_System), or Common Lisp Object
+System.  This was implemented on top of CommonLisp with no updates to the compiler
+whatsoever.  In Clojure, we have been able to add things like an 
+[async library](https://github.com/clojure/core.async) or 
+[software transactional memory](https://clojure.org/reference/refs) without changing the 
+compiler itself because we can extend or change the language quite substantially at compile 
+time.
 
 
 Clojure is a deeply functional language with pragmatic pathways built for mutation.  All
@@ -51,12 +63,21 @@ force you to write functional code all the time as it is mainly a pragmatic lang
 You can easily write mutable code if you like.
 
 
-Finally, Clojure has a [version](https://clojurescript.org/) that compiles to JavaScript
+For the web, Clojure has a [version](https://clojurescript.org/) that compiles to JavaScript
 so that you can write one language both server and frontend side.  Many Clojure projects
 are just one repository and one artifact that when run produces both the server and
 client side of the equation.  This is truly one of Clojure's greatest strengths and one
 that the Clojure community has strongly embraced.
 
+
+No talk about Clojure would be complete without giving major credit to its excellent
+REPL support.  One important aspect of the Clojure REPL is that you can see all of
+complex nested datastructures easily without needing to write `toString` or `__str__`
+methods.  Because of this visibility advantage a common way to use Clojure is to model
+your problem as a transformation from datastructure to datastructure, testing each stage
+of this transformation in the repl and just letting the REPL printing show you the next
+move.  Programming with data is often just easier than programming with objects and
+debugging data transformations is far, far easier than debugging a complex object graph.
 
 
 ## Learning Clojure
@@ -87,6 +108,7 @@ There are many more than listed here but these editors and IDE's are often used:
 
 1.  [Calva](https://marketplace.visualstudio.com/items?itemName=betterthantomorrow.calva)
 1.  [Cursive](https://cursive-ide.com/)
+1.  [Atom](https://medium.com/@jacekschae/slick-clojure-editor-setup-with-atom-a3c1b528b722)
 1.  [emacs + cider](https://cider.mx/)
 1.  [vim + fireplace](https://www.vim.org/scripts/script.php?script_id=4978)
 
