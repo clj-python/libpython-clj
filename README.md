@@ -18,7 +18,7 @@ We have a [video](https://www.youtube.com/watch?v=ajDiGS73i2o) up of a scicloj c
 discussion with demos.
 
 
-Techascent has a [blog post](www.techascent.com/blogs/functions-across-languages.html) 
+Techascent has a [blog post](https://www.techascent.com/blogs/functions-across-languages.html) 
 up about how the inter-language bindings actually work at a very low level.
 
 
