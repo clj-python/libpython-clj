@@ -94,8 +94,8 @@ recommends:
 1.  [Practicalli](https://practicalli.github.io/clojure/)
 
 
-Practically has a page devoted purely to resources on learning Clojure at whatever level
-you are so if these starts do not speak to you please review the their 
+Practicalli has a page devoted purely to resources on learning Clojure at whatever level
+you are so if these recommendations do not speak to you please review their
 [books page](https://practicalli.github.io/clojure/reference/books.html).
 
 
@@ -123,7 +123,7 @@ One thing to be sure of, regardless of IDE, is to use some form of
 have it; all the IDEs listed here have it, and I personally really struggle without it.
 When I have a form of [structure editing](https://wikemacs.org/wiki/Paredit-mode), however, 
 I can move code around much faster than I can in Java, Python, or C++. This is another 
-benefit of the homoiconicity we spoke earlier in that we can transform the program easily 
+benefit of the homoiconicity that we spoke earlier in that we can transform the program easily 
 because it is just a data structure and this includes editor level transformations and
 analysis.
 
