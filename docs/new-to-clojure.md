@@ -94,6 +94,11 @@ recommends:
 1.  [Practicalli](https://practicalli.github.io/clojure/)
 
 
+Practically has a page devoted purely to resources on learning Clojure at whatever level
+you are so if these starts do not speak to you please review the their 
+[books page](https://practicalli.github.io/clojure/reference/books.html).
+
+
 ### Learn by Writing Code
 
 
