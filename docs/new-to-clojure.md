@@ -18,7 +18,7 @@ CommonLisp and was hooked.  There are many youtube videos and documents that Ric
 produced but [simple made easy](https://www.infoq.com/presentations/Simple-Made-Easy/)
 is one I found very compelling.  If you enjoy that video, don't stop there; Rich has
 many interesting, profound, and sometimes provocative things to add to the conversation.
-For his reasoning behind clojure, please check out his 
+For more about his reasoning behind Clojure, please check out his 
 [rationale](https://clojure.org/about/rationale).
 
 
