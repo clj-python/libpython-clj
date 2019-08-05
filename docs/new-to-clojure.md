@@ -4,7 +4,7 @@
 ## About Clojure
 
 
-LISP stand for List Processing and it was originally designed by John McCarthy
+LISP stands for List Processing and it was originally designed by John McCarthy
 around 1958.  It was the first language with a garbage collector making it the first
 truly high level language assuming you don't consider Fortran a high level language.
 Here is Dr. McCarthy's [seminal paper](http://www-formal.stanford.edu/jmc/recursive.pdf)
@@ -23,7 +23,7 @@ For more about his reasoning behind Clojure, please check out his
 
 
 To address the parenthesis, we need to talk about
-[homoiconicity](https://en.wikipedia.org/wiki/Homoiconicity).  LISP's are part of a
+[homoiconicity](https://en.wikipedia.org/wiki/Homoiconicity).  LISPs are part of a
 subset of languages that build themselves out of their own data structures so that when
 you type symbols into a file or repl, you get back a data structure of the language
 itself.  This means that several parts of the programmers toolbox can be simpler and you
@@ -85,23 +85,25 @@ There are in fact many resources to learn Clojure and here are some the communit
 recommends:
 
 
-### Books
+### Books/Courses
 
 
 1.  [Clojure for the Brave and True](https://www.braveclojure.com/clojure-for-the-brave-and-true/)
 1.  [Clojure for Data Science](https://www.amazon.it/dp/B00YSILGWG/ref=dp-kindle-redirect?_encoding=UTF8&btkr=1)
 1.  [Functional Programming in Scala and Clojure](https://www.amazon.it/dp/B00HUEG8KK/ref=dp-kindle-redirect?_encoding=UTF8&btkr=1)
+1.  [Practicalli](https://practicalli.github.io/clojure/)
 
 
 ### Learn by Writing Code
 
 
-If you like to learn by programming then we have seen success in the [Clojure Koans](https://github.com/functional-koans/clojure-koans).
+1. [clojinc](https://github.com/lspector/clojinc)
+1. [Clojure Koans](https://github.com/functional-koans/clojure-koans)
 
 
-### IDE's/Editors
+### IDEs/Editors
 
-There are many more IDE's available than listed here; these ones are just very popular:
+There are many more IDEs available than listed here; these ones are just very popular:
 
 
 1.  [Calva](https://marketplace.visualstudio.com/items?itemName=betterthantomorrow.calva)
@@ -112,8 +114,8 @@ There are many more IDE's available than listed here; these ones are just very p
 
 
 One thing to be sure of, regardless of IDE, is to use some form of 
-[structural editing](https://shaunlebron.github.io/parinfer/).  All the better IDE's 
-have it; all the IDE's listed here have it, and I personally really struggle without it.
+[structural editing](https://shaunlebron.github.io/parinfer/).  All the better IDEs 
+have it; all the IDEs listed here have it, and I personally really struggle without it.
 When I have a form of [structure editing](https://wikemacs.org/wiki/Paredit-mode), however, 
 I can move code around much faster than I can in Java, Python, or C++. This is another 
 benefit of the homoiconicity we spoke earlier in that we can transform the program easily 
