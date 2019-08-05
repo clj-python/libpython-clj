@@ -14,7 +14,7 @@ and for a much better intro than I can give please see
 
 Time passed and along came a man named Rich Hickey.  Making a long story short, Rich was
 working in a variety of languages such as C++, Java, and C# when he did a project in
-CommonLisp and was hooked.  There are many youtube videos and documents that Rich has
+Common Lisp and was hooked.  There are many YouTube videos and documents that Rich has
 produced but [simple made easy](https://www.infoq.com/presentations/Simple-Made-Easy/)
 is one I found very compelling.  If you enjoy that video, don't stop there; Rich has
 many interesting, profound, and sometimes provocative things to add to the conversation.
@@ -24,8 +24,8 @@ For more about his reasoning behind Clojure, please check out his
 
 To address the parenthesis, we need to talk about
 [homoiconicity](https://en.wikipedia.org/wiki/Homoiconicity).  LISP's are part of a
-subset of languages that build themselves out of their own datastructures so that when
-you type symbols into a file or repl, you get back a datastructure of the language
+subset of languages that build themselves out of their own data structures so that when
+you type symbols into a file or repl, you get back a data structure of the language
 itself.  This means that several parts of the programmers toolbox can be simpler and you
 can load a file as data, transform it, and then execute some portion of it all without
 leaving the language.  This isn't something you will really need to understand today,
@@ -33,11 +33,11 @@ but the point is that the look and structure of the language is a sweet spot to 
 more of middle ground between what a human and a machine can understand.
 
 
-The fallout from having a language that is both a language and a datastructure is that
+The fallout from having a language that is both a language and a data structure is that
 you can extend the language without needing to change the compiler.  For example, the
 very first standardized 'object oriented programming' system was
 [CLOS](https://en.wikipedia.org/wiki/Common_Lisp_Object_System), or Common Lisp Object
-System.  This was implemented on top of CommonLisp with no updates to the compiler
+System.  This was implemented on top of Common Lisp with no updates to the compiler
 whatsoever.  In Clojure, we have been able to add things like an 
 [async library](https://github.com/clojure/core.async) or 
 [software transactional memory](https://clojure.org/reference/refs) without changing the 
@@ -46,7 +46,7 @@ time.
 
 
 Clojure is a deeply functional language with pragmatic pathways built for mutation.  All
-of the basic datastructures of Clojure are immutable.  Learning to program in a
+of the basic data structures of Clojure are immutable.  Learning to program in a
 functional manner will mean learning things like `map` and `reduce` and basically
 re-wiring how you think about problems.  I believe it is this re-wiring that is most
 beneficial in the long term regardless of whether you become some functional programming
@@ -62,7 +62,7 @@ You can easily write mutable code if you like.
 
 
 For the web, Clojure has a [version](https://clojurescript.org/) that compiles to JavaScript
-so that you can write one language both server and frontend side.  Many Clojure projects
+so that you can write one language both server and front end side.  Many Clojure projects
 are just one repository and one artifact that when run produces both the server and
 client side of the equation.  This is truly one of Clojure's greatest strengths and one
 that the Clojure community has strongly embraced.
@@ -116,8 +116,8 @@ One thing to be sure of, regardless of IDE, is to use some form of
 have it; all the IDE's listed here have it, and I personally really struggle without it.
 When I have a form of [structure editing](https://wikemacs.org/wiki/Paredit-mode), however, 
 I can move code around much faster than I can in Java, Python, or C++. This is another 
-benefit of the homoiconicity we spoke ealier in that we can transform the program easily 
-because it is just a datastructure and this includes editor level transformations and
+benefit of the homoiconicity we spoke earlier in that we can transform the program easily 
+because it is just a data structure and this includes editor level transformations and
 analysis.
 
 
