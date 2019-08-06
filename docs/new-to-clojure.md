@@ -89,9 +89,9 @@ recommends:
 
 
 1.  [Clojure for the Brave and True](https://www.braveclojure.com/clojure-for-the-brave-and-true/)
+1.  [Practicalli](https://practicalli.github.io/clojure/)
 1.  [Clojure for Data Science](https://www.amazon.it/dp/B00YSILGWG/ref=dp-kindle-redirect?_encoding=UTF8&btkr=1)
 1.  [Functional Programming in Scala and Clojure](https://www.amazon.it/dp/B00HUEG8KK/ref=dp-kindle-redirect?_encoding=UTF8&btkr=1)
-1.  [Practicalli](https://practicalli.github.io/clojure/)
 
 
 Practicalli has a page devoted purely to resources on learning Clojure at whatever level
@@ -102,8 +102,8 @@ you are so if these recommendations do not speak to you please review their
 ### Learn by Writing Code
 
 
-1. [clojinc](https://github.com/lspector/clojinc)
 1. [Clojure Koans](https://github.com/functional-koans/clojure-koans)
+1. [clojinc](https://github.com/lspector/clojinc)
 
 
 ### IDEs/Editors
@@ -132,13 +132,13 @@ analysis.
 
 
 Clojure is an amazing language.  It is really rewarding on a personal level because it
-is tailored towards extremely high individual productivity.  But this power comes with 
-some caveats and one of those is that learning Clojure takes time and patience.  The 
-community is here to support you, however, so check us out:
+is tailored towards extremely high individual and small group productivity.  But this
+power comes with some caveats and one of those is that learning Clojure takes time and
+patience.  The community is here to support you, however, so check us out:
 
 
-* [clojurians slack](https://clojurians.slack.com)
-* [Clojure on Zulip](https://clojurians.zulipchat.com/)
+* [Clojurians Slack](https://clojurians.slack.com)
+* [Clojurians Zulip](https://clojurians.zulipchat.com/)
 * [r/Clojure reddit](https://www.reddit.com/r/Clojure/)
 * [r/Clojurescript reddit](https://www.reddit.com/r/Clojurescript/)
 * [Clojureverse](https://clojureverse.org/)
