@@ -61,11 +61,14 @@ force you to write functional code all the time as it is mainly a pragmatic lang
 You can easily write mutable code if you like.
 
 
-For the web, Clojure has a [version](https://clojurescript.org/) that compiles to JavaScript
-so that you can write one language both server and front end side.  Many Clojure projects
-are just one repository and one artifact that when run produces both the server and
-client side of the equation.  This is truly one of Clojure's greatest strengths and one
-that the Clojure community has strongly embraced.
+For the web, Clojure has a [version](https://clojurescript.org/) that compiles to
+JavaScript so that you can write one language both server and front end side.  Many
+Clojure projects are just one repository and one artifact that when run produces both
+the server and client side of the equation.  Another important usage of the
+Clojurescript is mobile application development using frameworks like 
+[React Native](https://www.upwork.com/blog/2018/11/developing-react-native-applications-in-clojurescript/).
+Clojurescript is truly one of Clojure's greatest strengths and one that the Clojure
+community has strongly embraced.
 
 
 No talk about Clojure would be complete without giving major credit to its excellent
@@ -104,6 +107,8 @@ you are so if these recommendations do not speak to you please review their
 
 1. [Clojure Koans](https://github.com/functional-koans/clojure-koans)
 1. [clojinc](https://github.com/lspector/clojinc)
+1. [Clojurescript Koans](http://clojurescriptkoans.com/)
+1. [4Clojure](http://www.4clojure.com/)
 
 
 ### IDEs/Editors
