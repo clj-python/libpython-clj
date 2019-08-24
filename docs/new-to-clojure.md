@@ -9,7 +9,9 @@ around 1958.  It was the first language with a garbage collector making it the f
 truly high level language assuming you don't consider Fortran a high level language.
 Here is Dr. McCarthy's [seminal paper](http://www-formal.stanford.edu/jmc/recursive.pdf)
 and for a much better intro than I can give please see
-[here](http://www.paulgraham.com/rootsoflisp.html).
+[here](http://www.paulgraham.com/rootsoflisp.html).  Uncle Bob has an 
+[essay](http://blog.cleancoder.com/uncle-bob/2019/08/22/WhyClojure.html) that is short, irreverent, 
+and [links to a game](https://github.com/unclebob/spacewar).
 
 
 Time passed and along came a man named Rich Hickey.  Making a long story short, Rich was
