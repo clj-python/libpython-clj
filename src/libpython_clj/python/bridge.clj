@@ -49,7 +49,7 @@
             [clojure.set :as c-set])
   (:import [java.util Map RandomAccess List Map$Entry Iterator]
            [clojure.lang IFn Symbol Keyword Seqable
-            Fn]
+            Fn MapEntry]
            [tech.v2.datatype ObjectReader ObjectWriter ObjectMutable
             ObjectIter MutableRemove]
            [tech.v2.datatype.typed_buffer TypedBuffer]
@@ -361,12 +361,7 @@
                             (let [k (as-jvm pyobj-key)
                                   v (.get this pyobj-key)
                                   tuple [k v]]
-                              (reify Map$Entry
-                                (getKey [this] k)
-                                (getValue [this] v)
-                                (hashCode [this] (.hashCode ^Object tuple))
-                                (equals [this o]
-                                  (.equals ^Object tuple o))))))))]
+                              (MapEntry. k v))))))]
           (.iterator ^Iterable mapentry-seq)))
        IFn
        (invoke [this arg] (.get this arg))
