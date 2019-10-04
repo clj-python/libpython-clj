@@ -10,7 +10,7 @@ truly high level language assuming you don't consider Fortran a high level langu
 Here is Dr. McCarthy's [seminal paper](http://www-formal.stanford.edu/jmc/recursive.pdf)
 and for a much better intro than I can give please see
 [here](http://www.paulgraham.com/rootsoflisp.html).  Uncle Bob has an 
-[essay](http://blog.cleancoder.com/uncle-bob/2019/08/22/WhyClojure.html) that is short, irreverent, 
+[essay](http://blog.cleancoder.com/uncle-bob/2019/08/22/WhyClojure.html) that is fun 
 and [links to a game](https://github.com/unclebob/spacewar).
 
 
