@@ -9,9 +9,7 @@ around 1958.  It was the first language with a garbage collector making it the f
 truly high level language assuming you don't consider Fortran a high level language.
 Here is Dr. McCarthy's [seminal paper](http://www-formal.stanford.edu/jmc/recursive.pdf)
 and for a much better intro than I can give please see
-[here](http://www.paulgraham.com/rootsoflisp.html).  Uncle Bob has an 
-[essay](http://blog.cleancoder.com/uncle-bob/2019/08/22/WhyClojure.html) that is short, irreverent, 
-and [links to a game](https://github.com/unclebob/spacewar).
+[here](http://www.paulgraham.com/rootsoflisp.html).
 
 
 Time passed and along came a man named Rich Hickey.  Making a long story short, Rich was
@@ -21,7 +19,10 @@ produced but [simple made easy](https://www.infoq.com/presentations/Simple-Made-
 is one I found very compelling.  If you enjoy that video, don't stop there; Rich has
 many interesting, profound, and sometimes provocative things to add to the conversation.
 For more about his reasoning behind Clojure, please check out his 
-[rationale](https://clojure.org/about/rationale).
+[rationale](https://clojure.org/about/rationale).  
+
+
+My perspective is closer to [Uncle Bob's](http://blog.cleancoder.com/uncle-bob/2019/08/22/WhyClojure.html). 
 
 
 To address the parenthesis, we need to talk about
