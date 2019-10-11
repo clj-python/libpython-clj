@@ -47,6 +47,19 @@
 
   (into {} (map identity {:a 1 :b 2}))
 
+  (defn gen123plus
+    [x]
+    (map #(+ x %) [1 2 3]))
+
+  (interleave (gen123plus 10) (gen123plus 20))
+
+  (defn zigzag
+    [period]
+    (->> (concat (range period)
+                 (range period, 0 -1))
+         repeat
+         (apply concat)))
+
   ;;When we want another library, we usually use require expects a clojure library.
   ;;Because we are on them JVM, we sometimes have to use 'import' which targets a
   ;;particular class
@@ -99,16 +112,18 @@
   (def agg-canvas (py/call-attr magg "FigureCanvasAgg" fig))
 
   (defn plot-it
-    []
+    [x]
     (py/call-attr-kw plt "plot" [x x] {"label" "linear"})
-    (py/call-attr-kw plt "plot" [x (py/call-attr x "__pow__" 2)] {"label" "quadratic"})
-    (py/call-attr-kw plt "plot" [x (py/call-attr x "__pow__" 3)] {"label" "cubic"})
+    (py/call-attr-kw plt "plot" [x (py/call-attr x "__pow__" 2)]
+                     {"label" "quadratic"})
+    (py/call-attr-kw plt "plot" [x (py/call-attr x "__pow__" 3)]
+                     {"label" "cubic"})
     (py/call-attr plt "xlabel" "x label")
     (py/call-attr plt "ylabel" "y label")
     (py/call-attr plt "title" "Simple Plot")
     (py/call-attr plt "legend"))
 
-  (plot-it)
+  (plot-it x)
 
   (py/call-attr agg-canvas "draw")
   (def np-data (py/call-attr np "array"

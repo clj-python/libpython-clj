@@ -109,8 +109,8 @@
   (let [retval (->Interpreter (atom {:thread-state thread-state
                                      :bridge-objects {}
                                      :sub-interpreters []})
-                              ;;This that have to live as long as the main interpreter
-                              ;;does
+                              ;;This that have to live as long as the main
+                              ;;interpreter does
                               (atom {:type-symbol-table type-symbol-table
                                      :forever []}))]
     (reset! *main-interpreter* retval)
@@ -167,17 +167,20 @@
 
 
 (defn py-type-keyword
-  "Get a keyword that corresponds to the current type.  Uses global type symbol table.
-  Add the type to the symbol table if it does not exist already."
+  "Get a keyword that corresponds to the current type.  Uses global type symbol
+  table. Add the type to the symbol table if it does not exist already."
   [typeobj]
   (let [type-addr (Pointer/nativeValue (jna/as-ptr typeobj))
         interpreter (ensure-bound-interpreter)
         symbol-table (-> (swap! (:shared-state* interpreter)
                                 (fn [{:keys [type-symbol-table] :as shared-state}]
-                                  (if-let [found-item (get type-symbol-table type-addr)]
+                                  (if-let [found-item (get type-symbol-table
+                                                           type-addr)]
                                     shared-state
-                                    (assoc-in shared-state [:type-symbol-table type-addr]
-                                              {:typename (libpy/get-type-name typeobj)}))))
+                                    (assoc-in shared-state [:type-symbol-table
+                                                            type-addr]
+                                              {:typename (libpy/get-type-name
+                                                          typeobj)}))))
                          :type-symbol-table)]
     (get-in symbol-table [type-addr :typename])))
 
