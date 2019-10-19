@@ -89,10 +89,13 @@ are converted into a {:type :pyobject-address} pairs."))
 (extend-type Object
   PPyAttMap
   (att-type-map [item]
-()    (->> (dir item)
-        (map (juxt identity (comp python-type
-                                  (partial get-attr item))))
-        (into (sorted-map)))))
+    (->> (dir item)
+         (map (juxt identity #(try
+                                (-> (get-attr item %)
+                                    python-type)
+                                (catch Throwable e
+                                  :get-attr-exception!!))))
+         (into (sorted-map)))))
 
 
 (defprotocol PyCall
