@@ -131,65 +131,25 @@
   (def tens (py/as-tensor np-data))
 
   (require '[tech.v2.tensor :as dtt])
-  (import '[java.awt.image BufferedImage])
-  (import '[javax.imageio ImageIO])
+  (require '[tech.libs.buffered-image :as bufimg])
 
-  (def bufimage (BufferedImage. 480 640 BufferedImage/TYPE_4BYTE_ABGR))
-
-  (def pixels (-> bufimage
-                  (.getRaster)
-                  (.getDataBuffer)
-                  (.getData)))
+  (def jvm-img (bufimg/new-image 480 640 :byte-abgr))
 
   ;;Copy will read the data out in row-major format.
-  (def ignored (dtype/copy! tens pixels))
+  (def ignored (dtype/copy! tens jvm-img))
 
-  (type pixels)
-
-  ;;That didn't work because pixels is a byte array and the values in tens are
-  ;;out of range of a byte.  We can turn off range checking and cause c-style
-  ;;casts to happen.
-
-  (def ignored (dtype/copy! tens 0 pixels 0 (dtype/ecount tens) {:unchecked? true}))
-
-
-  (require '[clojure.java.io :as io])
-
-  (ImageIO/write bufimage "JPG" (io/file "test.jpg"))
-
-  ;;Welcome the the land of useless error messages....That one happened because jpg
-  ;;doesn't support the alpha channel...Remember the last dimension of our shape was
-  ;;4
-
-  (ImageIO/write bufimage "PNG" (io/file "test.png"))
+  (bufimg/save! jvm-img "test.png")
 
   ;;Now in emacs, run M-x auto-image-file-mode`
-  ;;Both stride and color are off.  First we fix stride.  It happened because
-  ;;the tensor displays the order in row major format so we have:
-  ;;[height width num-channels]
-  ;;The buffered image constructor takes [width height].
-  (def bufimage (BufferedImage. 640 480 BufferedImage/TYPE_4BYTE_ABGR))
-  (def pixels (-> bufimage
-                  (.getRaster)
-                  (.getDataBuffer)
-                  (.getData)))
+  ;;The color of the image is off.  The reason is that the canvas produces an
+  ;;"RGBA" image and java buffered image is ABGR.
+  ;;The fix is to create a view of the tensor that has the last dimension reversed:
 
+  (def tens-view (dtt/select tens :all :all [3 2 1 0]))
 
-  (def ignored (dtype/copy! tens 0 pixels 0 (dtype/ecount tens) {:unchecked? true}))
+  (def ignored (dtype/copy! tens-view jvm-img))
 
-  (ImageIO/write bufimage "PNG" (io/file "test.png"))
+  (bufimg/save! jvm-img "test.png")
 
-
-  ;;Now we fix the ordering; the only 4 byte buffered image option is ABGR but the
-  ;;original image is in RGBA so we have the transform RGBA->ABGR.  We accomplish
-  ;;this with a tensor select call which is a subset of numpy's slice operator that
-  ;;produces a view.  Copy reads the data out in linear row-major format into the
-  ;;destination.
-  (def ignored (-> (dtt/select tens :all :all [3 2 1 0])
-                   (dtype/copy! 0 pixels 0
-                                (dtype/ecount pixels)
-                                {:unchecked? true})))
-
-  (ImageIO/write bufimage "PNG" (io/file "test.png"))
-
+  ;;now the image will be correct.
   )

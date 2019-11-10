@@ -50,5 +50,6 @@
   (require '[tech.v2.datatype :as dtype])
   (dtype/set-value! tens 2 6677)
 
-  (println (vec np-ary))
-  (println (vec tens)))
+  (vec np-ary)
+  (vec tens)
+  )

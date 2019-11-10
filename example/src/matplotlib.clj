@@ -1,11 +1,10 @@
 (ns matplotlib
   (:require [libpython-clj.python :as py]
             [tech.v2.datatype :as dtype]
+            [tech.libs.buffered-image :as bufimg]
             [tech.v2.tensor :as dtt]
             [clojure.java.io :as io]
-            [clojure.java.shell :as sh])
-  (:import [java.awt.image BufferedImage]
-           [javax.imageio ImageIO]))
+            [clojure.java.shell :as sh]))
 
 (comment
 
@@ -59,56 +58,16 @@
   (dtype/shape tens)
   (dtt/tensor->buffer tens)
 
-  (def bufimage (BufferedImage. 480 640 BufferedImage/TYPE_4BYTE_ABGR))
-  (def pixels (-> bufimage
-                  (.getRaster)
-                  (.getDataBuffer)
-                  (.getData)))
+  (def bufimage (bufimg/new-image 480 640 :byte-abgr))
 
-
-  (def ignored (dtype/copy! tens pixels))
-
-
-  ;;That didn't work because pixels is a byte array and the values in tens are
-  ;;out of range of a byte.  We can turn off range checking and cause c-style
-  ;;casts to happen:
-
-  (def ignored (dtype/copy! tens 0 pixels 0 (dtype/ecount tens) {:unchecked? true}))
-
-  (ImageIO/write bufimage "JPG" (io/file "test.jpg"))
-
-  ;;Welcome the the land of useless error messages....That one happened because jpg
-  ;;doesn't support the alpha channel...Remember the last dimension of our shape was
-  ;;4
-
-  (ImageIO/write bufimage "PNG" (io/file "test.png"))
-
-  ;;Maybe you are using ubuntu:
-  (sh/sh "xdg-open" "test.png")
-
-  ;;The image looks like several things are wrong.  First let's fix the striding:
-
-  (def bufimage (BufferedImage. 640 480 BufferedImage/TYPE_4BYTE_ABGR))
-  (def pixels (-> bufimage
-                  (.getRaster)
-                  (.getDataBuffer)
-                  (.getData)))
-
-  (def ignored (dtype/copy! tens 0 pixels 0
-                            (dtype/ecount pixels)
-                            {:unchecked? true}))
-
-  (ImageIO/write bufimage "PNG" (io/file "test.png"))
-
-
+  (def ignored (dtype/copy! tens bufimage))
 
   ;;Now we fix the ordering (RGBA->ABGR):
 
   (def ignored (-> (dtt/select tens :all :all (->> (range 4)
                                                    reverse))
-                   (dtype/copy! 0 pixels 0
-                                (dtype/ecount pixels)
-                                {:unchecked? true})))
-  (ImageIO/write bufimage "PNG" (io/file "test.png"))
+                   (dtype/copy! bufimage)))
+
+  (bufimg/save! bufimage "test.png")
 
   )
