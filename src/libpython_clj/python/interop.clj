@@ -63,7 +63,10 @@
 (set! *warn-on-reflection* true)
 
 
-(def libpython-clj-module-name "libpython_clj")
+(def libpython-clj-module-name
+  "Module name of the libpython-clj python model.  Used to find binding-level objects
+  such as the type used for actual jvm bridging objects."
+  "libpython_clj")
 
 
 (defn import-module

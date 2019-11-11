@@ -98,10 +98,11 @@
 
 
 (defn as-jvm
-  "Bridge a python object into the jvm.  Attempts to build a jvm bridge that 'hides' the
-  python type.  This bridge is lazy and noncaching so use it wisely; it may be better to
-  just copy the type once into the JVM.  Bridging is recursive so any subtypes are also
-  bridged if possible or represented by a hashmap of {:type :value} if not."
+  "Bridge a python object into the jvm.  Attempts to build a jvm bridge that 'hides'
+  the python type.  This bridge is lazy and noncaching so use it wisely; it may be
+  better to just copy the type once into the JVM.  Bridging is recursive so any
+  subtypes are also bridged if possible or represented by a hashmap of {:type
+  :value} if not."
   [item & [options]]
   (if (or (not item)
           (= :none-type (python-type item)))
@@ -268,12 +269,14 @@
 
 
 (defn as-tuple
+  "Create a python tuple from a sequence of things."
   [item-seq]
   (->> (map as-python item-seq)
        (->py-tuple)))
 
 
 (defn as-dict
+  "Create a python dict from a sequence of things."
   [map-data]
   (->> map-data
        (map (fn [[k v]]
@@ -809,10 +812,13 @@
 
 
 (defn ->numpy
+  "Convert an object to numpy throwing an error if this isn't possible."
   [item & [options]]
   (py-proto/->numpy item options))
 
 
 (defn as-numpy
+  "Bridge an object into numpy sharing the backing store.  If it is not possible to
+  do this without copying data then return nil."
   [item & [options]]
   (py-proto/as-numpy item options))

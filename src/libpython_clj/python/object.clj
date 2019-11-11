@@ -197,6 +197,7 @@
 
 
 (defn py-string->string
+  "Given a python string return a string"
   ^String [pyobj]
   (with-gil
     (when-not (= :str (python-type pyobj))
@@ -211,6 +212,7 @@
 
 
 (defn py-str
+  "Call the __str__ attribute on an object return a new string pyobject"
   ^String [pyobj]
   (with-gil
     (let [py-str (if (= :str (python-type pyobj))
@@ -221,6 +223,7 @@
 
 
 (defn py-dir
+  "List the attribute names of an object"
   [pyobj]
   (with-gil
     (-> (libpy/PyObject_Dir pyobj)
@@ -229,6 +232,7 @@
 
 
 (defn ->py-long
+  "Convert an object into a python long"
   [item]
   (with-gil
     (wrap-pyobject
@@ -236,6 +240,7 @@
 
 
 (defn ->py-float
+  "Convert an object into a python float"
   [item]
   (with-gil
     (wrap-pyobject
@@ -243,6 +248,7 @@
 
 
 (defn ->py-string
+  "Copy an object into a python string"
   [item]
   (with-gil
     (let [byte-data (.getBytes ^String item StandardCharsets/UTF_16)]
@@ -252,6 +258,7 @@
 
 
 (defn ->py-dict
+  "Copy an object into a new python dictionary."
   [item]
   (with-gil
     (let [dict (libpy/PyDict_New)]
@@ -263,6 +270,7 @@
 
 
 (defn ->py-list
+  "Copy an object into a new python list."
   [item-seq]
   (with-gil
     (let [retval (libpy/PyList_New (count item-seq))]
@@ -279,6 +287,7 @@
 
 
 (defn ->py-tuple
+  "Copy an object into a new python tuple"
   [item-seq]
   (with-gil
     (let [n-items (count item-seq)

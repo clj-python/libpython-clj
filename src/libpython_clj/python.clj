@@ -1,13 +1,8 @@
 (ns libpython-clj.python
-  (:require [libpython-clj.jna :as libpy]
-            [libpython-clj.jna.base :as libpy-base]
-            [libpython-clj.python.logging
-             :refer [log-error log-warn log-info]]
-            [tech.parallel.utils :refer [export-symbols]]
+  (:require [tech.parallel.utils :refer [export-symbols]]
             [libpython-clj.python.interop :as pyinterop]
             [libpython-clj.python.interpreter :as pyinterp
              :refer [with-gil with-interpreter]]
-            [libpython-clj.python.object :as pyobject]
             [libpython-clj.python.bridge])
   (:import [com.sun.jna Pointer]
            [java.io Writer]
@@ -127,7 +122,15 @@
 
 
 (defn initialize!
-  [& {:keys [program-name no-io-redirect?]}]
+  "Initialize the python library.  If library path is provided, then the python
+  :library-path Library path of the python library to use.
+  :program-name - optional but will show up in error messages from python.
+  :no-io-redirect - there if you don't want python stdout and stderr redirection
+     to *out* and *err*."
+  [& {:keys [program-name no-io-redirect? library-path]}]
+  (when library-path
+    (alter-var-root #'libpython-clj.jna.base/*python-library*
+                    (constantly library-path)))
   (when-not @pyinterp/*main-interpreter*
     (pyinterp/initialize! program-name)
     ;;setup bridge mechansim and io redirection
@@ -139,5 +142,7 @@
 
 
 (defn finalize!
+  "Finalize the interpreter.  You probably shouldn't call this as it destroys the
+  global interpreter and reinitialization is unsupported cpython."
   []
   (pyinterp/finalize!))

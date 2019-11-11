@@ -24,6 +24,7 @@
 
 
 (defn python-type
+  "Return a keyword that describes the python datatype of this object."
   [item]
   (if item
     (get-python-type item)
@@ -72,13 +73,13 @@ are converted into a {:type :pyobject-address} pairs."))
 (defprotocol PPyObject
   (dir [item]
     "Get sorted list of all attribute names.")
-  (has-attr? [item item-name])
-  (get-attr [item item-name])
-  (set-attr! [item item-name item-value])
-  (callable? [item])
-  (has-item? [item item-name])
-  (get-item [item item-name])
-  (set-item! [item item-name item-value]))
+  (has-attr? [item item-name] "Return true of object has attribute")
+  (get-attr [item item-name] "Get attribute from object")
+  (set-attr! [item item-name item-value] "Set attribute on object")
+  (callable? [item] "Return true if object is a python callable object.")
+  (has-item? [item item-name] "Return true of object has item")
+  (get-item [item item-name] "Get an item of a given name from an object")
+  (set-item! [item item-name item-value] "Set an item of to a value"))
 
 
 (defprotocol PPyAttMap
@@ -103,22 +104,26 @@ are converted into a {:type :pyobject-address} pairs."))
 
 
 (defn call
+  "Call a python function with positional args.  For keyword args, see call-kw."
   [callable & args]
   (do-call-fn callable args nil))
 
 
 (defn call-kw
+  "Call a python function with a vector of positional args and a map of keyword args."
   [callable arglist kw-args]
   (do-call-fn callable arglist kw-args))
 
 (defn call-attr
-  "Call an object attribute"
+  "Call an object attribute with positional arguments."
   [item att-name & args]
   (-> (get-attr item att-name)
       (do-call-fn args nil)))
 
 
 (defn call-attr-kw
+  "Call an object attribute with a vector of positional args and a
+  map of keyword args."
   [item att-name arglist kw-map]
   (-> (get-attr item att-name)
       (do-call-fn arglist kw-map)))
@@ -126,7 +131,7 @@ are converted into a {:type :pyobject-address} pairs."))
 
 (defprotocol PPyObjLength
   "Call the __len__ attribute."
-  (len [item]))
+  (len [item] "Call the __len__ attribute."))
 
 
 (extend-type Object
