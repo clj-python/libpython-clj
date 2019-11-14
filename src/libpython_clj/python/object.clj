@@ -483,9 +483,8 @@
       (if-let [item-reader (dtype/->reader item)]
         (->py-list item-reader)
         ;;Out of sane options at the moment.
-        (throw (ex-info (format "Unable to convert java object to python: %s"
-                                (type item))
-                        {}))))))
+        (throw (Exception. (format "Unable to convert java object to python: %s"
+                                   (type item))))))))
 
 
 (extend-protocol py-proto/PPythonType
