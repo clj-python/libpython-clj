@@ -194,6 +194,7 @@
 
    This function is normally only used by code that needs to save and restore the error
    indicator temporarily. Use PyErr_Fetch() to save the current error indicator."
+  nil
   [type ensure-pyobj]
   [value ensure-pyobj]
   [traceback ensure-pyobj])

@@ -102,8 +102,9 @@
   called. Used for new references.  This is some of the meat of the issue, however,
   in that getting the two system's garbage collectors to play nice is kind
   of tough."
-  [pyobj]
-  (check-error-throw)
+  [pyobj & [skip-check-error?]]
+  (when-not skip-check-error?
+    (check-error-throw))
   (when pyobj
     (let [interpreter (ensure-bound-interpreter)
           pyobj-value (Pointer/nativeValue (jna/as-ptr pyobj))

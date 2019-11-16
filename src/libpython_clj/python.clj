@@ -3,8 +3,13 @@
             [libpython-clj.python.interop :as pyinterop]
             [libpython-clj.python.interpreter :as pyinterp
              :refer [with-gil with-interpreter]]
-            [libpython-clj.python.bridge])
+            [libpython-clj.python.object :as pyobj]
+            [libpython-clj.python.bridge]
+            [libpython-clj.jna :as pyjna]
+            [tech.jna :as jna]
+            [libpython-clj.jna.concrete.err :as py-err])
   (:import [com.sun.jna Pointer]
+           [com.sun.jna.ptr PointerByReference]
            [java.io Writer]
            [libpython_clj.jna PyObject]))
 
@@ -146,3 +151,59 @@
   global interpreter and reinitialization is unsupported cpython."
   []
   (pyinterp/finalize!))
+
+
+(defmacro with
+  "Support for the 'with' statement in python."
+  [bind-vec & body]
+  (when-not (= 2 (count bind-vec))
+    (throw (Exception. "Bind vector must have 2 items")))
+  (let [varname (first bind-vec)]
+    `(with-gil
+       (let [~@bind-vec]
+         (try
+           (with-bindings
+           {#'libpython-clj.python.interpreter/*python-error-handler*
+            (fn []
+              (let [ptype# (PointerByReference.)
+                    pvalue# (PointerByReference.)
+                    ptraceback# (PointerByReference.)
+                    _# (pyjna/PyErr_Fetch ptype# pvalue# ptraceback#)
+                    ptype# (-> (jna/->ptr-backing-store ptype#)
+                               (pyobj/wrap-pyobject true))
+                    pvalue# (-> (jna/->ptr-backing-store pvalue#)
+                                (pyobj/wrap-pyobject true))
+                    ptraceback# (-> (jna/->ptr-backing-store ptraceback#)
+                                    (pyobj/wrap-pyobject true))]
+                ;;We own the references so they have to be released.
+                (throw (ex-info "python error in flight"
+                                {:ptype ptype#
+                                 :pvalue pvalue#
+                                 :ptraceback ptraceback#}))))}
+             (call-attr ~varname "__enter__")
+             (let [retval#
+                   (do
+                     ~@body)]
+               (call-attr ~varname "__exit__" nil nil nil)
+               retval#))
+           (catch Throwable e#
+             (let [einfo# (ex-data e#)]
+               (if (= #{:ptype :pvalue :ptraceback} (set (keys einfo#)))
+                 (let [{ptype# :ptype
+                        pvalue# :pvalue
+                        ptraceback# :ptraceback} einfo#
+                       suppress-error?# (call-attr ~varname "__exit__"
+                                                   ptype#
+                                                   pvalue#
+                                                   ptraceback#)]
+                   (when (and ptype# pvalue# ptraceback#
+                              (not suppress-error?#))
+                     (do
+                       ;;MAnuall incref here because we cannot detach the object
+                       ;;from our gc decref hook added above.
+                       (pyjna/Py_IncRef ptype#)
+                       (pyjna/Py_IncRef pvalue#)
+                       (pyjna/Py_IncRef ptraceback#)
+                       (pyjna/PyErr_Restore ptype# pvalue# ptraceback#)
+                       (pyinterp/check-error-throw))))
+                 (throw e#)))))))))

@@ -8,6 +8,7 @@
             JVMBridge
             PyObject]
            [com.sun.jna Pointer]
+           [com.sun.jna.ptr PointerByReference]
            [java.io StringWriter]))
 
 
@@ -247,21 +248,26 @@
       (construct-main-interpreter! (libpy/PyEval_SaveThread) type-symbols))))
 
 
+(def ^:dynamic *python-error-handler* nil)
+
+
 (defn check-error-str
   "Function assumes python stdout and stderr have been redirected"
   []
   (with-gil
     (when-not (= nil (libpy/PyErr_Occurred))
-      (let [custom-writer (StringWriter.)]
-        (with-bindings {#'*err* custom-writer}
-          (libpy/PyErr_Print))
-        (.toString custom-writer)))))
+      (if-not *python-error-handler*
+        (let [custom-writer (StringWriter.)]
+          (with-bindings {#'*err* custom-writer}
+            (libpy/PyErr_Print))
+          (.toString custom-writer))
+        (*python-error-handler*)))))
 
 
 (defn check-error-throw
   []
   (when-let [error-str (check-error-str)]
-    (throw (ex-info error-str {}))))
+    (throw (Exception. ^String error-str))))
 
 
 (defn check-error-log
