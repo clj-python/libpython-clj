@@ -1,6 +1,7 @@
 (ns libpython-clj.python.bridge
   "Bridging classes to allow python and java to intermix."
   (:require [libpython-clj.jna :as libpy]
+            [libpython-clj.jna.concrete.err :as err]
             [libpython-clj.jna.base :as libpy-base]
             [libpython-clj.python.protocols
              :refer [python-type
@@ -205,6 +206,9 @@
          interpreter# ~interpreter]
      (with-meta
        (reify
+         jna/PToPtr
+         (is-jna-ptr-convertible? [item#] true)
+         (->ptr-backing-store [item#] (jna/as-ptr pyobj#))
          libpy-base/PToPyObjectPtr
          (convertible-to-pyobject-ptr? [item#] true)
          (->py-object-ptr [item#] (jna/as-ptr pyobj#))
@@ -627,7 +631,11 @@
        (wrap-jvm-context
         (-> (let [~'args (as-jvm ~'args)]
               ~@body)
-            as-python)))))
+            ;;as-python can create a bridge object or just a ptr
+            as-python
+            ;;convert any bridge objects to actual jna ptrs to match
+            ;;interface definitions
+            jna/->ptr-backing-store)))))
 
 
 (defn jvm-fn->iface
@@ -645,11 +653,18 @@
 (defn jvm-iterator-as-python
   ^Pointer [^Iterator item]
   (with-gil nil
-    (let [att-map
-          {"__next__" (as-py-fn
-                       #(when (.hasNext item)
-                          (.next item)))}]
-      (create-bridge-from-att-map item att-map))))
+    (let [next-fn #(if (.hasNext item)
+                     (-> (.next item)
+                         (as-python)
+                         (jna/->ptr-backing-store))
+                     (do
+                       (libpy/PyErr_SetNone
+                        (err/PyExc_StopIteration))
+                       nil))
+          att-map
+          {"__next__" (->py-fn next-fn)}]
+      (create-bridge-from-att-map item att-map
+                                  :next-fn next-fn))))
 
 
 (defn jvm-map-as-python
@@ -662,7 +677,7 @@
            "__setitem__" (as-py-fn #(.put jvm-data %1 %2))
            "__delitem__" (as-py-fn #(.remove jvm-data %))
            "__hash__" (as-py-fn #(.hashCode jvm-data))
-           "__iter__" (as-py-fn #(.iterator ^Iterable jvm-data))
+           "__iter__" (as-py-fn #(.iterator ^Iterable (keys jvm-data)))
            "__len__" (as-py-fn #(.size jvm-data))
            "__str__" (as-py-fn #(.toString jvm-data))
            "clear" (as-py-fn #(.clear jvm-data))
@@ -746,8 +761,8 @@
       (fn? item)
       (as-py-fn item)
       :else
-      (throw (ex-info (format "Unable to convert objects of type: %s"
-                              (type item)))))))
+      (throw (Exception. (format "Unable to convert objects of type: %s"
+                                 (type item)))))))
 
 
 (defn datatype->ptr-type-name

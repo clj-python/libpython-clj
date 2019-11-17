@@ -154,3 +154,46 @@
            (->> (for [a (py/call-attr numpy "array" [true false true])]
                   a)
                 vec)))))
+
+
+(deftest aspy-iter
+  (py/initialize!)
+  (let [testcode-module (py/import-module "testcode")]
+    (is (= [1 2 3 4 5]
+           (-> (py/call-attr testcode-module
+                             "for_iter" (py/as-python [1 2 3 4 5]))
+               (py/->jvm))))
+    (is (= ["a" "b" "c"]
+           (-> (py/call-attr testcode-module
+                             "for_iter" (py/as-python {"a" 1 "b" 2 "c" 3}))
+               (py/->jvm))))))
+
+
+(deftest basic-with-test
+  (py/initialize!)
+  (let [testcode-module (py/import-module "testcode")]
+    (let [fn-list (py/->py-list [])]
+      (is (nil?
+           (py/with [item (py/call-attr testcode-module "WithObjClass" true fn-list)]
+                    (py/call-attr item "doit_err"))))
+      (is (= ["enter" "exit: ('Spam', 'Eggs')"]
+             (py/->jvm fn-list))))
+    (let [fn-list (py/->py-list [])]
+      (is (= 1
+             (py/with [item (py/call-attr testcode-module "WithObjClass" true fn-list)]
+                      (py/call-attr item "doit_noerr"))))
+      (is (= ["enter" "exit: None"]
+             (py/->jvm fn-list))))
+    (let [fn-list (py/->py-list [])]
+      (is (thrown? Throwable
+                   (py/with [item (py/call-attr testcode-module "WithObjClass"
+                                                false fn-list)]
+                            (py/call-attr item "doit_err"))))
+      (is (= ["enter" "exit: ('Spam', 'Eggs')"]
+             (py/->jvm fn-list))))
+    (let [fn-list (py/->py-list [])]
+      (py/with [item (py/call-attr testcode-module "WithObjClass"
+                                   false fn-list)]
+               (py/call-attr item "doit_noerr"))
+      (is (= ["enter" "exit: None"]
+             (py/->jvm fn-list))))))

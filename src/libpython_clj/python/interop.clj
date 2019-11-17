@@ -21,6 +21,8 @@
              :as pyinterp]
             [clojure.stacktrace :as st]
             [tech.jna :as jna]
+            ;;need memset
+            [tech.v2.datatype.nio-buffer :as nio-buf]
             [libpython-clj.python.object
              :refer [wrap-pyobject incref-wrap-pyobject
                      incref
@@ -32,7 +34,8 @@
                      ->py-list
                      ->py-tuple
                      ->py-fn
-                     apply-method-def-data!]]
+                     apply-method-def-data!]
+             :as pyobject]
             [libpython-clj.python.protocols
              :refer [python-type]
              :as py-proto])
@@ -80,7 +83,7 @@
   [modname]
   (with-gil
     (-> (libpy/PyImport_AddModule modname)
-        incref-wrap-pyobject)))
+        (incref-wrap-pyobject))))
 
 
 (defn module-dict
@@ -182,6 +185,10 @@
                                              (aget method-def-ary 0))))))
 
 
+(def type-obj-size (-> (PyTypeObject.)
+                       (.size)))
+
+
 (defn register-type!
   "Register a new type.  Please refer to python documentation for meaning
   of the variables."
@@ -194,6 +201,8 @@
                   tp_dealloc ;;may be nil, will use generic
                   tp_getattr ;;may *not* be nil
                   tp_setattr ;;may *not* be nil
+                  tp_iter ;;may be nil
+                  tp_iternext ;;may be nil
                   ]
            :as type-definition}]
   (when (or (not type-name)
@@ -203,14 +212,17 @@
                    (reify CFunction$tp_new
                      (pyinvoke [this self varargs kw_args]
                        (libpy/PyType_GenericNew self varargs kw_args))))
-        module-name (-> (get-attr module "__name__")
-                        ->jvm)
+        module-name (get-attr module "__name__")
         docstring-ptr (jna/string->ptr docstring)
         type-name-ptr (jna/string->ptr (str module-name "." type-name))
         tp_flags (long (or tp_flags
                            (bit-or @libpy/Py_TPFLAGS_DEFAULT
                                    @libpy/Py_TPFLAGS_BASETYPE)))
-        new-type (PyTypeObject.)]
+        ;;We allocate our memory manually here else the system will gc the
+        ;;type object memory when the type goes out of scope.
+        new-mem (jna/malloc-untracked type-obj-size)
+        _ (nio-buf/memset new-mem 0 type-obj-size)
+        new-type (PyTypeObject. new-mem)]
     (set! (.tp_name new-type) type-name-ptr)
     (set! (.tp_doc new-type) docstring-ptr)
     (set! (.tp_basicsize new-type) tp_basicsize)
@@ -221,6 +233,10 @@
     (set! (.tp_setattr new-type) tp_setattr)
     (set! (.tp_methods new-type) (method-def-data-seq->method-def-ref
                                   method-definitions))
+    (when tp_iter
+      (set! (.tp_iter new-type) tp_iter))
+    (when tp_iternext
+      (set! (.tp_iternext new-type) tp_iternext))
     (let [type-ready (libpy/PyType_Ready new-type)]
       (if (>= 0 type-ready)
         (do
@@ -237,7 +253,8 @@
                                 :tp_dealloc tp_dealloc
                                 :tp_getattr tp_getattr
                                 :tp_setattr tp_setattr))
-          (incref-wrap-pyobject new-type))
+          (libpy/Py_IncRef new-type)
+          new-type)
         (throw (ex-info (format "Type failed to register: %d" type-ready)
                         {}))))))
 
@@ -310,7 +327,20 @@
                               (.setAttr att-name att-value))
                           (catch Throwable e
                             (log-error (format "setattr: %s: %s" att-name e))
-                            0))))}))))
+                            0))))
+        :tp_iter (reify CFunction$NoArgFunction
+                   (pyinvoke [this self]
+                     (let [attr
+                           (-> (pybridge->bridge self)
+                               (.getAttr "__iter__"))]
+                       (py-proto/call attr))))
+
+        :tp_iternext (reify CFunction$NoArgFunction
+                       (pyinvoke [this self]
+                         (when-let [next
+                                    (-> (pybridge->bridge self)
+                                        (.nextFn))]
+                           (next))))}))))
 
 
 (defn expose-bridge-to-python!
@@ -326,7 +356,8 @@
           bridge-type (PyTypeObject. bridge-type-ptr)
           ^Pointer new-py-obj (libpy/_PyObject_New bridge-type)
           pybridge (JVMBridgeType. new-py-obj)]
-      (set! (.jvm_interpreter_handle pybridge) (get-object-handle (.interpreter bridge)))
+      (set! (.jvm_interpreter_handle pybridge) (get-object-handle
+                                                (.interpreter bridge)))
       (set! (.jvm_handle pybridge) (get-object-handle (.wrappedObject bridge)))
       (.write pybridge)
       (register-bridge! bridge pybridge)
@@ -335,7 +366,7 @@
 
 
 (defn create-bridge-from-att-map
-  [src-item att-map]
+  [src-item att-map & {:keys [next-fn]}]
   (with-gil
     (let [interpreter (ensure-bound-interpreter)
           dir-data (->> (keys att-map)
@@ -353,6 +384,7 @@
             (dir [bridge] dir-data)
             (interpreter [bridge] interpreter)
             (wrappedObject [bridge] src-item)
+            (nextFn [bridge] next-fn)
             libpy-base/PToPyObjectPtr
             (->py-object-ptr [item]
               (with-gil

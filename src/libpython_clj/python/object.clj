@@ -111,7 +111,7 @@
           py-type-name (name (python-type pyobj))]
       (when *object-reference-logging*
         (let [obj-data (PyObject. (Pointer. pyobj-value))]
-          (log-info (format "tracking object  - 0x%x:%4d:%s"
+          (println (format "tracking object  - 0x%x:%4d:%s"
                             pyobj-value
                             (.ob_refcnt obj-data)
                             py-type-name))))
@@ -122,10 +122,10 @@
                          (try
                            (when *object-reference-logging*
                              (let [obj-data (PyObject. (Pointer. pyobj-value))]
-                               (log-info (format "releasing object - 0x%x:%4d:%s"
-                                                 pyobj-value
-                                                 (.ob_refcnt obj-data)
-                                                 py-type-name))))
+                               (println (format "releasing object - 0x%x:%4d:%s"
+                                                pyobj-value
+                                                (.ob_refcnt obj-data)
+                                                py-type-name))))
                            (libpy/Py_DecRef (Pointer. pyobj-value))
                            (catch Throwable e
                              (log-error "Exception while releasing object: %s" e))))
@@ -626,18 +626,25 @@
     (py-proto/set-item! (.getPointer item) item-name item-value)))
 
 
+;;This one is dangerous.  But there are times (like in the actual type object)
+;;that we don't want to be wrapping the results in any way; they are getting passed
+;;directly to python and not to java.
+(def ^:dynamic *passthrough-exceptions* false)
+
+
 (extend-protocol py-proto/PyCall
   Pointer
   (do-call-fn [callable arglist kw-arg-map]
     (with-gil nil
       (-> (cond
             (seq kw-arg-map)
-            (libpy/PyObject_Call callable (->py-tuple arglist) (->py-dict kw-arg-map))
+            (libpy/PyObject_Call callable (->py-tuple arglist)
+                                 (->py-dict kw-arg-map))
             (seq arglist)
             (libpy/PyObject_CallObject callable (->py-tuple arglist))
             :else
             (libpy/PyObject_CallObject callable nil))
-          wrap-pyobject)))
+          (wrap-pyobject *passthrough-exceptions*))))
   PyObject
   (do-call-fn [callable arglist kw-arg-map]
     (py-proto/do-call-fn (.getPointer callable) arglist kw-arg-map)))
