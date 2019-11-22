@@ -18,3 +18,7 @@ def for_iter(arg):
     for item in arg:
         retval.append(item)
     return retval
+
+
+def calling_custom_clojure_fn(arg):
+    return arg.clojure_fn()

@@ -50,7 +50,8 @@
 
 
 (export-symbols libpython-clj.python.interop
-                libpython-clj-module-name)
+                libpython-clj-module-name
+                create-bridge-from-att-map)
 
 
 (export-symbols libpython-clj.python.bridge

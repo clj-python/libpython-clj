@@ -197,3 +197,54 @@
                (py/call-attr item "doit_noerr"))
       (is (= ["enter" "exit: None"]
              (py/->jvm fn-list))))))
+
+
+(deftest arrow-as-fns-with-nil
+  (py/initialize!)
+  (is (= nil (py/->jvm nil)))
+  (is (= nil (py/as-jvm nil))))
+
+
+(deftest pydict-nil-get
+  (py/initialize!)
+  (let [dict (py/->python {:a 1 :b {:a 1 :b 2}})
+        bridged (py/as-jvm dict)]
+    (is (= nil (bridged nil)))))
+
+
+(deftest custom-clojure-item
+  (let [att-map {"clojure_fn" (py/->python #(vector 1 2 3))}
+        my-python-item (py/create-bridge-from-att-map
+                        ;;First is the jvm object that this bridge stands for.  If this
+                        ;;gets garbage collected then the python side will be removed
+                        ;;also.
+                        att-map
+                        ;;second is the list of attributes.  In this case, since this
+                        ;;object isn't iterable or anything, this function will do.
+                        att-map
+                        )
+        py-mod (py/import-module "testcode")]
+    (is (= [1 2 3]
+           (py/call-attr py-mod "calling_custom_clojure_fn" my-python-item)))
+
+    ;;Now this case is harder.  Let's say we have something that is iterable and we
+    ;;want this to be reflected in python.  In that case we have to call 'as-python'
+    ;;on the iterator and that 'should' work.
+
+    (let [my-obj (reify
+                   Iterable
+                   (iterator [this] (.iterator [4 5 6])))
+          ;;Note that attributes themselves have to be python objects and wrapping
+          ;;this with as-python makes that function wrap whatever it returns in a
+          ;;bridging python object also.
+          att-map {"__iter__" (py/as-python #(.iterator my-obj))}
+          my-python-item (py/create-bridge-from-att-map
+                          my-obj
+                          ;;second is the list of attributes.  In this case, since this
+                          ;;object isn't iterable or anything, this function will do.
+                          att-map
+                          )]
+      (is (= [4 5 6]
+             (vec my-obj)))
+      (is (= [4 5 6]
+             (vec (py/call-attr py-mod "for_iter" my-python-item)))))))

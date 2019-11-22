@@ -292,7 +292,7 @@
 (defn- py-impl-call-raw
   [att-name att-map arglist]
   (if-let [py-fn (get att-map att-name)]
-    (-> (py-proto/do-call-fn py-fn (map as-python arglist) nil))
+    (py-proto/do-call-fn py-fn (map as-python arglist) nil)
     (throw (UnsupportedOperationException.
             (format "Python object has no attribute: %s"
                     att-name)))))
@@ -371,7 +371,7 @@
                               (MapEntry. k v))))))]
           (.iterator ^Iterable mapentry-seq)))
        IFn
-       (invoke [this arg] (.get this arg))
+       (invoke [this arg] (.getOrDefault this arg nil))
        (invoke [this k v] (.put this k v))
        (applyTo [this arglist]
                 (let [arglist (vec arglist)]

@@ -91,7 +91,8 @@
 (defn ->jvm
   "Copy an object into the jvm (if it wasn't there already.)"
   [item & [options]]
-  (py-proto/->jvm item options))
+  (when item
+    (py-proto/->jvm item options)))
 
 
 (def ^:dynamic *object-reference-logging* false)
