@@ -16,8 +16,8 @@ JNA libpython bindings to the tech ecosystem.
 
 #### Clojure Conj 2019
 
+* [video](https://www.youtube.com/watch?v=vQPW16_jixs)
 * [slides](https://docs.google.com/presentation/d/1uegYhpS6P2AtEfhpg6PlgBmTSIPqCXvFTWcGYG_Qk2o/edit?usp=sharing)
-* video -- coming soon!!
 
 
 We have a [video](https://www.youtube.com/watch?v=ajDiGS73i2o) up of a scicloj community
