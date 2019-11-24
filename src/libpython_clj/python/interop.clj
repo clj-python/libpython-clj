@@ -23,6 +23,7 @@
             [tech.jna :as jna]
             ;;need memset
             [tech.v2.datatype.nio-buffer :as nio-buf]
+            [tech.resource :as resource]
             [libpython-clj.python.object
              :refer [wrap-pyobject incref-wrap-pyobject
                      incref
@@ -205,58 +206,62 @@
                   tp_iternext ;;may be nil
                   ]
            :as type-definition}]
-  (when (or (not type-name)
-            (= 0 (count type-name)))
-    (throw (ex-info "Cannot create unnamed type." {})))
-  (let [tp_new (or tp_new
-                   (reify CFunction$tp_new
-                     (pyinvoke [this self varargs kw_args]
-                       (libpy/PyType_GenericNew self varargs kw_args))))
-        module-name (get-attr module "__name__")
-        docstring-ptr (jna/string->ptr docstring)
-        type-name-ptr (jna/string->ptr (str module-name "." type-name))
-        tp_flags (long (or tp_flags
-                           (bit-or @libpy/Py_TPFLAGS_DEFAULT
-                                   @libpy/Py_TPFLAGS_BASETYPE)))
-        ;;We allocate our memory manually here else the system will gc the
-        ;;type object memory when the type goes out of scope.
-        new-mem (jna/malloc-untracked type-obj-size)
-        _ (nio-buf/memset new-mem 0 type-obj-size)
-        new-type (PyTypeObject. new-mem)]
-    (set! (.tp_name new-type) type-name-ptr)
-    (set! (.tp_doc new-type) docstring-ptr)
-    (set! (.tp_basicsize new-type) tp_basicsize)
-    (set! (.tp_flags new-type) tp_flags)
-    (set! (.tp_new new-type) tp_new)
-    (set! (.tp_dealloc new-type) tp_dealloc)
-    (set! (.tp_getattr new-type) tp_getattr)
-    (set! (.tp_setattr new-type) tp_setattr)
-    (set! (.tp_methods new-type) (method-def-data-seq->method-def-ref
-                                  method-definitions))
-    (when tp_iter
-      (set! (.tp_iter new-type) tp_iter))
-    (when tp_iternext
-      (set! (.tp_iternext new-type) tp_iternext))
-    (let [type-ready (libpy/PyType_Ready new-type)]
-      (if (>= 0 type-ready)
-        (do
-          (libpy/Py_IncRef new-type)
-          (.read new-type)
-          (libpy/PyModule_AddObject module (str type-name "_type") new-type)
-          ;;We are careful to keep track of the static data we give to python.
-          ;;the GC cannot now remove any of this stuff pretty much
-          ;;forever now.
-          (conj-forever! (assoc type-definition
-                                :tp_name type-name-ptr
-                                :tp_doc docstring-ptr
-                                :tp_new tp_new
-                                :tp_dealloc tp_dealloc
-                                :tp_getattr tp_getattr
-                                :tp_setattr tp_setattr))
-          (libpy/Py_IncRef new-type)
-          new-type)
-        (throw (ex-info (format "Type failed to register: %d" type-ready)
-                        {}))))))
+  (resource/stack-resource-context
+   (when (or (not type-name)
+             (= 0 (count type-name)))
+     (throw (ex-info "Cannot create unnamed type." {})))
+   (let [tp_new (or tp_new
+                    (reify CFunction$tp_new
+                      (pyinvoke [this self varargs kw_args]
+                        (libpy/PyType_GenericNew self varargs kw_args))))
+         module-name (get-attr module "__name__")
+         ;;These get leaked.  Really, types are global objects that cannot be released.
+         ;;Until we can destroy interpreters, it isn't worth the effort to track the
+         ;;type and memory related to the type.
+         docstring-ptr (jna/string->ptr-untracked docstring)
+         type-name-ptr (jna/string->ptr-untracked (str module-name "." type-name))
+         tp_flags (long (or tp_flags
+                            (bit-or @libpy/Py_TPFLAGS_DEFAULT
+                                    @libpy/Py_TPFLAGS_BASETYPE)))
+         ;;We allocate our memory manually here else the system will gc the
+         ;;type object memory when the type goes out of scope.
+         new-mem (jna/malloc-untracked type-obj-size)
+         _ (nio-buf/memset new-mem 0 type-obj-size)
+         new-type (PyTypeObject. new-mem)]
+     (set! (.tp_name new-type) type-name-ptr)
+     (set! (.tp_doc new-type) docstring-ptr)
+     (set! (.tp_basicsize new-type) tp_basicsize)
+     (set! (.tp_flags new-type) tp_flags)
+     (set! (.tp_new new-type) tp_new)
+     (set! (.tp_dealloc new-type) tp_dealloc)
+     (set! (.tp_getattr new-type) tp_getattr)
+     (set! (.tp_setattr new-type) tp_setattr)
+     (set! (.tp_methods new-type) (method-def-data-seq->method-def-ref
+                                   method-definitions))
+     (when tp_iter
+       (set! (.tp_iter new-type) tp_iter))
+     (when tp_iternext
+       (set! (.tp_iternext new-type) tp_iternext))
+     (let [type-ready (libpy/PyType_Ready new-type)]
+       (if (>= 0 type-ready)
+         (do
+           (libpy/Py_IncRef new-type)
+           (.read new-type)
+           (libpy/PyModule_AddObject module (str type-name "_type") new-type)
+           ;;We are careful to keep track of the static data we give to python.
+           ;;the GC cannot now remove any of this stuff pretty much
+           ;;forever now.
+           (conj-forever! (assoc type-definition
+                                 :tp_name type-name-ptr
+                                 :tp_doc docstring-ptr
+                                 :tp_new tp_new
+                                 :tp_dealloc tp_dealloc
+                                 :tp_getattr tp_getattr
+                                 :tp_setattr tp_setattr))
+           (libpy/Py_IncRef new-type)
+           new-type)
+         (throw (ex-info (format "Type failed to register: %d" type-ready)
+                         {})))))))
 
 (defn pybridge->bridge
   ^JVMBridge [^Pointer pybridge]
@@ -415,7 +420,7 @@
 
 (defn create-var-writer
   "Returns an unregistered bridge"
-  ^Pointer [writer-var]
+  ^Pointer [writer-var varname]
   (with-gil
     (create-bridge-from-att-map
      writer-var
@@ -428,17 +433,17 @@
 
 
 (defn get-or-create-var-writer
-  [writer-var]
+  [writer-var varname]
   (if-let [existing-writer (find-jvm-bridge-entry (get-object-handle writer-var)
                                                   (ensure-interpreter))]
     (:pyobject existing-writer)
-    (create-var-writer writer-var)))
+    (create-var-writer writer-var varname)))
 
 
 (defn setup-std-writer
   [writer-var sys-mod-attname]
   (with-gil
     (let [sys-module (import-module "sys")
-          std-out-writer (get-or-create-var-writer writer-var)]
+          std-out-writer (get-or-create-var-writer writer-var sys-mod-attname)]
       (py-proto/set-attr! sys-module sys-mod-attname std-out-writer)
       :ok)))

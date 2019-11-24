@@ -2,7 +2,7 @@
   (:require [tech.parallel.utils :refer [export-symbols]]
             [libpython-clj.python.interop :as pyinterop]
             [libpython-clj.python.interpreter :as pyinterp
-             :refer [with-gil with-interpreter]]
+             :refer [with-interpreter]]
             [libpython-clj.python.object :as pyobj]
             [libpython-clj.python.bridge]
             [libpython-clj.jna :as pyjna]
@@ -47,6 +47,25 @@
                 ->py-fn
                 ->python
                 ->jvm)
+
+
+(defmacro stack-resource-context
+  "Create a stack-based resource context.  All python objects allocated within this
+  context will be released at the termination of this context.
+  !!This means that no python objects can escape from this context!!
+  You must use copy semantics (->jvm) for anything escaping this context."
+  [& body]
+  `(pyobj/stack-resource-context
+    ~@body))
+
+
+(defmacro with-gil
+  "Capture the gil for an extended amount of time.  This can greatly speed up
+  operations as the mutex is captured and held once as opposed to find grained
+  grabbing/releasing of the mutex."
+  [& body]
+  `(pyinterp/with-gil
+     ~@body))
 
 
 (export-symbols libpython-clj.python.interop

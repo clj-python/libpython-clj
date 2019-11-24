@@ -1,5 +1,6 @@
 (ns libpython-clj.python.interpreter
   (:require [libpython-clj.jna :as libpy]
+            [libpython-clj.jna.base :as libpy-base]
             [tech.resource :as resource]
             [libpython-clj.python.logging
              :refer [log-error log-warn log-info]]
@@ -196,12 +197,13 @@
        ;;No interpreters bound
        (not *current-thread-interpreter*)
        (locking interpreter
-         (try
-           (with-bindings {#'*current-thread-interpreter* interpreter}
-             (acquire-gil! interpreter)
-             (body-fn))
-           (finally
-             (release-gil! interpreter))))
+         (with-bindings {#'*current-thread-interpreter* interpreter}
+           (acquire-gil! interpreter)
+           (with-bindings {#'libpy-base/*gil-captured* true}
+             (try
+               (body-fn)
+               (finally
+                 (release-gil! interpreter))))))
        ;;Switch interpreters in the current thread...deadlock
        ;;is possible here.
        (not (identical? interpreter *current-thread-interpreter*))
@@ -244,8 +246,10 @@
       (resource/stack-resource-context
        (libpy/PySys_SetArgv 0 (-> program-name
                                   (jna/string->wide-ptr)))))
-    (let [type-symbols (libpy/lookup-type-symbols)]
-      (construct-main-interpreter! (libpy/PyEval_SaveThread) type-symbols))))
+    (let [type-symbols (libpy/lookup-type-symbols)
+          context (with-bindings {#'libpy-base/*gil-captured* true}
+                    (libpy/PyEval_SaveThread))]
+      (construct-main-interpreter! context type-symbols))))
 
 
 (def ^:dynamic *python-error-handler* nil)

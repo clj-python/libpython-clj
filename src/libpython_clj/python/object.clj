@@ -44,6 +44,7 @@
             [tech.v2.datatype.casting :as casting]
             [tech.v2.tensor])
   (:import [com.sun.jna Pointer CallbackReference]
+           [com.sun.jna.ptr PointerByReference]
            [libpython_clj.jna
             PyObject
             CFunction$KeyWordFunction
@@ -98,6 +99,12 @@
 (def ^:dynamic *object-reference-logging* false)
 
 
+(def ^:dynamic *object-reference-tracker* nil)
+
+
+(def ^:dynamic *pyobject-tracking-flags* [:gc])
+
+
 (defn wrap-pyobject
   "Wrap object such that when it is no longer accessible via the program decref is
   called. Used for new references.  This is some of the meat of the issue, however,
@@ -106,7 +113,10 @@
   [pyobj & [skip-check-error?]]
   (when-not skip-check-error?
     (check-error-throw))
-  (when pyobj
+  ;;We don't wrap pynone
+  (when (and pyobj
+             (not= (Pointer/nativeValue (jna/as-ptr pyobj))
+                   (Pointer/nativeValue (jna/as-ptr (libpy/Py_None)))))
     (let [interpreter (ensure-bound-interpreter)
           pyobj-value (Pointer/nativeValue (jna/as-ptr pyobj))
           py-type-name (name (python-type pyobj))]
@@ -116,6 +126,9 @@
                             pyobj-value
                             (.ob_refcnt obj-data)
                             py-type-name))))
+      (when *object-reference-tracker*
+        (swap! *object-reference-tracker*
+               update pyobj-value #(inc (or % 0))))
       ;;We ask the garbage collector to track the python object and notify
       ;;us when it is released.  We then decref on that event.
       (resource/track pyobj
@@ -127,10 +140,21 @@
                                                 pyobj-value
                                                 (.ob_refcnt obj-data)
                                                 py-type-name))))
+                           (when *object-reference-tracker*
+                             (swap! *object-reference-tracker*
+                                    update pyobj-value (fn [arg]
+                                                         (dec (or arg 0)))))
                            (libpy/Py_DecRef (Pointer. pyobj-value))
                            (catch Throwable e
                              (log-error "Exception while releasing object: %s" e))))
-                      [:gc]))))
+                      *pyobject-tracking-flags*))))
+
+
+(defmacro stack-resource-context
+  [& body]
+  `(with-bindings {#'*pyobject-tracking-flags* [:stack :gc]}
+     (resource/stack-resource-context
+      ~@body)))
 
 
 (defn incref-wrap-pyobject
@@ -363,36 +387,37 @@
                                    doc
                                    function]
                             :as method-data}]
-  (let [callback (if (or (instance? CFunction$KeyWordFunction function)
-                         (instance? CFunction$TupleFunction function)
-                         (instance? CFunction$NoArgFunction function))
-                     function
-                     (wrap-clojure-fn function))
-        meth-flags (long (cond
-                           (instance? CFunction$NoArgFunction callback)
-                           @libpy/METH_NOARGS
+  (resource/stack-resource-context
+   (let [callback (if (or (instance? CFunction$KeyWordFunction function)
+                          (instance? CFunction$TupleFunction function)
+                          (instance? CFunction$NoArgFunction function))
+                    function
+                    (wrap-clojure-fn function))
+         meth-flags (long (cond
+                            (instance? CFunction$NoArgFunction callback)
+                            @libpy/METH_NOARGS
 
-                           (instance? CFunction$TupleFunction callback)
-                           @libpy/METH_VARARGS
+                            (instance? CFunction$TupleFunction callback)
+                            @libpy/METH_VARARGS
 
-                           (instance? CFunction$KeyWordFunction callback)
-                           (bit-or @libpy/METH_KEYWORDS @libpy/METH_VARARGS)
-                           :else
-                           (throw (ex-info (format "Failed due to type: %s"
-                                                   (type callback))))))
-        name-ptr (jna/string->ptr name)
-        doc-ptr (jna/string->ptr doc)]
-    (set! (.ml_name method-def) name-ptr)
-    (set! (.ml_meth method-def) (CallbackReference/getFunctionPointer callback))
-    (set! (.ml_flags method-def) (int meth-flags))
-    (set! (.ml_doc method-def) doc-ptr)
-    (.write method-def)
-    (pyinterp/conj-forever! (assoc method-data
-                                   :name-ptr name-ptr
-                                   :doc-ptr doc-ptr
-                                   :callback-object callback
-                                   :method-definition method-def))
-    method-def))
+                            (instance? CFunction$KeyWordFunction callback)
+                            (bit-or @libpy/METH_KEYWORDS @libpy/METH_VARARGS)
+                            :else
+                            (throw (ex-info (format "Failed due to type: %s"
+                                                    (type callback))))))
+         name-ptr (jna/string->ptr name)
+         doc-ptr (jna/string->ptr doc)]
+     (set! (.ml_name method-def) name-ptr)
+     (set! (.ml_meth method-def) (CallbackReference/getFunctionPointer callback))
+     (set! (.ml_flags method-def) (int meth-flags))
+     (set! (.ml_doc method-def) doc-ptr)
+     (.write method-def)
+     (pyinterp/conj-forever! (assoc method-data
+                                    :name-ptr name-ptr
+                                    :doc-ptr doc-ptr
+                                    :callback-object callback
+                                    :method-definition method-def))
+     method-def)))
 
 
 (defn method-def-data->method-def
@@ -691,29 +716,46 @@
   "This is a tough function to get right.  The iterator could return nil as in
   you could have a list of python none types or something so you have to iterate
   till you get a StopIteration error."
- [iter-fn item-conversion-fn]
- (with-gil nil
-   (let [interpreter (ensure-bound-interpreter)]
-     (let [py-iter (py-proto/call iter-fn)
-           next-fn (fn [last-item]
-                     (with-interpreter interpreter
-                       (try
-                         [(-> (py-proto/call-attr py-iter "__next__")
-                              item-conversion-fn)]
-                         (catch Throwable e
-                           nil))))
-           cur-item-store (atom (next-fn nil))]
-       (reify ObjectIter
-         jna/PToPtr
-         (is-jna-ptr-convertible? [item] true)
-         (->ptr-backing-store [item] py-iter)
-         (hasNext [obj-iter]
-           (not (nil? @cur-item-store)))
-         (next [obj-iter]
-           (-> (swap-vals! cur-item-store next-fn)
-               ffirst))
-         (current [obj-iter]
-           (first @cur-item-store)))))))
+  [iter-fn & [item-conversion-fn]]
+  (with-gil nil
+    (let [interpreter (ensure-bound-interpreter)]
+      (let [py-iter (py-proto/call iter-fn)
+            py-next-fn (when py-iter (py-proto/get-attr py-iter "__next__"))
+            next-fn (fn [last-item]
+                      (with-interpreter interpreter
+                        (let [retval (libpy/PyObject_CallObject py-next-fn nil)]
+                          (if (libpy/PyErr_Occurred)
+                            (let [ptype (PointerByReference.)
+                                  pvalue (PointerByReference.)
+                                  ptraceback (PointerByReference.)
+                                  _ (libpy/PyErr_Fetch ptype pvalue ptraceback)
+                                  ptype (jna/->ptr-backing-store ptype)
+                                  pvalue (jna/->ptr-backing-store pvalue)
+                                  ptraceback (jna/->ptr-backing-store ptraceback)]
+                              (if (= ptype
+                                     (libpy/PyExc_StopIteration))
+                                (do
+                                  (libpy/Py_DecRef ptype)
+                                  (when pvalue (libpy/Py_DecRef pvalue))
+                                  (when ptraceback (libpy/Py_DecRef ptraceback))
+                                  nil)
+                                (do (libpy/PyErr_Restore ptype pvalue ptraceback)
+                                    (check-error-throw))))
+                            [(cond-> (wrap-pyobject retval)
+                               item-conversion-fn
+                               item-conversion-fn)]))))
+            cur-item-store (atom (next-fn nil))]
+        (reify ObjectIter
+          jna/PToPtr
+          (is-jna-ptr-convertible? [item] true)
+          (->ptr-backing-store [item] py-iter)
+          (hasNext [obj-iter]
+            (not (nil? @cur-item-store)))
+          (next [obj-iter]
+            (-> (swap-vals! cur-item-store next-fn)
+                ffirst))
+          (current [obj-iter]
+            (first @cur-item-store)))))))
 
 
 (defn python->jvm-iterable

@@ -1,6 +1,7 @@
 (ns libpython-clj.jna.interpreter
   (:require [libpython-clj.jna.base
              :refer [def-pylib-fn
+                     def-no-gil-pylib-fn
                      ensure-pyobj
                      ensure-pytuple
                      ensure-pydict
@@ -28,7 +29,7 @@
 ;; calls Py_Initialize() and Py_Finalize() more than once.
 
 
-(def-pylib-fn Py_InitializeEx
+(def-no-gil-pylib-fn Py_InitializeEx
   "This function works like Py_Initialize() if initsigs is 1. If initsigs is 0, it skips
   initialization registration of signal handlers, which might be useful when Python is
   embedded."
@@ -37,14 +38,14 @@
 
 
 
-(def-pylib-fn Py_IsInitialized
+(def-no-gil-pylib-fn Py_IsInitialized
   "Return true (nonzero) when the Python interpreter has been initialized, false (zero)
   if not. After Py_Finalize() is called, this returns false until Py_Initialize() is
   called again."
   Integer)
 
 
-(def-pylib-fn Py_FinalizeEx
+(def-no-gil-pylib-fn Py_FinalizeEx
   "Undo all initializations made by Py_Initialize() and subsequent use of Python/C API
   functions, and destroy all sub-interpreters (see Py_NewInterpreter() below) that were
   created and not yet destroyed since the last call to Py_Initialize(). Ideally, this
@@ -62,7 +63,7 @@
 
 ;; System Functionality
 
-(def-pylib-fn PySys_SetArgv
+(def-no-gil-pylib-fn PySys_SetArgv
   "This function works like PySys_SetArgvEx() with updatepath set to 1 unless the python
   interpreter was started with the -I.
 
@@ -226,7 +227,7 @@
 
 
 ;;Acquire the GIL of the given thread state
-(def-pylib-fn PyEval_RestoreThread
+(def-no-gil-pylib-fn PyEval_RestoreThread
   "Acquire the global interpreter lock (if it has been created and thread support is
   enabled) and set the thread state to tstate, which must not be NULL. If the lock has
   been created, the current thread must not have acquired it, otherwise deadlock ensues.
