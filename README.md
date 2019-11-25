@@ -7,7 +7,8 @@ JNA libpython bindings to the tech ecosystem.
 * Bridge between JVM objects and Python objects easily; use Python in your Java and
   use some Java in your Python.
 * Python objects are linked to the JVM GC such that when they are no longer reachable
-  from the JVM their references are released.
+  from the JVM their references are released.  Scope based resource contexts are 
+  [also available](https://github.com/cnuernber/libpython-clj/blob/master/docs/scopes-and-gc.md).
 * The exact same binary can run top of on multiple version of python reducing version
   dependency chain management issues.
 * Development of new functionality is faster because it can be done from purely from the
@@ -302,6 +303,7 @@ distance.
 ## Further Information
 
 * [design documentation](docs/design.md)
+* [scope and garbage collection docs](https://github.com/cnuernber/libpython-clj/blob/master/docs/scopes-and-gc.md)
 * [examples](example/README.md)
 * [docker setup](https://github.com/scicloj/docker-hub)
 * [pandas bindings (!!)](https://github.com/alanmarazzi/panthera)
