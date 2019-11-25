@@ -220,10 +220,12 @@
          (->python [item# options#] pyobj#)
          py-proto/PBridgeToPython
          (as-python [item# options#] pyobj#)
-         py-proto/PCopyToJVM
-         (->jvm [item# options#] item#)
          py-proto/PBridgeToJVM
          (as-jvm [item# options#] item#)
+         py-proto/PCopyToJVM
+         (->jvm [item# options#]
+           (with-interpreter interpreter#
+             (->jvm pyobj# options#)))
          py-proto/PPyObject
          (dir [item#]
            (with-interpreter interpreter#

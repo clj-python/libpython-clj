@@ -114,7 +114,7 @@
   (when-not skip-check-error?
     (check-error-throw))
   ;;We don't wrap pynone
-  (when (and pyobj
+  (if (and pyobj
              (not= (Pointer/nativeValue (jna/as-ptr pyobj))
                    (Pointer/nativeValue (jna/as-ptr (libpy/Py_None)))))
     (let [interpreter (ensure-bound-interpreter)
@@ -147,7 +147,11 @@
                            (libpy/Py_DecRef (Pointer. pyobj-value))
                            (catch Throwable e
                              (log-error "Exception while releasing object: %s" e))))
-                      *pyobject-tracking-flags*))))
+                      *pyobject-tracking-flags*))
+    (do
+      ;;Special handling for PyNone types
+      (libpy/Py_DecRef pyobj)
+      nil)))
 
 
 (defmacro stack-resource-context
@@ -173,6 +177,11 @@
   (let [pyobj (jna/as-ptr pyobj)]
     (libpy/Py_IncRef pyobj)
     pyobj))
+
+
+(defn refcount
+  [pyobj]
+  (.ob_refcnt (PyObject. (jna/as-ptr pyobj))))
 
 
 (defn py-true
@@ -371,7 +380,7 @@
         (let [retval
               (apply fn-obj (->jvm args))]
           (if (nil? retval)
-            (libpy/Py_None)
+            (incref (libpy/Py_None))
             (->python retval)))
         (catch Throwable e
           (log-error (format "%s:%s" e (with-out-str
@@ -661,7 +670,7 @@
 (extend-protocol py-proto/PyCall
   Pointer
   (do-call-fn [callable arglist kw-arg-map]
-    (with-gil nil
+    (with-gil
       (-> (cond
             (seq kw-arg-map)
             (libpy/PyObject_Call callable (->py-tuple arglist)
@@ -687,7 +696,7 @@
 
 (defn python->jvm-copy-hashmap
   [pyobj & [map-items]]
-  (with-gil nil
+  (with-gil
     (when-not (= 1 (libpy/PyMapping_Check pyobj))
       (throw (ex-info (format "Object does not implement the mapping protocol: %s"
                               (python-type pyobj)))))
@@ -700,7 +709,7 @@
 
 (defn python->jvm-copy-persistent-vector
   [pyobj]
-  (with-gil nil
+  (with-gil
     (when-not (= 1 (libpy/PySequence_Check pyobj))
       (throw (ex-info (format "Object does not implement sequence protocol: %s"
                               (python-type pyobj)))))
@@ -717,7 +726,7 @@
   you could have a list of python none types or something so you have to iterate
   till you get a StopIteration error."
   [iter-fn & [item-conversion-fn]]
-  (with-gil nil
+  (with-gil
     (let [interpreter (ensure-bound-interpreter)]
       (let [py-iter (py-proto/call iter-fn)
             py-next-fn (when py-iter (py-proto/get-attr py-iter "__next__"))
@@ -763,7 +772,7 @@
   maintains a reference to the python object, however, so this method isn't necessarily
   safe."
   [pyobj & [item-conversion-fn]]
-  (with-gil nil
+  (with-gil
     (when-not (has-attr? pyobj "__iter__")
       (throw (ex-info (format "object is not iterable: %s"
                               (python-type pyobj))
@@ -782,13 +791,13 @@
 
 (defmethod pyobject->jvm :int
   [pyobj]
-  (with-gil nil
+  (with-gil
     (libpy/PyLong_AsLongLong pyobj)))
 
 
 (defmethod pyobject->jvm :float
   [pyobj]
-  (with-gil nil
+  (with-gil
     (libpy/PyFloat_AsDouble pyobj)))
 
 
@@ -799,13 +808,13 @@
 
 (defmethod pyobject->jvm :str
   [pyobj]
-  (with-gil nil
+  (with-gil
     (py-string->string pyobj)))
 
 
 (defn pyobj-true?
   [pyobj]
-  (with-gil nil
+  (with-gil
     (= 1 (libpy/PyObject_IsTrue pyobj))))
 
 
@@ -839,7 +848,7 @@
 ;;numpy types
 (defn numpy-scalar->jvm
   [pyobj]
-  (with-gil nil
+  (with-gil
     (-> (py-proto/get-attr pyobj "data")
         (py-proto/get-item (->py-tuple []))
         ->jvm)))

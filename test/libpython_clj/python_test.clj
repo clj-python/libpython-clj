@@ -248,3 +248,11 @@
              (vec my-obj)))
       (is (= [4 5 6]
              (vec (py/call-attr py-mod "for_iter" my-python-item)))))))
+
+
+(deftest bridged-dict-to-jvm
+  (py/initialize!)
+  (let [py-dict (py/->py-dict {:a 1 :b 2})
+        bridged (py/as-jvm py-dict)
+        copied-back (py/->jvm bridged)]
+    (is (instance? clojure.lang.PersistentArrayMap copied-back))))

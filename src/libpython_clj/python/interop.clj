@@ -383,7 +383,7 @@
             (getAttr [bridge att-name]
               (if-let [retval (get att-map att-name)]
                 (incref retval)
-                (libpy/Py_None)))
+                (incref (libpy/Py_None))))
             (setAttr [bridge att-name att-value]
               (throw (ex-info "Cannot set attributes" {})))
             (dir [bridge] dir-data)
@@ -425,7 +425,8 @@
     (create-bridge-from-att-map
      writer-var
      {"write" (->python (fn [& args]
-                          (.write ^Writer @writer-var (str (first args)))))
+                          (.write ^Writer @writer-var (str (first args)))
+                          ))
       "flush" (->python (fn [& args]))
       "isatty" (->python (fn [& args]
                            (libpy/Py_False)))

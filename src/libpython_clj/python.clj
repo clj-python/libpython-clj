@@ -53,7 +53,10 @@
   "Create a stack-based resource context.  All python objects allocated within this
   context will be released at the termination of this context.
   !!This means that no python objects can escape from this context!!
-  You must use copy semantics (->jvm) for anything escaping this context."
+  You must use copy semantics (->jvm) for anything escaping this context.
+  Furthermore, if you are returning generic python objects you may need
+  to call (into {}) or something like that just to ensure that absolutely
+  everything is copied into the jvm."
   [& body]
   `(pyobj/stack-resource-context
     ~@body))
@@ -66,6 +69,20 @@
   [& body]
   `(pyinterp/with-gil
      ~@body))
+
+
+(defmacro with-gil-stack-rc-context
+  "Capture the gil, open a resource context.  The resource context is released
+  before the gil is leading to much faster resource collection.  See documentation
+  on `stack-resource-context` for multiple warnings; the most important one being
+  that if a python object escapes this context your program will eventually, at
+  some undefined point in the future crash.  That being said, this is the recommended
+  pathway to use in production contexts where you want defined behavior and timings
+  related to use of python."
+  [& body]
+  `(with-gil
+     (stack-resource-context
+      ~@body)))
 
 
 (export-symbols libpython-clj.python.interop
