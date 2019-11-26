@@ -517,6 +517,55 @@
       (python->jvm-iterator iter-fn as-jvm))))
 
 
+(defn args->pos-kw-args
+  "Utility function that, given a list of arguments, separates them
+  into positional and keyword arguments.  Throws an exception if the
+  keyword argument is not followed by any more arguments."
+  [arglist]
+  (loop [args arglist
+         pos-args []
+         kw-args nil]
+    (if-not (seq args)
+      [pos-args kw-args]
+      (let [arg (first args)
+            [pos-args kw-args args]
+            (if (keyword? arg)
+              (if-not (seq (rest args))
+                (throw (Exception.
+                        (format "Keyword arguments must be followed by another arg: %s"
+                                (str arglist))))
+                [pos-args (assoc kw-args arg (first (rest args)))
+                 (drop 2 args)])
+              [(conj pos-args (first args))
+               kw-args
+               (rest args)])]
+        (recur args pos-args kw-args)))))
+
+
+(defn cfn
+  "Call an object.
+  Arguments are passed in positionally.  Any keyword
+  arguments are paired with the next arg, gathered, and passed into the
+  system as *kwargs.
+
+  Not having an argument after a keyword argument is an error."
+  [item & args]
+  (let [[pos-args kw-args] (args->pos-kw-args args)]
+    (py-proto/call-kw item pos-args kw-args)))
+
+
+(defn afn
+  "Call an attribute of an object.
+  Arguments are passed in positionally.  Any keyword
+  arguments are paired with the next arg, gathered, and passed into the
+  system as *kwargs.
+
+  Not having an argument after a keyword argument is an error."
+  [item attr & args]
+  (let [[pos-args kw-args] (args->pos-kw-args args)]
+    (py-proto/call-attr-kw item attr pos-args kw-args)))
+
+
 (defn generic-python-as-jvm
   "Given a generic pyobject, wrap it in a read-only map interface
   where the keys are the attributes."
@@ -542,48 +591,32 @@
            ;;uggh
            (invoke [this]
                    (with-interpreter interpreter
-                     (-> (libpy/PyObject_CallObject pyobj nil)
-                         wrap-pyobject
-                         as-jvm)))
+                     (cfn this)))
 
            (invoke [this arg0]
                    (with-interpreter interpreter
-                     (-> (libpy/PyObject_CallObject pyobj (as-tuple [arg0]))
-                         wrap-pyobject
-                         as-jvm)))
+                     (cfn this arg0)))
 
            (invoke [this arg0 arg1]
                    (with-interpreter interpreter
-                     (-> (libpy/PyObject_CallObject pyobj (as-tuple [arg0 arg1]))
-                         wrap-pyobject
-                         as-jvm)))
+                     (cfn this arg0 arg1)))
 
            (invoke [this arg0 arg1 arg2]
                    (with-interpreter interpreter
-                     (-> (libpy/PyObject_CallObject pyobj (as-tuple [arg0 arg1 arg2]))
-                         wrap-pyobject
-                         as-jvm)))
+                     (cfn this arg0 arg1 arg2)))
 
            (invoke [this arg0 arg1 arg2 arg3]
                    (with-interpreter interpreter
-                     (-> (libpy/PyObject_CallObject
-                          pyobj (as-tuple [arg0 arg1 arg2 arg3]))
-                         wrap-pyobject
-                         as-jvm)))
+                     (cfn this arg0 arg1 arg2 arg3)))
 
 
            (invoke [this arg0 arg1 arg2 arg3 arg4]
                    (with-interpreter interpreter
-                     (-> (libpy/PyObject_CallObject
-                          pyobj (as-tuple [arg0 arg1 arg2 arg3 arg4]))
-                         wrap-pyobject
-                         as-jvm)))
+                     (cfn this arg0 arg1 arg2 arg3 arg4)))
 
            (applyTo [this arglist]
                     (with-interpreter interpreter
-                      (-> (libpy/PyObject_CallObject pyobj (as-tuple arglist))
-                          wrap-pyobject
-                          as-jvm)))
+                      (apply cfn this arglist)))
            ;;Mark this as executable
            Fn
            PyFunction

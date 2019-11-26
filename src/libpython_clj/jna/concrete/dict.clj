@@ -192,9 +192,9 @@
   structure, and since the structure is sparse, the offsets are not consecutive."
   Integer
   [p ensure-pyobj]
-  [ppos jna/as-ptr]
-  [pkey jna/as-ptr]
-  [pvalue jna/as-ptr])
+  [ppos (partial jna/ensure-type jna/size-t-ref-type)]
+  [pkey jna/ensure-ptr-ptr]
+  [pvalue jna/ensure-ptr-ptr])
 
 
 (def-pylib-fn PyDict_Merge

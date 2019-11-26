@@ -92,7 +92,7 @@
 (defn ->jvm
   "Copy an object into the jvm (if it wasn't there already.)"
   [item & [options]]
-  (when item
+  (when-not (nil? item)
     (py-proto/->jvm item options)))
 
 
@@ -835,7 +835,19 @@
 
 (defmethod pyobject->jvm :dict
   [pyobj]
-  (python->jvm-copy-hashmap pyobj))
+  (with-gil
+    (let [ppos (jna/size-t-ref 0)
+          pkey (PointerByReference.)
+          pvalue (PointerByReference.)
+          retval (transient {})]
+      (loop [next-retval (libpy/PyDict_Next pyobj ppos pkey pvalue)]
+        (if (not= 0 next-retval)
+          (do
+            (assoc! retval
+                    (->jvm (jna/as-ptr pkey))
+                    (->jvm (jna/as-ptr pvalue)))
+            (recur (libpy/PyDict_Next pyobj ppos pkey pvalue)))
+          (persistent! retval))))))
 
 
 (defmethod pyobject->jvm :set
@@ -919,7 +931,7 @@
         (python->jvm-copy-persistent-vector pyobj)))
     ;;Sequences become persistent vectors
     (= 1 (libpy/PySequence_Check pyobj))
-    (python->jvm-copy-persistent-vector)
+    (python->jvm-copy-persistent-vector pyobj)
     :else
     {:type (python-type pyobj)
      :value (Pointer/nativeValue (jna/as-ptr pyobj))}))

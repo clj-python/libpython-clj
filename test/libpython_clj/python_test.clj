@@ -1,6 +1,7 @@
 (ns libpython-clj.python-test
   (:require [libpython-clj.python :as py]
             [tech.v2.datatype :as dtype]
+            [tech.v2.datatype.functional :as dfn]
             [tech.v2.tensor :as dtt]
             [clojure.test :refer :all])
   (:import [java.io StringWriter]
@@ -256,3 +257,16 @@
         bridged (py/as-jvm py-dict)
         copied-back (py/->jvm bridged)]
     (is (instance? clojure.lang.PersistentArrayMap copied-back))))
+
+
+(deftest calling-conventions
+  (py/initialize!)
+  (let [np (py/import-module "numpy")
+        linspace (py/get-attr np "linspace")]
+
+    (is (dfn/equals [2.000 2.250 2.500 2.750 3.000]
+                    (py/as-tensor (linspace 2 3 :num 5))))
+    (is (dfn/equals [2.000 2.250 2.500 2.750 3.000]
+                    (py/as-tensor (py/c$ linspace 2 3 :num 5))))
+    (is (dfn/equals [2.000 2.250 2.500 2.750 3.000]
+                    (py/as-tensor (py/a$ np linspace 2 3 :num 5))))))

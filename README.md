@@ -257,6 +257,29 @@ Execution error (ExceptionInfo) at libpython-clj.python.interpreter/check-error-
 SyntaxError: EOL while scanning string literal
 ```
 
+### Some Syntax Sugar
+```clojure
+user> (py/from-import numpy linspace)
+#'user/linspace
+user> (linspace 2 3 :num 10)
+[2.         2.11111111 2.22222222 2.33333333 2.44444444 2.55555556
+ 2.66666667 2.77777778 2.88888889 3.        ]
+user> (doc linspace)
+-------------------------
+user/linspace
+
+    Return evenly spaced numbers over a specified interval.
+
+    Returns `num` evenly spaced samples, calculated over the
+    interval [`start`, `stop`].
+
+```
+
+* `from-import` - sugar around python `from a import b`.  Takes multiple b's.
+* `import-as` - surgar around python `import a as b`.
+* `a$` - call an attribute using symbol att name.  Keywords map to kwargs
+* `c$` - call an object mapping keywords to fn-args
+
 ### Numpy
 
 Speaking of numpy, you can move data between numpy and java easily.

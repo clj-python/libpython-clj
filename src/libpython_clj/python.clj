@@ -91,6 +91,9 @@
 
 
 (export-symbols libpython-clj.python.bridge
+                args->pos-kw-args
+                cfn
+                afn
                 as-jvm
                 as-python
                 ->numpy
@@ -276,3 +279,49 @@
                retval#)
              (catch Throwable e#
                (with-exit-error-handler ~varname e#))))))))
+
+
+(defmacro a$
+  "Call an attribute of an object.  Similar calling conventions to afn except:
+  Keywords must be compile time constants.  So this won't work with 'apply'.  On the
+  other hand, building the positional and kw argmaps happens at compile time as
+  opposed to at runtime.  The attr name can be a symbol."
+  [item attr & args]
+  (let [attr-name (if (symbol? attr)
+                    (name attr)
+                    attr)
+        [pos-args kw-args] (args->pos-kw-args args)]
+    `(call-attr-kw ~item ~attr-name ~pos-args ~kw-args)))
+
+
+(defmacro c$
+  "Call an object.  Similar calling conventions to cfn except:
+  Keywords must be compile time constants.  So this won't work with 'apply'.  On the
+  other hand, building the positional and kw argmaps happens at compile time as
+  opposed to at runtime."
+  [item & args]
+  (let [[pos-args kw-args] (args->pos-kw-args args)]
+    `(call-kw ~item ~pos-args ~kw-args)))
+
+
+(defmacro import-as
+  "Import a module and assign it to a var.  Documentation is included."
+  [module-path varname]
+  `(let [~'mod-data (import-module ~(name module-path))]
+     (def ~varname (import-module ~(name module-path)))
+     (alter-meta! #'~varname assoc :doc (get-attr ~'mod-data "__doc__"))
+     #'~varname))
+
+
+(defmacro from-import
+  "Support for the from a import b,c style of importing modules and symbols in python.
+  Documentation is included."
+  [module-path item & args]
+  `(do
+     (let [~'mod-data (import-module ~(name module-path))]
+       ~@(map (fn [varname]
+                `(let [~'var-data (get-attr ~'mod-data ~(name varname))]
+                   (def ~varname ~'var-data)
+                   (alter-meta! #'~varname assoc :doc (get-attr ~'var-data "__doc__"))
+                   #'~varname))
+              (concat [item] args)))))
