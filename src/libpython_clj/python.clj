@@ -38,13 +38,9 @@
 
 
 (export-symbols libpython-clj.python.object
-                ->py-dict
                 ->py-float
-                ->py-list
                 ->py-long
                 ->py-string
-                ->py-tuple
-                ->py-fn
                 ->python
                 ->jvm)
 
@@ -98,6 +94,32 @@
                 as-python
                 ->numpy
                 as-numpy)
+
+
+(defn ->py-dict
+  "Create a python dictionary"
+  [item]
+  (-> (pyobj/->py-dict item)
+      (as-jvm)))
+
+
+(defn ->py-list
+  "Create a python list"
+  [item]
+  (-> (pyobj/->py-list item)
+      (as-jvm)))
+
+
+(defn ->py-tuple
+  [item]
+  (-> (pyobj/->py-tuple item)
+      (as-jvm)))
+
+
+(defn ->py-fn
+  [item]
+  (-> (pyobj/->py-fn item)
+      (as-jvm)))
 
 
 (defn run-simple-string
