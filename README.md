@@ -7,7 +7,7 @@ JNA libpython bindings to the tech ecosystem.
 * Bridge between JVM objects and Python objects easily; use Python in your Java and
   use some Java in your Python.
 * Python objects are linked to the JVM GC such that when they are no longer reachable
-  from the JVM their references are released.  Scope based resource contexts are 
+  from the JVM their references are released.  Scope based resource contexts are
   [also available](https://github.com/cnuernber/libpython-clj/blob/master/docs/scopes-and-gc.md).
 * The exact same binary can run top of on multiple version of python reducing version
   dependency chain management issues.
@@ -25,7 +25,7 @@ We have a [video](https://www.youtube.com/watch?v=ajDiGS73i2o) up of a scicloj c
 discussion with demos.
 
 
-TechAscent has a [blog post](http://www.techascent.com/blog/functions-across-languages.html) 
+TechAscent has a [blog post](http://www.techascent.com/blog/functions-across-languages.html)
 up about how the inter-language bindings actually work at a very low level.
 
 
@@ -115,7 +115,7 @@ there are java wrappers over the top of them.  For instance, `Object.toString` f
 its implementation to the python function `__str__`.
 
 ```clojure
-
+(def bridged (run-simple-string "print('hey')"))
 (instance? java.util.Map (:globals bridged))
 true
 user> (:globals bridged)
