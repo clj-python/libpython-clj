@@ -278,7 +278,7 @@ user/linspace
 * `from-import` - sugar around python `from a import b`.  Takes multiple b's.
 * `import-as` - surgar around python `import a as b`.
 * `a$` - call an attribute using symbol att name.  Keywords map to kwargs
-* `c$` - call an object mapping keywords to fn-args
+* `c$` - call an object mapping keywords to kwargs
 
 ### Numpy
 
