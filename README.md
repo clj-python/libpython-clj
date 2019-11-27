@@ -325,6 +325,7 @@ distance.
 
 ## Further Information
 
+* [development discussion forum](https://clojurians.zulipchat.com/#narrow/stream/215609-libpython-clj-dev)
 * [design documentation](docs/design.md)
 * [scope and garbage collection docs](https://github.com/cnuernber/libpython-clj/blob/master/docs/scopes-and-gc.md)
 * [examples](example/README.md)
