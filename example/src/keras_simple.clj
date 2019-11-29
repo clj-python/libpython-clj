@@ -2,6 +2,10 @@
   "https://machinelearningmastery.com/tutorial-first-neural-network-python-keras/"
   (:require [libpython-clj.python
              :refer [import-module
+                     import-as
+                     from-import
+                     a$ ;;compile time call-attr
+                     afn ;;runtime call-attr
                      get-item
                      get-attr
                      python-type
@@ -22,83 +26,67 @@
 (py/initialize!)
 
 
-(defonce np (import-module "numpy"))
-(defonce builtins (import-module "builtins"))
-(defonce keras (import-module "keras"))
-(defonce keras-models (import-module "keras.models"))
-(defonce keras-layers (import-module "keras.layers"))
-(defonce c-types (import-module "ctypes"))
-
-(defn slice
-  ([]
-   (call-attr builtins "slice" nil))
-  ([start]
-   (call-attr builtins "slice" start))
-  ([start stop]
-   (call-attr builtins "slice" start stop))
-  ([start stop incr]
-   (call-attr builtins "slice" start stop incr)))
+(import-as numpy np)
+(import-as builtins builtins)
+(from-import builtins slice)
+(import-as keras keras)
+(import-as keras.models keras-models)
+(import-as keras.layers keras-layers)
+(import-as ctypes c-types)
 
 
-(defonce initial-data (call-attr-kw np "loadtxt"
-                                    ["pima-indians-diabetes.data.csv"]
-                                    {"delimiter" ","}))
+(defonce initial-data (a$ np loadtxt "pima-indians-diabetes.data.csv" :delimiter ","))
 
 
-(def features (get-item initial-data [(slice) (slice 0 8)]))
+(def features (get-item initial-data [(slice nil) (slice 0 8)]))
 
-(def labels (get-item initial-data [(slice) (slice 8 9)]))
+(def labels (get-item initial-data [(slice nil) (slice 8 9)]))
 
 (defn dense-layer
-  [output-size & {:as kwords}]
-  (call-attr-kw keras-layers "Dense" [output-size] kwords))
+  [output-size & args]
+  (apply py/afn keras-layers "Dense" output-size args))
 
 
 (defn sequential-model
   []
-  (call-attr keras-models "Sequential"))
+  (a$ keras-models Sequential))
 
 
 (defn add-layer!
   [model layer]
-  (call-attr model "add" layer)
+  (a$ model add layer)
   model)
 
 (defn compile-model!
-  [model & {:as kw-args}]
-  (call-attr-kw model "compile" []
-                kw-args)
+  [model & args]
+  (apply py/afn model "compile" args)
   model)
 
 
 (def model (-> (sequential-model)
-                   (add-layer! (dense-layer 12 "input_dim" 8 "activation" "relu"))
-                   (add-layer! (dense-layer 8 "activation" "relu"))
-                   (add-layer! (dense-layer 1 "activation" "sigmoid"))
-                   (compile-model! "loss" "binary_crossentropy"
-                                   "optimizer" "adam"
-                                   "metrics" (py/->py-list ["accuracy"]))))
-
-;;model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy'])
+               (add-layer! (dense-layer 12 :input_dim 8 :activation :relu))
+               (add-layer! (dense-layer 8 :activation :relu))
+               (add-layer! (dense-layer 1 :activation :sigmoid))
+               (compile-model! :loss :binary_crossentropy
+                               :optimizer :adam
+                               :metrics (py/->py-list [:accuracy]))))
 
 (defn fit-model
-  [model features labels & {:as kw-args}]
-  (call-attr-kw model "fit"
-                [features labels]
-                kw-args)
+  [model features labels & args]
+  (apply py/afn model "fit" features labels args)
   model)
 
 
 (def fitted-model (fit-model model features labels
-                             "epochs" 150
-                             "batch_size" 10))
+                             :epochs 150
+                             :batch_size 10))
 
 
 (defn eval-model
   [model features lables]
   (let [model-names (->> (get-attr model "metrics_names")
                          (mapv keyword))]
-    (->> (call-attr model "evaluate" features labels)
+    (->> (a$ model evaluate features labels)
          (map vector model-names)
          (into {}))))
 
