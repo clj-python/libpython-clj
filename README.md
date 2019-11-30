@@ -334,6 +334,7 @@ distance.
 * [nextjournal notebook](https://nextjournal.com/chrisn/fun-with-matplotlib)
 * [scicloj video](https://www.youtube.com/watch?v=ajDiGS73i2o)
 * [Clojure/Python interop technical blog post](www.techascent.com/blogs/functions-across-languages.html)
+* [persistent datastructures in python](https://github.com/tobgu/pyrsistent)
 
 ## Resources
 
