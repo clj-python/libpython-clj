@@ -30,9 +30,9 @@
 (import-as builtins builtins)
 (from-import builtins slice)
 (import-as keras keras)
+(from-import keras.layers Dense)
 (import-as keras.models keras-models)
 (import-as keras.layers keras-layers)
-(import-as ctypes c-types)
 
 
 (defonce initial-data (a$ np loadtxt "pima-indians-diabetes.data.csv" :delimiter ","))
@@ -44,7 +44,7 @@
 
 (defn dense-layer
   [output-size & args]
-  (apply py/afn keras-layers "Dense" output-size args))
+  (apply py/cfn Dense output-size args))
 
 
 (defn sequential-model
