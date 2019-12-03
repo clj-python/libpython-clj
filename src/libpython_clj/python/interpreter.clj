@@ -236,11 +236,28 @@
 (defonce ^:dynamic *program-name* "")
 
 
+(defn- try-load-python-library!
+  [libname]
+  (try
+    (jna/load-library libname)
+    (alter-var-root #'libpy-base/*python-library* (constantly libname))
+    (libpy/Py_InitializeEx 0)
+    libname
+    (catch Exception e)))
+
+
 (defn initialize!
-  [& [program-name]]
+  [& [program-name python-library-name]]
   (when-not @*main-interpreter*
     (log-info "executing python initialize!")
-    (libpy/Py_InitializeEx 0)
+    (let [user-names (when python-library-name
+                       [python-library-name])
+          library-names (or user-names (libpy-base/library-names))]
+      (when-not (->> library-names
+                     (filter try-load-python-library!)
+                     first)
+        (throw (Exception. (format "Failed to initialize python library.
+Attempted libraries %s" library-names)))))
     ;;Set program name
     (when-let [program-name (or program-name *program-name* "")]
       (resource/stack-resource-context

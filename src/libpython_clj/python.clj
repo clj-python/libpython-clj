@@ -194,11 +194,8 @@
   :no-io-redirect - there if you don't want python stdout and stderr redirection
      to *out* and *err*."
   [& {:keys [program-name no-io-redirect? library-path]}]
-  (when library-path
-    (alter-var-root #'libpython-clj.jna.base/*python-library*
-                    (constantly library-path)))
   (when-not @pyinterp/*main-interpreter*
-    (pyinterp/initialize! program-name)
+    (pyinterp/initialize! program-name library-path)
     ;;setup bridge mechansim and io redirection
     (pyinterop/register-bridge-type!)
     (when-not no-io-redirect?

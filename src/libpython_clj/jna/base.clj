@@ -9,6 +9,13 @@
 
 (def ^:dynamic *python-library* "python3.6m")
 
+(def ^:dynamic *python-library-names* ["python3.7m" "python3.6m"])
+
+
+(defn library-names
+  []
+  *python-library-names*)
+
 
 (defprotocol PToPyObjectPtr
   (convertible-to-pyobject-ptr? [item])
