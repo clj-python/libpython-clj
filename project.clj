@@ -1,4 +1,4 @@
-(defproject cnuernber/libpython-clj "1.15-SNAPSHOT"
+(defproject cnuernber/libpython-clj "1.15"
   :description "libpython bindings to the techascent ecosystem"
   :url "http://github.com/cnuernber/libpython-clj"
   :license {:name "EPL-2.0"

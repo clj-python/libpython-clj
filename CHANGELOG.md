@@ -1,6 +1,6 @@
 # Time for a ChangeLog!
 
-## 1.15-SNAPSHOT
+## 1.15
 
 Moar syntax sugar --
 ```clojure
