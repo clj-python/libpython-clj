@@ -282,7 +282,10 @@ user/linspace
 * `$c` - call an object mapping keywords to kwargs
 
 
-#### Experimental Sugar (SNAPSHOT)
+#### Experimental Sugar
+
+We are trying to find the best way to handle attributes in order to shorten
+generic python notebook-type usage.  The currently implemented direction is:
 
 * `$.` - get an attribute.  Can pass in symbol, string, or keyword
 * `$..` - get an attribute.  If more args are present, get the attribute on that
