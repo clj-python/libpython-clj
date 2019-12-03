@@ -280,6 +280,10 @@ user/linspace
 * `import-as` - surgar around python `import a as b`.
 * `$a` - call an attribute using symbol att name.  Keywords map to kwargs
 * `$c` - call an object mapping keywords to kwargs
+
+
+#### Experimental Sugar (SNAPSHOT)
+
 * `$.` - get an attribute.  Can pass in symbol, string, or keyword
 * `$..` - get an attribute.  If more args are present, get the attribute on that
 result.
