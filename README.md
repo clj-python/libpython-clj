@@ -93,7 +93,7 @@ INFO: Reference thread starting
 
 This dynamically finds the python shared library and loads it.  If you desire a
 different shared library you can override
-[here](https://github.com/cnuernber/libpython-clj/blob/142c0dbc7056d0f5cd1969548a127a119f641c86/src/libpython_clj/jna/base.clj#L12).
+[here](https://github.com/cnuernber/libpython-clj/blob/master/src/libpython_clj/jna/base.clj#L12).
 
 
 ### Execute Some Python
