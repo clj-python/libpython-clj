@@ -299,12 +299,16 @@
              (catch Throwable e#
                (with-exit-error-handler ~varname e#))))))))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
 
 (defmacro a$
   "Call an attribute of an object.  Similar calling conventions to afn except:
   Keywords must be compile time constants.  So this won't work with 'apply'.  On the
   other hand, building the positional and kw argmaps happens at compile time as
-  opposed to at runtime.  The attr name can be a symbol."
+  opposed to at runtime.  The attr name can be a symbol.
+
+  DEPRECATION POSSIBLE - use $a."
   [item attr & args]
   (let [attr-name (if (symbol? attr)
                     (name attr)
@@ -317,10 +321,47 @@
   "Call an object.  Similar calling conventions to cfn except:
   Keywords must be compile time constants.  So this won't work with 'apply'.  On the
   other hand, building the positional and kw argmaps happens at compile time as
-  opposed to at runtime."
+  opposed to at runtime.
+
+  DEPRECATION POSSIBLE - use $c."
   [item & args]
   (let [[pos-args kw-args] (args->pos-kw-args args)]
     `(call-kw ~item ~pos-args ~kw-args)))
+
+
+
+(defmacro $a
+  "Call an attribute of an object.  Similar calling conventions to afn except:
+  Keywords must be compile time constants.  So this won't work with 'apply'.  On the
+  other hand, building the positional and kw argmaps happens at compile time as
+  opposed to at runtime.  The attr name can be a symbol."
+  [item attr & args]
+  `(a$ ~item ~attr ~@args))
+
+
+(defmacro $c
+  "Call an object.  Similar calling conventions to cfn except:
+  Keywords must be compile time constants.  So this won't work with 'apply'.  On the
+  other hand, building the positional and kw argmaps happens at compile time as
+  opposed to at runtime."
+  [item & args]
+  `(c$ ~item ~@args))
+
+
+(defmacro $.
+  "Get the attribute of an object."
+  [item attname]
+  `(get-attr ~item ~(name attname)))
+
+
+(defmacro $..
+  "Get the attribute of an object.  If there are extra args, apply successive
+  get-attribute calls to the arguments."
+  [item attname & args]
+  `(-> (get-attr ~item ~(name attname))
+       ~@(->> args
+              (map (fn [arg]
+                     `(get-attr ~(name arg)))))))
 
 
 (defmacro import-as

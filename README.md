@@ -258,6 +258,7 @@ SyntaxError: EOL while scanning string literal
 ```
 
 ### Some Syntax Sugar
+
 ```clojure
 user> (py/from-import numpy linspace)
 #'user/linspace
@@ -277,8 +278,19 @@ user/linspace
 
 * `from-import` - sugar around python `from a import b`.  Takes multiple b's.
 * `import-as` - surgar around python `import a as b`.
-* `a$` - call an attribute using symbol att name.  Keywords map to kwargs
-* `c$` - call an object mapping keywords to kwargs
+* `$a` - call an attribute using symbol att name.  Keywords map to kwargs
+* `$c` - call an object mapping keywords to kwargs
+* `$.` - get an attribute.  Can pass in symbol, string, or keyword
+* `$..` - get an attribute.  If more args are present, get the attribute on that
+result.
+
+```clojure
+user> (py/$. numpy linspace)
+<function linspace at 0x7fa6642766a8>
+user> (py/$.. numpy random shuffle)
+<built-in method shuffle of numpy.random.mtrand.RandomState object at 0x7fa66410cca8>
+```
+
 
 ### Numpy
 

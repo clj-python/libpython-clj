@@ -270,3 +270,12 @@
                     (py/as-tensor (py/c$ linspace 2 3 :num 5))))
     (is (dfn/equals [2.000 2.250 2.500 2.750 3.000]
                     (py/as-tensor (py/a$ np linspace 2 3 :num 5))))))
+
+(deftest syntax-sugar
+  (py/initialize!)
+  (let [np (py/import-module "numpy")]
+    (is (= (str (py/$. np linspace))
+           (str (py/get-attr np "linspace"))))
+    (is (= (str (py/$.. np random shuffle))
+           (str (-> (py/get-attr np "random")
+                    (py/get-attr "shuffle")))))))

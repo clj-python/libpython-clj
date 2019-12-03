@@ -1,5 +1,15 @@
 # Time for a ChangeLog!
 
+## 1.15-SNAPSHOT
+
+Moar syntax sugar --
+```clojure
+user> (py/$. numpy linspace)
+<function linspace at 0x7fa6642766a8>
+user> (py/$.. numpy random shuffle)
+<built-in method shuffle of numpy.random.mtrand.RandomState object at 0x7fa66410cca8>
+```
+
 
 ## 1.14
 
