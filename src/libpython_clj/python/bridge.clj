@@ -524,22 +524,27 @@
   [arglist]
   (loop [args arglist
          pos-args []
-         kw-args nil]
+         kw-args nil
+         found-kw? false]
     (if-not (seq args)
       [pos-args kw-args]
       (let [arg (first args)
-            [pos-args kw-args args]
+            [pos-args kw-args args found-kw?]
             (if (keyword? arg)
               (if-not (seq (rest args))
                 (throw (Exception.
                         (format "Keyword arguments must be followed by another arg: %s"
                                 (str arglist))))
                 [pos-args (assoc kw-args arg (first (rest args)))
-                 (drop 2 args)])
-              [(conj pos-args (first args))
-               kw-args
-               (rest args)])]
-        (recur args pos-args kw-args)))))
+                 (drop 2 args) true])
+              (if found-kw?
+                (throw (Exception.
+                        (format "Positional arguments are not allowed after keyword arguments: %s"
+                                arglist)))
+                [(conj pos-args (first args))
+                 kw-args
+                 (rest args) found-kw?]))]
+        (recur args pos-args kw-args found-kw?)))))
 
 
 (defn cfn
@@ -554,6 +559,19 @@
     (py-proto/call-kw item pos-args kw-args)))
 
 
+(defn key-sym-str->str
+  [attr-name]
+  (cond
+    (or (keyword? attr-name)
+        (symbol? attr-name))
+    (name attr-name)
+    (string? attr-name)
+    attr-name
+    :else
+    (throw (Exception.
+            "Only keywords, symbols, or strings can be used to access attributes."))))
+
+
 (defn afn
   "Call an attribute of an object.
   Arguments are passed in positionally.  Any keyword
@@ -563,7 +581,8 @@
   Not having an argument after a keyword argument is an error."
   [item attr & args]
   (let [[pos-args kw-args] (args->pos-kw-args args)]
-    (py-proto/call-attr-kw item attr pos-args kw-args)))
+    (py-proto/call-attr-kw item (key-sym-str->str attr)
+                           pos-args kw-args)))
 
 
 (defn generic-python-as-jvm

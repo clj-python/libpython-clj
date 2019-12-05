@@ -7,9 +7,10 @@
   (:import [java.io StringWriter]
            [java.util Map List]))
 
+  (py/initialize!)
+
 
 (deftest stdout-and-stderr
-  (py/initialize!)
   (is (= "hey\n" (with-out-str
                    (py/run-simple-string "print('hey')"))))
   (is (= "hey\n" (let [custom-writer (StringWriter.)]
@@ -21,7 +22,6 @@
 
 
 (deftest dicts
-  (py/initialize!)
   (let [py-dict (py/->python {:a 1 :b 2})]
     (is (= :dict (py/python-type py-dict)))
     (is (= 2 (-> (py/call-attr py-dict "__len__")
@@ -40,7 +40,6 @@
 
 
 (deftest lists
-  (py/initialize!)
   (let [py-list (py/->py-list [4 3 2 1])]
     (is (= :list (py/python-type py-list)))
     (is (= 4 (-> (py/call-attr py-list "__len__")
@@ -58,7 +57,6 @@
 
 
 (deftest global-dict
-  (py/initialize!)
   (let [main-module (py/add-module "__main__")
         ^Map globals (-> (py/module-dict main-module)
                     (py/as-jvm))]
@@ -72,7 +70,6 @@
 
 
 (deftest numpy-and-back
-  (py/initialize!)
   (let [jvm-tens (dtt/->tensor (->> (range 9)
                                     (partition 3)))]
     ;;zero-copy can't work on jvm datastructures with current JNA tech.
@@ -109,7 +106,6 @@
                    dtt/->jvm)))))))
 
 (deftest numpy-scalars
-  (py/initialize!)
   (let [np (py/import-module "numpy")
         scalar-constructors (concat ["float64"
                                      "float32"]
@@ -123,7 +119,6 @@
 
 
 (deftest dict-with-complex-key
-  (py/initialize!)
   (let [py-dict (py/->python {["a" "b"] 1
                               ["c" "d"] 2})
         bridged (py/as-jvm py-dict)]
@@ -136,20 +131,17 @@
 
 
 (deftest simple-print-crashed
-  (py/initialize!)
   (let [numpy (py/import-module "numpy")]
     (println (py/as-tensor (py/call-attr numpy "ones" [3 3])))))
 
 
 (deftest true-false-list
-  (py/initialize!)
   (is (= [false true]
          (-> '(false true)
              py/->py-list
              py/->jvm))))
 
 (deftest true-false-true-numpy
-  (py/initialize!)
   (let [numpy (py/import-module "numpy")]
     (is (= [true false true]
            (->> (for [a (py/call-attr numpy "array" [true false true])]
@@ -158,7 +150,6 @@
 
 
 (deftest aspy-iter
-  (py/initialize!)
   (let [testcode-module (py/import-module "testcode")]
     (is (= [1 2 3 4 5]
            (-> (py/call-attr testcode-module
@@ -171,7 +162,6 @@
 
 
 (deftest basic-with-test
-  (py/initialize!)
   (let [testcode-module (py/import-module "testcode")]
     (let [fn-list (py/->py-list [])]
       (is (nil?
@@ -201,13 +191,11 @@
 
 
 (deftest arrow-as-fns-with-nil
-  (py/initialize!)
   (is (= nil (py/->jvm nil)))
   (is (= nil (py/as-jvm nil))))
 
 
 (deftest pydict-nil-get
-  (py/initialize!)
   (let [dict (py/->python {:a 1 :b {:a 1 :b 2}})
         bridged (py/as-jvm dict)]
     (is (= nil (bridged nil)))))
@@ -252,7 +240,6 @@
 
 
 (deftest bridged-dict-to-jvm
-  (py/initialize!)
   (let [py-dict (py/->py-dict {:a 1 :b 2})
         bridged (py/as-jvm py-dict)
         copied-back (py/->jvm bridged)]
@@ -260,9 +247,8 @@
 
 
 (deftest calling-conventions
-  (py/initialize!)
   (let [np (py/import-module "numpy")
-        linspace (py/get-attr np "linspace")]
+        linspace (py/$. np linspace)]
 
     (is (dfn/equals [2.000 2.250 2.500 2.750 3.000]
                     (py/as-tensor (linspace 2 3 :num 5))))

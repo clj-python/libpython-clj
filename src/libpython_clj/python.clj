@@ -4,7 +4,7 @@
             [libpython-clj.python.interpreter :as pyinterp
              :refer [with-interpreter]]
             [libpython-clj.python.object :as pyobj]
-            [libpython-clj.python.bridge]
+            [libpython-clj.python.bridge :as pybridge]
             [libpython-clj.jna :as pyjna]
             [tech.jna :as jna])
   (:import [com.sun.jna Pointer]
@@ -310,11 +310,9 @@
 
   DEPRECATION POSSIBLE - use $a."
   [item attr & args]
-  (let [attr-name (if (symbol? attr)
-                    (name attr)
-                    attr)
-        [pos-args kw-args] (args->pos-kw-args args)]
-    `(call-attr-kw ~item ~attr-name ~pos-args ~kw-args)))
+  (let [[pos-args kw-args] (args->pos-kw-args args)]
+    `(call-attr-kw ~item ~(pybridge/key-sym-str->str attr)
+                   ~pos-args ~kw-args)))
 
 
 (defmacro c$
@@ -351,17 +349,17 @@
 (defmacro $.
   "Get the attribute of an object."
   [item attname]
-  `(get-attr ~item ~(name attname)))
+  `(get-attr ~item ~(pybridge/key-sym-str->str attname)))
 
 
 (defmacro $..
   "Get the attribute of an object.  If there are extra args, apply successive
   get-attribute calls to the arguments."
   [item attname & args]
-  `(-> (get-attr ~item ~(name attname))
+  `(-> (get-attr ~item ~(pybridge/key-sym-str->str attname))
        ~@(->> args
               (map (fn [arg]
-                     `(get-attr ~(name arg)))))))
+                     `(get-attr ~(pybridge/key-sym-str->str arg)))))))
 
 
 (defmacro import-as
