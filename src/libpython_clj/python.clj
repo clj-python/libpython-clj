@@ -264,7 +264,7 @@
         (when (and ptype pvalue ptraceback
                    (not suppress-error?))
           (do
-            ;;MAnuall incref here because we cannot detach the object
+            ;;Manual incref here because we cannot detach the object
             ;;from our gc decref hook added during earlier pyerr-fetch handler.
             (pyjna/Py_IncRef ptype)
             (pyjna/Py_IncRef pvalue)

@@ -84,7 +84,7 @@
 
 (defn eval-model
   [model features lables]
-  (let [model-names (->> (get-attr model "metrics_names")
+  (let [model-names (->> ($. model metrics_names)
                          (mapv keyword))]
     (->> (a$ model evaluate features labels)
          (map vector model-names)
