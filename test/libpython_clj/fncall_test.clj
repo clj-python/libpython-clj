@@ -6,6 +6,8 @@
 (py/initialize!)
 
 
+(py/import-as testcode testmod)
+(py/from-import inspect getfullargspec)
 
 (deftest complex-fn-test
   (let [testmod (py/import-module "testcode")

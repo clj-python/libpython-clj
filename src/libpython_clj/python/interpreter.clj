@@ -253,11 +253,10 @@
     (let [user-names (when python-library-name
                        [python-library-name])
           library-names (or user-names (libpy-base/library-names))]
-      (when-not (->> library-names
-                     (filter try-load-python-library!)
-                     first)
-        (throw (Exception. (format "Failed to initialize python library.
-Attempted libraries %s" library-names)))))
+      (loop [[library-name & library-names] library-names]
+        (if (and library-name
+                 (not (try-load-python-library! library-name)))
+          (recur library-names))))
     ;;Set program name
     (when-let [program-name (or program-name *program-name* "")]
       (resource/stack-resource-context
