@@ -1,7 +1,15 @@
 # Time for a ChangeLog!
 
 
-## 1.16-SNAPSHOT
+## 1.16
+
+Fixed a bug where the system would load multiple python libraries, not stopping
+after the first valid library loaded.  There are two ways to control the system's
+python library loading mechanism:
+
+1. Pass in a library name in initialize!
+2. alter-var-root the list of libraries in libpython-clj.jna.base before
+   calling initialize!.
 
 
 ## 1.15
