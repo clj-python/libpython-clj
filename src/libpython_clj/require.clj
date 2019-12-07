@@ -124,11 +124,11 @@
                 (in-ns ns)
                 (intern ns symbol pyfn?))
               (finally
-                (in-ns current-ns-sym))))));; behavior for [.. :refer :all], [.. :refer [...]], and
+                (in-ns current-ns-sym))))))
+
+      ;; behavior for [.. :refer :all], [.. :refer [...]], and
       ;; [.. :refer :*]
-
       ;; TODO: code is a bit repetitive maybe
-
       (cond
         ;; include everything into the current namespace,
         ;; ignore __all__ directive
@@ -142,7 +142,8 @@
             (load-py-fn pyfn? (symbol k) current-ns-sym)
             (catch Exception e
               (let [symbol (symbol k)]
-                (intern *ns* symbol pyfn?)))));; only include that specfied by __all__ attribute
+                (intern *ns* symbol pyfn?)))))
+        ;; only include that specfied by __all__ attribute
         ;; of python module if specified, else same as :all
         (refer :*)
         (let [hasattr (py/get-attr builtins "hasattr")
@@ -168,7 +169,8 @@
                 (load-py-fn pyfn? (symbol k) current-ns-sym)
                 (catch Exception e
                   (let [symbol (symbol k)]
-                    (intern *ns* symbol pyfn?)))))));; [.. :refer [..]]
+                    (intern *ns* symbol pyfn?)))))))
+        ;; [.. :refer [..]] behavior
         :else
         (doseq [r    refer
                 :let [pyfn? (py/get-attr this-module (str r))]]
