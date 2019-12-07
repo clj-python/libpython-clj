@@ -59,7 +59,6 @@
     :else (py-class-argspec x)))
 
 (defn ^:private load-py-fn [f fn-name fn-module-name-or-ns]
-
   (let [fn-argspec (pyargspec f)
         fn-docstr  (get-pydoc f)
         fn-ns      (symbol (str fn-module-name-or-ns))
