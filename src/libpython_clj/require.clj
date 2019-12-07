@@ -226,7 +226,7 @@
             (intern current-ns-sym r pyfn?)))))))
 
 (defn require-python [reqs]
-  "Usage:  
+  "## Basic usage ##
    
    (require-python 'math)
    (math/sin 1.0) ;;=> 0.8414709848078965
@@ -243,13 +243,23 @@
 
    (require-python '[requests :refer [get post]])
 
+   (require-py
+
    (get \"https//www.google.com\") ;;=>  <Response [200]>
 
+
+   ## Use with custom modules ##
 
    For use with a custom namespace foo.py while developing, you can
    use:
 
    (require-python '[foo :reload])
+
+   NOTE: unless you specify the :reload flag,
+     ..: the module will NOT reload.  If the :reload flag is set,
+     ..: the behavior mimics importlib.reload
+
+   ## Setting up classpath for custom modules ##
 
    Note: you may need to setup your PYTHONPATH correctly. 
    One technique to do this is, if your foo.py lives at 
@@ -264,6 +274,26 @@
 
    (require-python 'os)
    (os/chdir \"/path/to/foodir\")
+
+
+
+
+
+
+   ## For library developers ##
+
+   If you want to intern all symbols to your current namespace,
+   you can do the following -- 
+
+   (require-python '[math :refer :all])
+
+   However, if you only want to use 
+   those things designated by the module under the __all__ attribute,
+   you can do
+
+   (require-python '[operators :refer :*])
+
+   
 
 "
   (cond
