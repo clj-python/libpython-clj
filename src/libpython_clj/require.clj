@@ -52,46 +52,11 @@
   (let [constructor (py/get-attr class "__init__")]
     (py-fn-argspec constructor)))
 
-(defmacro py-arglist* [args defaultargs defaultsyms]
-  `(let [defaultargmap# (list {})]))
-
-(defn py-arglist [{args           :args
-                   varkw          :varkw
-                   varargs        :varargs
-                   kwonlydefaults :kwonlydefaults
-                   kwonlyargs     :kwonlyargs
-
-                   :as aspec}
-                  defaults]
-
-  (let [default-count (count defaults)
-        arg-count     (count args)
-        n-args        (- arg-count default-count)
-        args'         (into []
-                            (map symbol)
-                            (take  n-args args))
-        defaultargs   (drop n-args args)]
-
-    args'))
-
-(defn py-arglists
-  ([aspec] (py-arglists (:defaults aspec)))
-  ([aspec defaults]
-   (py-arglists aspec defaults []))
-  ([aspec defaults res]
-   (if (empty? defaults)
-     (conj res (py-arglist aspec defaults))
-     (recur aspec
-            (rest defaults)
-            (conj res (py-arglist aspec defaults))))))
-
-
 (defn pyargspec [x]
-  (cond 
+  (cond
     (fn? x) (py-fn-argspec x)
     (method? x) (py-fn-argspec x)
     :else (py-class-argspec x)))
-
 
 (defn ^:private load-py-fn [f fn-name fn-module-name-or-ns]
 
@@ -134,10 +99,7 @@
         current-ns-sym (symbol (str current-ns))]
 
     (when (not (and (find-ns module-name)
-                    (not reload?))) 
-
-
-      ;; :reload behavior
+                    (not reload?)));; :reload behavior
 
       ;; TODO: should we track things referred into the existing
       ;;   ..: *ns* with an atom and clear them on :reload?
@@ -162,10 +124,7 @@
                 (in-ns ns)
                 (intern ns symbol pyfn?))
               (finally
-                (in-ns current-ns-sym))))))
-
-
-      ;; behavior for [.. :refer :all], [.. :refer [...]], and
+                (in-ns current-ns-sym))))));; behavior for [.. :refer :all], [.. :refer [...]], and
       ;; [.. :refer :*]
 
       ;; TODO: code is a bit repetitive maybe
@@ -183,10 +142,7 @@
             (load-py-fn pyfn? (symbol k) current-ns-sym)
             (catch Exception e
               (let [symbol (symbol k)]
-                (intern *ns* symbol pyfn?)))))
-
-
-        ;; only include that specfied by __all__ attribute
+                (intern *ns* symbol pyfn?)))));; only include that specfied by __all__ attribute
         ;; of python module if specified, else same as :all
         (refer :*)
         (let [hasattr (py/get-attr builtins "hasattr")
@@ -212,10 +168,7 @@
                 (load-py-fn pyfn? (symbol k) current-ns-sym)
                 (catch Exception e
                   (let [symbol (symbol k)]
-                    (intern *ns* symbol pyfn?)))))))
-
-
-        ;; [.. :refer [..]]
+                    (intern *ns* symbol pyfn?)))))));; [.. :refer [..]]
         :else
         (doseq [r    refer
                 :let [pyfn? (py/get-attr this-module (str r))]]
@@ -286,7 +239,7 @@
    you can do
 
    (require-python '[operators :refer :*])"
-  
+
   (cond
     (list? reqs)
     (doseq [req (vec reqs)] (require-python req))
@@ -294,4 +247,3 @@
     (load-python-lib (vector reqs))
     (vector? reqs)
     (load-python-lib reqs)))
-
