@@ -276,10 +276,6 @@
    (os/chdir \"/path/to/foodir\")
 
 
-
-
-
-
    ## For library developers ##
 
    If you want to intern all symbols to your current namespace,
