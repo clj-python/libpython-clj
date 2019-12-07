@@ -95,13 +95,16 @@
         current-ns     *ns*
         current-ns-sym (symbol (str current-ns))]
 
-    (when (not (and (find-ns module-name)
+
+    ;; if the current namespace is already loaded, unless
+    ;; the :reload flag is specified, this will be a no-op
+    (when (not (and (find-ns module-name-or-ns)
                     (not reload?)));; :reload behavior
 
       ;; TODO: should we track things referred into the existing
       ;;   ..: *ns* with an atom and clear them on :reload?
 
-      (when reload?
+      (when reload? 
         (remove-ns module-name)
         (reload-module this-module))
 
