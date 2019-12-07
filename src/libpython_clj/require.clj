@@ -137,7 +137,6 @@
             [[k pyfn?]
              (seq (py/as-jvm (vars  this-module)))
              :when (not (exclude (symbol k)))]
-
           (try
             (load-py-fn pyfn? (symbol k) current-ns-sym)
             (catch Exception e
@@ -164,12 +163,12 @@
                 [[k pyfn?]
                  (seq (py/as-jvm (vars  this-module)))
                  :when (not (exclude (symbol k)))]
-
               (try
                 (load-py-fn pyfn? (symbol k) current-ns-sym)
                 (catch Exception e
                   (let [symbol (symbol k)]
                     (intern *ns* symbol pyfn?)))))))
+        
         ;; [.. :refer [..]] behavior
         :else
         (doseq [r    refer
@@ -196,8 +195,7 @@
 
    (require-python '[requests :refer [get post]])
 
-   (require-py
-
+   (requests/get \"https//www.google.com\") ;;=>  <Response [200]>
    (get \"https//www.google.com\") ;;=>  <Response [200]>
 
 
