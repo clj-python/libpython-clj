@@ -200,9 +200,7 @@
                  :when (not (exclude (symbol k)))]
               (try
                 (load-py-fn pyfn? (symbol k) current-ns-sym)
-                (println "Function: " k)
                 (catch Exception e
-                  (println "err: " k)
                   (let [symbol (symbol k)]
                     (intern *ns* symbol pyfn?)))))
             (doseq
