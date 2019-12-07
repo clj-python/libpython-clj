@@ -82,12 +82,10 @@
                                    (partition-all 2)
                                    (map vec))
                                   etc)
-
         reload?             (:reload flags)
         this-module         (import-module (str module-name))
         module-name-or-ns   (:as etc module-name)
         exclude             (into #{} (:exclude etc))
-
         refer          (cond
                          (= :all (:refer etc)) #{:all}
                          (= :* (:refer etc))   #{:*}
@@ -246,3 +244,7 @@
     (load-python-lib (vector reqs))
     (vector? reqs)
     (load-python-lib reqs)))
+
+(comment
+  (require-python '([clojure :refer [parenthesis]] __future__))
+  (py/set-attr! __future__ "braces" parenthesis))
