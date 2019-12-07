@@ -291,11 +291,8 @@
    those things designated by the module under the __all__ attribute,
    you can do
 
-   (require-python '[operators :refer :*])
-
-   
-
-"
+   (require-python '[operators :refer :*])"
+  
   (cond
     (list? reqs)
     (doseq [req (vec reqs)] (require-python req))
