@@ -108,7 +108,7 @@
         (remove-ns module-name)
         (reload-module this-module))
 
-      ;; bind the python module to it's symbolic name
+      ;; bind the python module to its symbolic name
       ;; in the current namespace
       (intern current-ns-sym module-name-or-ns this-module)
 
