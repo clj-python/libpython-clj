@@ -2,9 +2,9 @@
   (:refer-clojure :exclude [fn? doc])
   (:require [libpython-clj.python :as py]))
 
-;; TODO: should you require to use a different version of Python
-;; make sure that you call py/initialize in your library/app code
-;; BEFORE you load this 'libpython-clj.require
+;; NOTE: should you require to use a different version of Python
+;;   ..: make sure that you call py/initialize in your library/app code
+;;   ..: BEFORE you load this 'libpython-clj.require
 (py/initialize!)
 
 (def ^:private builtins (py/import-module "builtins"))
