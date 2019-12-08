@@ -136,8 +136,8 @@
            (nil? varargs)       (list '& [or-map])
            :else                (list '& [(symbol varargs)
                                           kwargs-map]))
-
-         arglist (concat (list* pos-args) opt-args)]
+         
+         arglist  ((comp vec concat) (list* pos-args) opt-args)]
      (let [arglists  (conj res arglist)
            defaults' (if (not-empty defaults) (pop defaults) [])
            argspec'  (update argspec :args
@@ -163,11 +163,11 @@
      ;;to be called.  The arglists, while they look good the compiler parses
      ;;them and then errors out.
 
-      ;; (when (py/callable? x)
-      ;;  (try
-      ;;    {:arglists (pyarglists fn-argspec)}
-      ;;    (catch Throwable e
-      ;;      nil)))
+     (when (py/callable? x)
+       (try
+         {:arglists (pyarglists fn-argspec)}
+         (catch Throwable e
+           nil)))
      )))
 
 
@@ -208,12 +208,12 @@
       (reload-module this-module))
     (create-ns module-name-or-ns)
 
-      ;; bind the python module to its symbolic name
-      ;; in the current namespace
+    ;; bind the python module to its symbolic name
+    ;; in the current namespace
 
 
-      ;; create namespace for module and bind python
-      ;; values to namespace symbols
+    ;; create namespace for module and bind python
+    ;; values to namespace symbols
     (when (or reload?
               (not python-namespace))
       ;;Mutably define the root namespace.
@@ -345,3 +345,4 @@
 (comment
   (require-python '([clojure :refer [parenthesis]] __future__))
   (py/set-attr! __future__ "braces" parenthesis))
+
