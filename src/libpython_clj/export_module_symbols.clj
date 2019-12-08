@@ -1,6 +1,8 @@
 (ns libpython-clj.export-module-symbols
   "A macro that will export all the symbols from a python module and make
-  them functions in the current clojure namespace."
+  them functions in the current clojure namespace.
+
+  DEPRECATED - please use 'libpython-clj.require/require-python"
   (:require [libpython-clj.python :as py]))
 
 
@@ -8,6 +10,7 @@
 
 
 (defmacro export-module-symbols
+  "DEPRECATED - please use 'libpython-clj.require/require-python"
   [py-mod-name]
   (py/initialize!)
   (let [mod-data (py/import-module py-mod-name)]
