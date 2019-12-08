@@ -2,7 +2,6 @@
   (:refer-clojure :exclude [fn? doc])
   (:require [libpython-clj.python :as py]))
 
-
 ;; TODO: should you require to use a different version of Python
 ;; make sure that you call py/initialize in your library/app code
 ;; BEFORE you load this 'libpython-clj.require
@@ -127,10 +126,9 @@
            (and (empty? kwargs-map)
                 (nil? varargs)) '()
            (empty? kwargs-map)  (list '& [(symbol varargs)])
-           (nil? varargs)       (list '& [or-map])
+           (nil? varargs)       (list '& [kwargs-map])
            :else                (list '& [(symbol varargs)
                                           kwargs-map]))
-
          arglist (concat (list* pos-args) opt-args)]
      (let [arglists  (conj res arglist)
            defaults' (if (not-empty defaults) (pop defaults) [])
@@ -139,11 +137,9 @@
                                (if (not-empty args)
                                  (pop args)
                                  args)))]
-
        (if (and (empty? defaults) (empty? defaults'))
          arglists
          (recur argspec defaults' arglists))))))
-
 
 (defn pymetadata [fn-name x]
   (let [fn-argspec  (pyargspec x)
@@ -155,13 +151,10 @@
       :arglists fn-arglists
       :name     fn-name})))
 
-
-
 (defn ^:private load-py-fn [f fn-name fn-module-name-or-ns]
   (let [fn-ns      (symbol (str fn-module-name-or-ns))
         fn-sym     (symbol fn-name)]
     (intern fn-ns (with-meta fn-sym (pymetadata fn-name f)) f)))
-
 
 (defn ^:private load-python-lib [req]
   (let [supported-flags     #{:reload}
@@ -186,7 +179,8 @@
                                                 #{}
                                                 (:refer etc)))
         current-ns     *ns*
-        current-ns-sym (symbol (str current-ns))];; if the current namespace is already loaded, unless
+        current-ns-sym (symbol (str current-ns))]
+    ;; if the current namespace is already loaded, unless
     ;; the :reload flag is specified, this will be a no-op
     (when (not (and (find-ns module-name-or-ns)
                     (not reload?)));; :reload behavior
@@ -330,7 +324,6 @@
 
    (require-python '[operators :refer :*])"
   [reqs]
-
   (cond
     (list? reqs)
     (doseq [req (vec reqs)] (require-python req))
