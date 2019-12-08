@@ -7,9 +7,10 @@
             [tech.parallel.utils :refer [export-symbols]]
             [libpython-clj.jna.base
              :refer [def-pylib-fn
-                     ensure-pyobj]]
+                     ensure-pyobj]
+             :as libpy-base]
             [libpython-clj.jna.base]
-            [libpython-clj.jna.interpreter]
+            [libpython-clj.jna.interpreter :as jnainterp]
             [libpython-clj.jna.protocols.object]
             [libpython-clj.jna.protocols.iterator]
             [libpython-clj.jna.protocols.sequence]
@@ -53,6 +54,20 @@
                 PyThreadState_Swap
                 PyRun_String
                 PyRun_StringFlags)
+
+
+(defmacro ^:private export-type-symbols
+  []
+  `(do
+     ~@(->> (vals jnainterp/type-symbol-table)
+            (map (fn [sym-name]
+                   `(defn ~(symbol sym-name)
+                      ~(format "%s type object" sym-name)
+                      []
+                      (libpy-base/find-pylib-symbol ~sym-name)))))))
+
+
+(export-type-symbols)
 
 
 (export-symbols libpython-clj.jna.protocols.object

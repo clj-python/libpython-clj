@@ -45,7 +45,10 @@
                 ->py-long
                 ->py-string
                 ->python
-                ->jvm)
+                ->jvm
+                make-tuple-fn
+                make-tuple-instance-fn
+                create-class)
 
 
 (defmacro stack-resource-context
@@ -82,6 +85,26 @@
   `(with-gil
      (stack-resource-context
       ~@body)))
+
+
+(defn set-attrs!
+  "Set a sequence of [name value] attributes.
+  Returns item"
+  [item att-seq]
+  (with-gil
+    (doseq [[k v] att-seq]
+      (set-attr! item k v)))
+  item)
+
+
+(defn set-items!
+  "Set a sequence of [name value].
+  Returns item"
+  [item item-seq]
+  (with-gil
+    (doseq [[k v] item-seq]
+      (set-item! item k v)))
+  item)
 
 
 (export-symbols libpython-clj.python.interop
@@ -127,49 +150,6 @@
   [item]
   (-> (pyobj/->py-fn item)
       (as-jvm)))
-
-
-(defn make-tuple-fn
-  "Reify the appropriate interface for tuple functions and return a new python cfunction
-  object.  Args are exposed as a python tuple to the embedded code.  This is a low level
-  function and you may never need it."
-  [clj-fn & [options]]
-  (-> (reify CFunction$TupleFunction
-        (pyinvoke [_ self args]
-          (let [retval
-                (apply clj-fn (as-jvm args))]
-            (pyobj/incref (->python retval)))))
-      (pyobj/->py-fn options)))
-
-(declare import-module)
-
-
-(def ^:private builtins (delay (import-module "builtins")))
-
-
-(defn create-class
-  "Create a new class object.  Any callable values in the cls-hashmap
-  will be presented as instance methods.
-  Things in the cls hashmap had better be either atoms or already converted
-  python objects.  You may get surprised otherwise; you have been warned.
-  See the classes-test file in test/libpython-clj"
-  [name bases cls-hashmap]
-  (with-gil
-    (let [cls-hashmap (->> cls-hashmap
-                           (map (fn [[k v]]
-                                  [k (if (callable? v)
-                                       (-> (pyjna/PyInstanceMethod_New v)
-                                           (pyobj/wrap-pyobject))
-                                       v)])))
-          cls-dict (reduce (fn [cls-dict [k v]]
-                             (set-item! cls-dict k (->python v))
-                             cls-dict)
-                           (->py-dict {})
-                           cls-hashmap)
-          bases (->py-tuple bases)
-          builtins @builtins
-          new-cls (call-attr builtins "type" name bases cls-dict)]
-      new-cls)))
 
 
 (defn run-simple-string

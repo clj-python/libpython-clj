@@ -32,8 +32,6 @@
              :refer [pyobject->jvm
                      python-type]
              :as py-proto]
-            [libpython-clj.python.logging
-             :refer [log-error log-warn log-info]]
             [libpython-clj.jna.base :as libpy-base]
             [libpython-clj.jna :as libpy]
             [clojure.stacktrace :as st]
@@ -42,7 +40,8 @@
             [tech.v2.datatype :as dtype]
             [tech.v2.datatype.protocols :as dtype-proto]
             [tech.v2.datatype.casting :as casting]
-            [tech.v2.tensor])
+            [tech.v2.tensor]
+            [clojure.tools.logging :as log])
   (:import [com.sun.jna Pointer CallbackReference]
            [com.sun.jna.ptr PointerByReference]
            [libpython_clj.jna
@@ -52,7 +51,7 @@
             CFunction$NoArgFunction
             PyMethodDef]
            [java.nio.charset StandardCharsets]
-           [tech.v2.datatype ObjectIter]
+           [tech.v2.datatype ObjectIter ObjectReader]
            [tech.v2.datatype.typed_buffer TypedBuffer]
            [tech.v2.tensor.protocols PTensor]
            [java.util RandomAccess Map Set Map$Entry]
@@ -146,7 +145,7 @@
                                                          (dec (or arg 0)))))
                            (libpy/Py_DecRef (Pointer. pyobj-value))
                            (catch Throwable e
-                             (log-error "Exception while releasing object: %s" e))))
+                             (log/error e "Exception while releasing object"))))
                       *pyobject-tracking-flags*))
     (do
       ;;Special handling for PyNone types
@@ -370,25 +369,11 @@
 (def ^:dynamic *item-tuple-cutoff* 8)
 
 
-(defn wrap-clojure-fn
-  [fn-obj]
-  (when-not (fn? fn-obj)
-    (throw (ex-info "This is not a function." {})))
-  (reify CFunction$TupleFunction
-    (pyinvoke [this self args]
-      (try
-        (let [retval
-              (apply fn-obj (->jvm args))]
-          (if (nil? retval)
-            (incref (libpy/Py_None))
-            (->python retval)))
-        (catch Throwable e
-          (log-error (format "%s:%s" e (with-out-str
-                                         (st/print-stack-trace e))))
-          (libpy/PyErr_SetString (libpy/PyExc_Exception)
-                                 (format "%s:%s" e (with-out-str
-                                                     (st/print-stack-trace e))))
-          nil)))))
+(defn- cfunc-instance?
+  [function]
+  (or (instance? CFunction$KeyWordFunction function)
+      (instance? CFunction$TupleFunction function)
+      (instance? CFunction$NoArgFunction function)))
 
 
 (defn apply-method-def-data!
@@ -397,34 +382,34 @@
                                    function]
                             :as method-data}]
   (resource/stack-resource-context
-   (let [callback (if (or (instance? CFunction$KeyWordFunction function)
-                          (instance? CFunction$TupleFunction function)
-                          (instance? CFunction$NoArgFunction function))
-                    function
-                    (wrap-clojure-fn function))
-         meth-flags (long (cond
-                            (instance? CFunction$NoArgFunction callback)
+   (when-not (cfunc-instance? function)
+     (throw (Exception.
+             (format "Callbacks must implement one of the CFunction interfaces:
+%s" (type function)))))
+   (let [meth-flags (long (cond
+                            (instance? CFunction$NoArgFunction function)
                             @libpy/METH_NOARGS
 
-                            (instance? CFunction$TupleFunction callback)
+                            (instance? CFunction$TupleFunction function)
                             @libpy/METH_VARARGS
 
-                            (instance? CFunction$KeyWordFunction callback)
+                            (instance? CFunction$KeyWordFunction function)
                             (bit-or @libpy/METH_KEYWORDS @libpy/METH_VARARGS)
                             :else
                             (throw (ex-info (format "Failed due to type: %s"
-                                                    (type callback))))))
+                                                    (type function))
+                                            {}))))
          name-ptr (jna/string->ptr name)
          doc-ptr (jna/string->ptr doc)]
      (set! (.ml_name method-def) name-ptr)
-     (set! (.ml_meth method-def) (CallbackReference/getFunctionPointer callback))
+     (set! (.ml_meth method-def) (CallbackReference/getFunctionPointer function))
      (set! (.ml_flags method-def) (int meth-flags))
      (set! (.ml_doc method-def) doc-ptr)
      (.write method-def)
      (pyinterp/conj-forever! (assoc method-data
                                     :name-ptr name-ptr
                                     :doc-ptr doc-ptr
-                                    :callback-object callback
+                                    :callback-object function
                                     :method-definition method-def))
      method-def)))
 
@@ -434,28 +419,160 @@
   (apply-method-def-data! (PyMethodDef.) method-data))
 
 
+
+(defn- cfunc-impl->pyobject
+  [cfunc {:keys [method-name
+                 documentation
+                 py-self]
+          :or {method-name "unnamed_function"
+               documentation "not documented"}}]
+  (with-gil
+    (let [py-self (or py-self (->python {}))]
+      (-> (libpy/PyCFunction_New (method-def-data->method-def
+                                  {:name method-name
+                                   :doc documentation
+                                   :function cfunc})
+                                 ;;This is a nice little tidbit, cfunction_new
+                                 ;;steals the reference.
+                                 (libpy/Py_IncRef py-self))
+          (wrap-pyobject)))))
+
+
+(defn py-tuple->borrowed-reference-reader
+  "Given a python tuple, return an object reader that iterates
+  through the items.  If you hold onto one of these items you need
+  to add to it's reference count.  If unsure of what you are doing
+  don't use this method, use ->jvm."
+  [tuple]
+  (with-gil
+    (let [interpreter (ensure-bound-interpreter)
+          n-items (long (libpy/PyObject_Length tuple))]
+      (reify ObjectReader
+        (lsize [_] n-items)
+        (read [_ idx]
+          (with-interpreter interpreter
+            (libpy/PyTuple_GetItem tuple idx)))))))
+
+
+(defn ->python-incref
+  "Convert to python and add a reference.  This is necessary for return values from
+  functions as the ->python pathway adds a reference but it also tracks it and
+  releases it when it is not in use any more.  Thus python ends up holding onto
+  something with fewer refcounts than it should have.  If you are just messing
+  around in the repl you only need ->python.  There is an expectation that the
+  return value of a function call is a new reference and not a borrowed reference
+  hence this pathway."
+  [item]
+  (-> (->python item)
+      (incref)))
+
+
+
+(defn make-tuple-fn
+  "Given a clojure function, create a python tuple function.
+  arg-convert is applied to arguments before the clojure function
+  gets them and result-converter is applied to the outbound result.
+  Exceptions are caught, logged, and propagated to python.
+
+  arg-converter: A function to be called on arguments before they get to
+    clojure.  Defaults to ->jvm.
+  result-converter: A function to be called on the return value before it
+    makes it back to python.  Defaults to ->python-incref.
+  method-name: Name of function exposed to python.
+  documentation: Documentation of function exposed to python."
+  [fn-obj & {:keys [arg-converter
+                    result-converter]
+             :or {arg-converter ->jvm
+                  result-converter ->python-incref}
+             :as options}]
+  (with-gil
+    (-> (reify CFunction$TupleFunction
+          (pyinvoke [this self args]
+            (try
+              (let [argseq (cond->> (py-tuple->borrowed-reference-reader args)
+                             arg-converter
+                             (map arg-converter))]
+                (cond-> (apply fn-obj argseq)
+                  result-converter
+                  (result-converter)))
+              (catch Throwable e
+                (log/error e "Error executing clojure function.")
+                (libpy/PyErr_SetString (libpy/PyExc_Exception)
+                                       (format "%s:%s" e (with-out-str
+                                                           (st/print-stack-trace e))))
+                nil))))
+        (cfunc-impl->pyobject options))))
+
+
 (defn ->py-fn
   "Create a python callback from a clojure fn.
   If clojure fn, then tuple arguments are used.  If keyword arguments are desired,
   the pass in something derived from: libpython-clj.jna.CFunction$KeyWordFunction.
   If a pure fn is passed in, arguments are marshalled from python if possible and
   then to-python in the case of successful execution.  An exception will set the error
-  indicator."
-  ([fn-obj {:keys [method-name documentation py-self]
-             :or {method-name "unnamed_function"
-                  documentation "not documented"}}]
-   (with-gil
-     (let [py-self (or py-self (->python {}))]
-       (wrap-pyobject (libpy/PyCFunction_New (method-def-data->method-def
-                                              {:name method-name
-                                               :doc documentation
-                                               :function fn-obj})
-                                             ;;This is a nice little tidbit, cfunction_new
-                                             ;;steals the reference.
-                                             (libpy/Py_IncRef py-self))))))
+  indicator.
+  Options are
+  method-name: Name of function exposed to python.
+  documentation: Documentation of function exposed to python.
+  py-self: The 'self' object to be used for the function."
+  ([fn-obj {:keys []
+            :as options}]
+   (cond
+     (instance? clojure.lang.IFn fn-obj)
+     (apply make-tuple-fn fn-obj (apply concat options))
+     (cfunc-instance? fn-obj)
+     (cfunc-impl->pyobject fn-obj options)
+     :else
+     (throw (Exception. "fn-obj is neither a CFunction nor clojure callable."))))
   ([fn-obj]
    (->py-fn fn-obj {})))
 
+
+(defn py-fn->instance-fn
+  "Given a python callable, return an instance function meant to be used
+  in class definitions."
+  [py-fn]
+  (with-gil
+    (-> (libpy/PyInstanceMethod_New py-fn)
+        (wrap-pyobject))))
+
+
+(defn make-tuple-instance-fn
+  "Make an instance function.  In this case the default behavior is to
+  pass raw python object ptr args  to the clojure function without marshalling
+  as that can add confusion and unnecessary overhead.  Self will be the first argument.
+  Callers can change this behavior by setting the 'arg-converter' option as in
+  'make-tuple-fn'.
+  Options are the same as make-tuple-fn."
+  [clj-fn & {:keys [arg-converter]
+             :as options}]
+  (with-gil
+    (-> (apply make-tuple-fn
+               clj-fn
+               ;;Explicity set arg-convert to override make-tuple-fn's default
+               ;;->jvm arg-converter.
+               (->> (assoc options :arg-converter arg-converter)
+                    (apply concat)))
+        ;;Mark this as an instance function.
+        (py-fn->instance-fn))))
+
+
+(defn create-class
+  "Create a new class object.  Any callable values in the cls-hashmap
+  will be presented as instance methods.
+  Things in the cls hashmap had better be either atoms or already converted
+  python objects.  You may get surprised otherwise; you have been warned.
+  See the classes-test file in test/libpython-clj"
+  [name bases cls-hashmap]
+  (with-gil
+    (let [cls-dict (reduce (fn [cls-dict [k v]]
+                             (py-proto/set-item! cls-dict k (->python v))
+                             cls-dict)
+                           (->py-dict {})
+                           cls-hashmap)
+          bases (->py-tuple bases)
+          new-cls (py-proto/call (libpy/PyType_Type) name bases cls-dict)]
+      (py-proto/as-jvm new-cls nil))))
 
 
 (extend-protocol py-proto/PCopyToPython
