@@ -58,17 +58,108 @@
     (method? x) (py-fn-argspec x)
     :else (py-class-argspec x)))
 
+(defn pyarglists
+  ([argspec] (pyarglists argspec
+                         (if-let [defaults
+                                  (not-empty (:defaults argspec))]
+                           defaults
+                           [])))
+  ([argspec defaults] (pyarglists argspec defaults []))
+  ([{:as            argspec
+     args           :args
+     varkw          :varkw
+     varargs        :varargs
+     kwonlydefaults :kwonlydefaults
+     kwonlyargs     :kwonlyargs}
+    defaults res]
+   (println argspec)
+   (println defaults)
+   (let [n-args          (count args)
+         n-defaults      (count defaults)
+         n-pos-args      (- n-args n-defaults)
+         pos-args        (transduce
+                          (comp
+                           (take n-pos-args)
+                           (map symbol))
+                          (completing conj)
+                          []
+                          args)
+         kw-default-args (transduce
+                          (comp
+                           (drop n-pos-args)
+                           (map symbol))
+                          (completing conj)
+                          []
+                          args)
+         or-map          (transduce
+                          (comp
+                           (partition-all 2)
+                           (map vec)
+                           (map (fn [[k v]] [(symbol k) v])))
+                          (completing (partial apply assoc))
+                          {}
+                          (concat
+                           (interleave kw-default-args defaults)
+                           (flatten (seq kwonlydefaults))))
+
+         as-varkw    (when (not (nil? varkw))
+                       {:as (symbol varkw)})
+         default-map (transduce
+                      (comp
+                       (partition-all 2)
+                       (map vec)
+                       (map (fn [[k v]] [(symbol k) (keyword k)])))
+                      (completing (partial apply assoc))
+                      {}
+                      (concat
+                       (interleave kw-default-args defaults)
+                       (flatten (seq kwonlydefaults))))
+
+         kwargs-map (merge default-map
+                           (when (not-empty or-map)
+                             {:or or-map})
+                           (when (not-empty as-varkw)
+                             as-varkw))
+
+         
+         
+
+         opt-args
+         (cond
+           (and (empty? kwargs-map)
+                (nil? varargs)) '()
+           (empty? kwargs-map)  (list '& [(symbol varargs)])
+           (nil? varargs)       (list '& [or-map])
+           :else                (list '& [(symbol varargs)
+                                          kwargs-map]))
+
+         arglist (concat (list* pos-args) opt-args)]
+     (let [arglists  (conj res arglist)
+           defaults' (if (not-empty defaults) (pop defaults) [])
+           argspec'  (update argspec :args
+                             (fn [args]
+                               (if (not-empty args)
+                                 (pop args)
+                                 args)))]
+
+       (if (and (empty? defaults) (empty? defaults'))
+         arglists
+         (recur argspec defaults' arglists))))))
+
 (defn ^:private load-py-fn [f fn-name fn-module-name-or-ns]
-  (let [fn-argspec (pyargspec f)
-        fn-docstr  (get-pydoc f)
-        fn-ns      (symbol (str fn-module-name-or-ns))
-        fn-sym     (symbol fn-name)]
-    (intern fn-ns fn-sym
-            (with-meta f
+  (let [fn-argspec   (pyargspec f)
+        fn-docstr    (get-pydoc f)
+        fn-ns        (symbol (str fn-module-name-or-ns))
+        fn-sym       (symbol fn-name)
+        fn-arglists (pyarglists fn-argspec)]
+    (intern fn-ns 
+            (with-meta fn-sym 
               (merge
                fn-argspec
-               {:doc  fn-docstr
-                :name fn-name})))))
+               {:doc      fn-docstr
+                :arglists fn-arglists
+                :name     fn-name}))
+            f)))
 
 (defn ^:private load-python-lib [req]
   (let [supported-flags     #{:reload}
@@ -93,10 +184,7 @@
                                                 #{}
                                                 (:refer etc)))
         current-ns     *ns*
-        current-ns-sym (symbol (str current-ns))]
-
-
-    ;; if the current namespace is already loaded, unless
+        current-ns-sym (symbol (str current-ns))];; if the current namespace is already loaded, unless
     ;; the :reload flag is specified, this will be a no-op
     (when (not (and (find-ns module-name-or-ns)
                     (not reload?)));; :reload behavior
@@ -104,7 +192,7 @@
       ;; TODO: should we track things referred into the existing
       ;;   ..: *ns* with an atom and clear them on :reload?
 
-      (when reload? 
+      (when reload?
         (remove-ns module-name)
         (reload-module this-module))
 
@@ -168,7 +256,7 @@
                 (catch Exception e
                   (let [symbol (symbol k)]
                     (intern *ns* symbol pyfn?)))))))
-        
+
         ;; [.. :refer [..]] behavior
         :else
         (doseq [r    refer
@@ -251,3 +339,4 @@
 (comment
   (require-python '([clojure :refer [parenthesis]] __future__))
   (py/set-attr! __future__ "braces" parenthesis))
+
