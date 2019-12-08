@@ -1,6 +1,7 @@
 (ns libpython-clj.require
   (:refer-clojure :exclude [fn? doc])
-  (:require [libpython-clj.python :as py]))
+  (:require [libpython-clj.python :as py]
+            [clojure.tools.logging :as log]))
 
 (py/initialize!)
 
@@ -27,7 +28,7 @@
 (def ^:private doc #(try
                       (py/get-attr % "__doc__")
                       (catch Exception e
-                        nil)))
+                        "")))
 
 (def ^:private importlib (py/import-module "importlib"))
 
@@ -58,20 +59,123 @@
   (cond
     (fn? x) (py-fn-argspec x)
     (method? x) (py-fn-argspec x)
+    (string? x) ""
+    (number? x) ""
     :else (py-class-argspec x)))
 
-(defn pymetadata [fn-name x]
+
+(defn pyarglists
+  ([argspec] (pyarglists argspec
+                         (if-let [defaults
+                                  (not-empty (:defaults argspec))]
+                           defaults
+                           [])))
+  ([argspec defaults] (pyarglists argspec defaults []))
+  ([{:as            argspec
+     args           :args
+     varkw          :varkw
+     varargs        :varargs
+     kwonlydefaults :kwonlydefaults
+     kwonlyargs     :kwonlyargs}
+    defaults res]
+   (let [n-args          (count args)
+         n-defaults      (count defaults)
+         n-pos-args      (- n-args n-defaults)
+         pos-args        (transduce
+                          (comp
+                           (take n-pos-args)
+                           (map symbol))
+                          (completing conj)
+                          []
+                          args)
+         kw-default-args (transduce
+                          (comp
+                           (drop n-pos-args)
+                           (map symbol))
+                          (completing conj)
+                          []
+                          args)
+         or-map          (transduce
+                          (comp
+                           (partition-all 2)
+                           (map vec)
+                           (map (fn [[k v]] [(symbol k) v])))
+                          (completing (partial apply assoc))
+                          {}
+                          (concat
+                           (interleave kw-default-args defaults)
+                           (flatten (seq kwonlydefaults))))
+
+         as-varkw    (when (not (nil? varkw))
+                       {:as (symbol varkw)})
+         default-map (transduce
+                      (comp
+                       (partition-all 2)
+                       (map vec)
+                       (map (fn [[k v]] [(symbol k) (keyword k)])))
+                      (completing (partial apply assoc))
+                      {}
+                      (concat
+                       (interleave kw-default-args defaults)
+                       (flatten (seq kwonlydefaults))))
+
+         kwargs-map (merge default-map
+                           (when (not-empty or-map)
+                             {:or or-map})
+                           (when (not-empty as-varkw)
+                             as-varkw))
+
+
+
+
+         opt-args
+         (cond
+           (and (empty? kwargs-map)
+                (nil? varargs)) '()
+           (empty? kwargs-map)  (list '& [(symbol varargs)])
+           (nil? varargs)       (list '& [or-map])
+           :else                (list '& [(symbol varargs)
+                                          kwargs-map]))
+
+         arglist (concat (list* pos-args) opt-args)]
+     (let [arglists  (conj res arglist)
+           defaults' (if (not-empty defaults) (pop defaults) [])
+           argspec'  (update argspec :args
+                             (fn [args]
+                               (if (not-empty args)
+                                 (pop args)
+                                 args)))]
+
+       (if (and (empty? defaults) (empty? defaults'))
+         arglists
+         (recur argspec' defaults' arglists))))))
+
+
+(defn py-fn-metadata [fn-name x]
   (let [fn-argspec (pyargspec x)
         fn-docstr  (get-pydoc x)]
     (merge
      fn-argspec
      {:doc  fn-docstr
-      :name fn-name})))
+      :name fn-name}
+     ;;TODO --
+     ;;We need to figure out a syntax that allows the actual functions
+     ;;to be called.  The arglists, while they look good the compiler parses
+     ;;them and then errors out.
+
+      ;; (when (py/callable? x)
+      ;;  (try
+      ;;    {:arglists (pyarglists fn-argspec)}
+      ;;    (catch Throwable e
+      ;;      nil)))
+     )))
+
 
 (defn ^:private load-py-fn [f fn-name fn-module-name-or-ns]
   (let [fn-ns      (symbol (str fn-module-name-or-ns))
         fn-sym     (symbol fn-name)]
-    (intern fn-ns (with-meta fn-sym (metadata fn-name f)) f)))
+    (intern fn-ns (with-meta fn-sym (py-fn-metadata fn-name f)) f)))
+
 
 (defn ^:private load-python-lib [req]
   (let [supported-flags     #{:reload}
@@ -86,7 +190,6 @@
                                    (map vec))
                                   etc)
         reload?             (:reload flags)
-        this-module         (import-module (str module-name))
         module-name-or-ns   (:as etc module-name)
         exclude             (into #{} (:exclude etc))
         refer          (cond
@@ -96,89 +199,76 @@
                                                 #{}
                                                 (:refer etc)))
         current-ns     *ns*
-        current-ns-sym (symbol (str current-ns))]
+        current-ns-sym (symbol (str current-ns))
+        python-namespace (find-ns module-name-or-ns)
+        this-module (import-module (str module-name))]
 
-
-    ;; if the current namespace is already loaded, unless
-    ;; the :reload flag is specified, this will be a no-op
-    (when (not (and (find-ns module-name-or-ns)
-                    (not reload?)));; :reload behavior
-
-      ;; TODO: should we track things referred into the existing
-      ;;   ..: *ns* with an atom and clear them on :reload?
-
-      (when reload?
-        (remove-ns module-name)
-        (reload-module this-module))
+    (when reload?
+      (remove-ns module-name)
+      (reload-module this-module))
+    (create-ns module-name-or-ns)
 
       ;; bind the python module to its symbolic name
       ;; in the current namespace
-      (intern current-ns-sym module-name-or-ns this-module)
+
 
       ;; create namespace for module and bind python
       ;; values to namespace symbols
-      (doseq [[k pyfn?] (seq (py/as-jvm (vars  this-module)))]
-        (try
-          (load-py-fn pyfn? (symbol k) module-name-or-ns)
-          (catch Exception e
-            (try
-              (let [ns     module-name-or-ns
-                    symbol (symbol k)]
-                (in-ns ns)
-                (intern ns symbol pyfn?))
-              (finally
-                (in-ns current-ns-sym))))))
-
-      ;; behavior for [.. :refer :all], [.. :refer [...]], and
-      ;; [.. :refer :*]
-      ;; TODO: code is a bit repetitive maybe
-      (cond
-        ;; include everything into the current namespace,
-        ;; ignore __all__ directive
-        (refer :all)
-        (doseq
-            [[k pyfn?]
-             (seq (py/as-jvm (vars  this-module)))
-             :when (not (exclude (symbol k)))]
+    (when (or reload?
+              (not python-namespace))
+      ;;Mutably define the root namespace.
+      (doseq [att-name (py/dir this-module)]
+        (let [v (py/get-attr this-module att-name)]
           (try
-            (load-py-fn pyfn? (symbol k) current-ns-sym)
-            (catch Exception e
-              (let [symbol (symbol k)]
-                (intern *ns* symbol pyfn?)))))
-        ;; only include that specfied by __all__ attribute
-        ;; of python module if specified, else same as :all
-        (refer :*)
-        (let [hasattr (py/get-attr builtins "hasattr")
-              getattr (py/get-attr builtins "getattr")]
-          (if (hasattr this-module "__all__")
-            (doseq
-                [[k pyfn?]
-                 (for [item-name (getattr this-module "__all__")]
-                   [(symbol item-name)
-                    (getattr this-module item-name)])
-                 :when (not (exclude (symbol k)))]
-              (try
-                (load-py-fn pyfn? (symbol k) current-ns-sym)
-                (catch Exception e
-                  (let [symbol (symbol k)]
-                    (intern *ns* symbol pyfn?)))))
-            (doseq
-                [[k pyfn?]
-                 (seq (py/as-jvm (vars  this-module)))
-                 :when (not (exclude (symbol k)))]
-              (try
-                (load-py-fn pyfn? (symbol k) current-ns-sym)
-                (catch Exception e
-                  (let [symbol (symbol k)]
-                    (intern *ns* symbol pyfn?)))))))
+            (when v
+              (if (py/callable? v)
+                (load-py-fn v (symbol att-name) module-name-or-ns)
+                (intern module-name-or-ns (symbol att-name) v)))
+            (catch Throwable e
+              (log/warnf e "Failed to require symbol %s" att-name))))))
 
-        ;; [.. :refer [..]] behavior
-        :else
-        (doseq [r    refer
-                :let [pyfn? (py/get-attr this-module (str r))]]
-          (if (or (fn? pyfn?) (method? pyfn?))
-            (load-py-fn pyfn?)
-            (intern current-ns-sym r pyfn?)))))))
+
+    (let [python-namespace (find-ns module-name-or-ns)
+          ;;ns-publics is a map of symbol to var.  Var's have metadata on them.
+          public-data (->> (ns-publics python-namespace)
+                           (remove #(exclude (first %)))
+                           (into {}))]
+
+      ;;Always make the loaded namespace available to the current namespace.
+      (intern current-ns-sym (with-meta module-name-or-ns
+                               {:doc (doc this-module)}))
+      (let [refer-symbols
+            (cond
+              ;; include everything into the current namespace,
+              ;; ignore __all__ directive
+              (or (refer :all)
+                  (and (not (py/has-attr? this-module "__all__"))
+                       (refer :*)))
+              (keys public-data)
+              ;; only include that specfied by __all__ attribute
+              ;; of python module if specified, else same as :all
+              (refer :*)
+              (->> (py/get-attr this-module "__all__")
+                   (map (fn [item-name]
+                          (let [item-sym (symbol item-name)]
+                            (when (contains? public-data item-sym)
+                              item-sym))))
+                   (remove nil?))
+
+              ;; [.. :refer [..]] behavior
+              :else
+              (do
+                (when-let [missing (->> refer
+                                        (remove (partial contains? public-data))
+                                        seq)]
+                  (throw (Exception.
+                          (format "'refer' symbols not found: %s"
+                                  (vec missing)))))
+                refer))]
+        (doseq [[s v] (select-keys public-data refer-symbols)]
+          (intern current-ns-sym
+                  (with-meta s (meta v))
+                  (deref v)))))))
 
 (defn require-python
   "## Basic usage ##
