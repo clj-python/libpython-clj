@@ -2,6 +2,12 @@
   (:refer-clojure :exclude [fn? doc])
   (:require [libpython-clj.python :as py]))
 
+
+;; TODO: should you require to use a different version of Python
+;; make sure that you call py/initialize in your library/app code
+;; BEFORE you load this 'libpython-clj.require
+(py/initialize!)
+
 (def ^:private builtins (py/import-module "builtins"))
 
 (def ^:private inspect (py/import-module "inspect"))
@@ -72,8 +78,6 @@
      kwonlydefaults :kwonlydefaults
      kwonlyargs     :kwonlyargs}
     defaults res]
-   (println argspec)
-   (println defaults)
    (let [n-args          (count args)
          n-defaults      (count defaults)
          n-pos-args      (- n-args n-defaults)
