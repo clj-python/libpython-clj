@@ -2,6 +2,8 @@
   (:refer-clojure :exclude [fn? doc])
   (:require [libpython-clj.python :as py]))
 
+(py/initialize!)
+
 (def ^:private builtins (py/import-module "builtins"))
 
 (def ^:private inspect (py/import-module "inspect"))
@@ -58,17 +60,18 @@
     (method? x) (py-fn-argspec x)
     :else (py-class-argspec x)))
 
+(defn pymetadata [fn-name x]
+  (let [fn-argspec (pyargspec x)
+        fn-docstr  (get-pydoc x)]
+    (merge
+     fn-argspec
+     {:doc  fn-docstr
+      :name fn-name})))
+
 (defn ^:private load-py-fn [f fn-name fn-module-name-or-ns]
-  (let [fn-argspec (pyargspec f)
-        fn-docstr  (get-pydoc f)
-        fn-ns      (symbol (str fn-module-name-or-ns))
+  (let [fn-ns      (symbol (str fn-module-name-or-ns))
         fn-sym     (symbol fn-name)]
-    (intern fn-ns fn-sym
-            (with-meta f
-              (merge
-               fn-argspec
-               {:doc  fn-docstr
-                :name fn-name})))))
+    (intern fn-ns (with-meta fn-sym (metadata fn-name f)) f)))
 
 (defn ^:private load-python-lib [req]
   (let [supported-flags     #{:reload}
@@ -104,7 +107,7 @@
       ;; TODO: should we track things referred into the existing
       ;;   ..: *ns* with an atom and clear them on :reload?
 
-      (when reload? 
+      (when reload?
         (remove-ns module-name)
         (reload-module this-module))
 
@@ -168,7 +171,7 @@
                 (catch Exception e
                   (let [symbol (symbol k)]
                     (intern *ns* symbol pyfn?)))))))
-        
+
         ;; [.. :refer [..]] behavior
         :else
         (doseq [r    refer
@@ -177,9 +180,9 @@
             (load-py-fn pyfn?)
             (intern current-ns-sym r pyfn?)))))))
 
-(defn require-python [reqs]
+(defn require-python
   "## Basic usage ##
-   
+
    (require-python 'math)
    (math/sin 1.0) ;;=> 0.8414709848078965
 
@@ -212,16 +215,16 @@
 
    ## Setting up classpath for custom modules ##
 
-   Note: you may need to setup your PYTHONPATH correctly. 
-   One technique to do this is, if your foo.py lives at 
+   Note: you may need to setup your PYTHONPATH correctly.
+   One technique to do this is, if your foo.py lives at
    /path/to/foodir/foo.py:
 
    (require-python 'sys)
-   (py/call-attr (py/get-attr sys \"path\") 
-                 \"append\" 
+   (py/call-attr (py/get-attr sys \"path\")
+                 \"append\"
                  \"/path/to/foodir\")
 
-   Another option is 
+   Another option is
 
    (require-python 'os)
    (os/chdir \"/path/to/foodir\")
@@ -230,15 +233,16 @@
    ## For library developers ##
 
    If you want to intern all symbols to your current namespace,
-   you can do the following -- 
+   you can do the following --
 
    (require-python '[math :refer :all])
 
-   However, if you only want to use 
+   However, if you only want to use
    those things designated by the module under the __all__ attribute,
    you can do
 
    (require-python '[operators :refer :*])"
+  [reqs]
 
   (cond
     (list? reqs)

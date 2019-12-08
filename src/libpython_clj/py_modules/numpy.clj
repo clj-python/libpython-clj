@@ -1,13 +1,12 @@
 (ns libpython-clj.py-modules.numpy
   (:require [libpython-clj.python :as py]
-            [libpython-clj.export-module-symbols
-             :refer [export-module-symbols]])
+            [libpython-clj.require :refer [require-python]])
   (:refer-clojure :exclude [test take str sort short require repeat partition
                             mod min max long load int identity float empty double
                             conj char cast byte]))
 
 
-(export-module-symbols "numpy")
+(require-python '[numpy :refer :* :reload])
 
 
 (comment
