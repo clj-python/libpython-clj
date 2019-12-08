@@ -88,6 +88,9 @@ are converted into a {:type :pyobject-address} pairs."))
 
 
 (extend-type Object
+  PPyObject
+  (callable? [_] false)
+  (has-attr? [_ _] false)
   PPyAttMap
   (att-type-map [item]
     (->> (dir item)

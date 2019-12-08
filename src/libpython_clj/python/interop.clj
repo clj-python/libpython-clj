@@ -198,6 +198,7 @@
                   method-definitions
                   tp_flags ;;may be nil
                   tp_basicsize ;;size of binary type
+                  tp_init ;;init fn, may be nil
                   tp_new ;;may be nil, will use generic
                   tp_dealloc ;;may be nil, will use generic
                   tp_getattr ;;may *not* be nil
@@ -213,12 +214,15 @@
    (let [tp_new (or tp_new
                     (reify CFunction$tp_new
                       (pyinvoke [this self varargs kw_args]
-                        (libpy/PyType_GenericNew self varargs kw_args))))
+                        (let [retval (libpy/PyType_GenericNew self varargs kw_args)]
+                          (println retval)
+                          retval)
+                        )))
          module-name (get-attr module "__name__")
          ;;These get leaked.  Really, types are global objects that cannot be released.
          ;;Until we can destroy interpreters, it isn't worth the effort to track the
          ;;type and memory related to the type.
-         docstring-ptr (jna/string->ptr-untracked docstring)
+         docstring-ptr (when docstring (jna/string->ptr-untracked docstring))
          type-name-ptr (jna/string->ptr-untracked (str module-name "." type-name))
          tp_flags (long (or tp_flags
                             (bit-or @libpy/Py_TPFLAGS_DEFAULT
@@ -229,6 +233,7 @@
          _ (nio-buf/memset new-mem 0 type-obj-size)
          new-type (PyTypeObject. new-mem)]
      (set! (.tp_name new-type) type-name-ptr)
+     (set! (.tp_init new-type) tp_init)
      (set! (.tp_doc new-type) docstring-ptr)
      (set! (.tp_basicsize new-type) tp_basicsize)
      (set! (.tp_flags new-type) tp_flags)
@@ -255,9 +260,12 @@
                                  :tp_name type-name-ptr
                                  :tp_doc docstring-ptr
                                  :tp_new tp_new
+                                 :tp_init tp_init
                                  :tp_dealloc tp_dealloc
                                  :tp_getattr tp_getattr
-                                 :tp_setattr tp_setattr))
+                                 :tp_setattr tp_setattr
+                                 :tp_iter tp_iter
+                                 :tp_iternext tp_iternext))
            (libpy/Py_IncRef new-type)
            new-type)
          (throw (ex-info (format "Type failed to register: %d" type-ready)

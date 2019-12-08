@@ -272,7 +272,8 @@
                 METH_O
                 METH_STATIC
                 METH_VARARGS
-                PyCFunction_New)
+                PyCFunction_New
+                PyInstanceMethod_New)
 
 
 (export-symbols libpython-clj.jna.concrete.import

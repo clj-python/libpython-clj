@@ -110,8 +110,8 @@
    type’s tp_alloc slot."
   Pointer
   [type (partial jna/ensure-type PyTypeObject)]
-  [args ensure-pyobj]
-  [kwds ensure-pyobj])
+  [args #(when % (ensure-pyobj %))]
+  [kwds #(when % (ensure-pyobj %))])
 
 
 (def-pylib-fn PyType_Ready

@@ -55,3 +55,20 @@
   Pointer
   [method-def (partial jna/ensure-type PyMethodDef)]
   [self jna/as-ptr])
+
+
+(def-pylib-fn PyInstanceMethod_New
+  "Return value: New reference.
+
+  Return a new instance method object, with func being any callable object func is the
+  function that will be called when the instance method is called."
+  Pointer
+  [func ensure-pyobj])
+
+
+(def-pylib-fn PyInstanceMethod_Function
+  "Return value: Borrowed reference.
+
+  Return the function object associated with the instance method im."
+  Pointer
+  [im ensure-pyobj])

@@ -3,7 +3,12 @@
   memory if it isn't setup correctly."
   (:require [libpython-clj.python :as py]
             [libpython-clj.jna :as libpy]
-            [libpython-clj.python.object :as pyobject]))
+            [libpython-clj.python.object :as pyobject]
+            [clojure.test :refer :all]
+            [clojure.edn :as edn]))
+
+
+(py/initialize!)
 
 
 (def test-script
@@ -64,7 +69,6 @@ def getmultidata():
 
 (defn forever-test
   []
-  (py/initialize!)
   (doseq [items (partition 999 (get-data))]
     ;;One way is to use the GC
     (time
@@ -88,7 +92,6 @@ def getmultidata():
 
 (defn multidata-test
   []
-  (py/initialize!)
   (doseq [items (partition 1000 (get-multi-data))]
     (time (do (py/with-gil-stack-rc-context
                 (mapv py/->jvm items))
@@ -97,7 +100,6 @@ def getmultidata():
 
 (defn str-marshal-test
   []
-  (py/initialize!)
   (let [test-str (py/->python "a nice string to work with")]
     (time
      (py/with-gil-stack-rc-context
@@ -107,7 +109,6 @@ def getmultidata():
 
 (defn dict-marshal-test
   []
-  (py/initialize!)
   (let [test-item (py/->python {:a 1 :b 2})]
     (time
      (py/with-gil-stack-rc-context
@@ -117,7 +118,40 @@ def getmultidata():
 
 (defn print-stress-test
   []
-  (py/initialize!)
   (dotimes [iter 10000]
     (with-out-str
       (print-data))))
+
+
+(defn new-cls-stress-test
+  []
+  (dotimes [iter 1000]
+    (py/with-gil-stack-rc-context
+      (let [test-cls (py/create-class "testcls" nil
+                                      {"__init__" (py/make-tuple-fn
+                                                   (fn [self name shares price]
+                                                     (py/set-attr! self "name" name)
+                                                     (py/set-attr! self "shares" shares)
+                                                     (py/set-attr! self "price" price)
+                                                     nil))
+                                       "cost" (py/make-tuple-fn
+                                               (fn [self]
+                                                 (* (py/$. self shares)
+                                                    (py/$. self price))))
+                                       "__str__" (py/make-tuple-fn
+                                                  (fn [self]
+                                                    ;;Self is just a dict so it converts to a hashmap
+                                                    (pr-str {"name" (py/$. self name)
+                                                             "shares" (py/$. self shares)
+                                                             "price" (py/$. self price)})))
+                                       "testvar" 55}
+                                      )
+            new-inst (test-cls "ACME" 50 90)]
+        (is (= 4500
+               (py/$a new-inst cost)))
+        (is (= 55 (py/$. new-inst testvar)))
+
+        (is (= {"name" "ACME", "shares" 50, "price" 90}
+               (edn/read-string (.toString new-inst))))
+
+        ))))

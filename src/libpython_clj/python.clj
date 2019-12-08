@@ -10,7 +10,10 @@
   (:import [com.sun.jna Pointer]
            [com.sun.jna.ptr PointerByReference]
            [java.io Writer]
-           [libpython_clj.jna PyObject]))
+           [libpython_clj.jna PyObject
+            CFunction$KeyWordFunction
+            CFunction$TupleFunction
+            CFunction$NoArgFunction]))
 
 
 (set! *warn-on-reflection* true)
@@ -111,15 +114,62 @@
 
 
 (defn ->py-tuple
+  "Create a python tuple"
   [item]
   (-> (pyobj/->py-tuple item)
       (as-jvm)))
 
 
 (defn ->py-fn
+  "Make a python function.  If clojure function is passed in the arguments are
+  marshalled from python to clojure, the function called, and the return value will be
+  marshalled back."
   [item]
   (-> (pyobj/->py-fn item)
       (as-jvm)))
+
+
+(defn make-tuple-fn
+  "Reify the appropriate interface for tuple functions and return a new python cfunction
+  object.  Args are exposed as a python tuple to the embedded code.  This is a low level
+  function and you may never need it."
+  [clj-fn & [options]]
+  (-> (reify CFunction$TupleFunction
+        (pyinvoke [_ self args]
+          (let [retval
+                (apply clj-fn (as-jvm args))]
+            (pyobj/incref (->python retval)))))
+      (pyobj/->py-fn options)))
+
+(declare import-module)
+
+
+(def ^:private builtins (delay (import-module "builtins")))
+
+
+(defn create-class
+  "Create a new class object.  Any callable values in the cls-hashmap
+  will be presented as instance methods.
+  Things in the cls hashmap had better be either atoms or already converted
+  python objects.  You may get surprised otherwise; you have been warned.
+  See the classes-test file in test/libpython-clj"
+  [name bases cls-hashmap]
+  (with-gil
+    (let [cls-hashmap (->> cls-hashmap
+                           (map (fn [[k v]]
+                                  [k (if (callable? v)
+                                       (-> (pyjna/PyInstanceMethod_New v)
+                                           (pyobj/wrap-pyobject))
+                                       v)])))
+          cls-dict (reduce (fn [cls-dict [k v]]
+                             (set-item! cls-dict k (->python v))
+                             cls-dict)
+                           (->py-dict {})
+                           cls-hashmap)
+          bases (->py-tuple bases)
+          builtins @builtins
+          new-cls (call-attr builtins "type" name bases cls-dict)]
+      new-cls)))
 
 
 (defn run-simple-string
