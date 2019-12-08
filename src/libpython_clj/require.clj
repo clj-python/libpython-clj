@@ -116,7 +116,7 @@
       ;; values to namespace symbols
       (doseq [[k pyfn?] (seq (py/as-jvm (vars  this-module)))]
         (try
-          (load-py-fn pyfn? module-name-or-ns)
+          (load-py-fn pyfn? (symbol k) module-name-or-ns)
           (catch Exception e
             (try
               (let [ns     module-name-or-ns
