@@ -217,15 +217,14 @@
     (when (or reload?
               (not python-namespace))
       ;;Mutably define the root namespace.
-      (doseq [att-name (py/dir this-module)]
-        (let [v (py/get-attr this-module att-name)]
-          (try
-            (when v
-              (if (py/callable? v)
-                (load-py-fn v (symbol att-name) module-name-or-ns)
-                (intern module-name-or-ns (symbol att-name) v)))
-            (catch Throwable e
-              (log/warnf e "Failed to require symbol %s" att-name))))))
+      (doseq [[att-name v] (vars this-module)]
+        (try
+          (when v
+            (if (py/callable? v)
+              (load-py-fn v (symbol att-name) module-name-or-ns)
+              (intern module-name-or-ns (symbol att-name) v)))
+          (catch Throwable e
+            (log/warnf e "Failed to require symbol %s" att-name)))))
 
 
     (let [python-namespace (find-ns module-name-or-ns)

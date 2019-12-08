@@ -17,7 +17,10 @@ has a `:reload:` option to allow you to actively develop a python module and
 test it via clojure.
 
 
-This excellent work was done by [James Tolton](https://github.com/jjtolton).
+This excellent work was in large part done by [James Tolton](https://github.com/jjtolton).
+
+
+* [require-python-test](test/libpython_clj/require_python_test.clj)
 
 
 #### Clojure-defined Python classes
