@@ -24,7 +24,7 @@ This excellent work was done by [James Tolton](https://github.com/jjtolton).
 
 You can now extend a tuple of python classes (or implement a new one).  This system
 allows, among many things, us to use frameworks that use derivation as part of their
-public API.  Please see [classes-test](test/libpython-clj.classes-test) for a documented
+public API.  Please see [classes-test](test/libpython_clj/classes_test.clj) for a documented
 example of a simple pathway through the new API.  Note that if you use vanilla
 `->py-fn` functions as part of the class definition you won't get access to the `self`
 object.

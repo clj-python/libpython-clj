@@ -3,8 +3,6 @@
   (:require [libpython-clj.python :as py]
             [clojure.tools.logging :as log]))
 
-(py/initialize!)
-
 (def ^:private builtins (py/import-module "builtins"))
 
 (def ^:private inspect (py/import-module "inspect"))
@@ -63,7 +61,10 @@
     (number? x) ""
     :else (py-class-argspec x)))
 
+<<<<<<< HEAD
 
+=======
+>>>>>>> bdfcb5da637d1ad6b710f5580a58284474bc8a2d
 (defn pyarglists
   ([argspec] (pyarglists argspec
                          (if-let [defaults
@@ -78,6 +79,11 @@
      kwonlydefaults :kwonlydefaults
      kwonlyargs     :kwonlyargs}
     defaults res]
+<<<<<<< HEAD
+=======
+   (println argspec)
+   (println defaults)
+>>>>>>> bdfcb5da637d1ad6b710f5580a58284474bc8a2d
    (let [n-args          (count args)
          n-defaults      (count defaults)
          n-pos-args      (- n-args n-defaults)
@@ -105,7 +111,10 @@
                           (concat
                            (interleave kw-default-args defaults)
                            (flatten (seq kwonlydefaults))))
+<<<<<<< HEAD
 
+=======
+>>>>>>> bdfcb5da637d1ad6b710f5580a58284474bc8a2d
          as-varkw    (when (not (nil? varkw))
                        {:as (symbol varkw)})
          default-map (transduce
@@ -118,16 +127,22 @@
                       (concat
                        (interleave kw-default-args defaults)
                        (flatten (seq kwonlydefaults))))
+<<<<<<< HEAD
 
+=======
+>>>>>>> bdfcb5da637d1ad6b710f5580a58284474bc8a2d
          kwargs-map (merge default-map
                            (when (not-empty or-map)
                              {:or or-map})
                            (when (not-empty as-varkw)
                              as-varkw))
+<<<<<<< HEAD
 
 
 
 
+=======
+>>>>>>> bdfcb5da637d1ad6b710f5580a58284474bc8a2d
          opt-args
          (cond
            (and (empty? kwargs-map)
@@ -148,6 +163,7 @@
 
        (if (and (empty? defaults) (empty? defaults'))
          arglists
+<<<<<<< HEAD
          (recur argspec' defaults' arglists))))))
 
 
@@ -169,12 +185,31 @@
       ;;    (catch Throwable e
       ;;      nil)))
      )))
+=======
+         (recur argspec defaults' arglists))))))
+
+
+(defn pymetadata [fn-name x]
+  (let [fn-argspec  (pyargspec x)
+        fn-docstr   (get-pydoc x)
+        fn-arglists (pyarglists fn-argspec)]
+    (merge
+     fn-argspec
+     {:doc      fn-docstr
+      :arglists fn-arglists
+      :name     fn-name})))
+
+>>>>>>> bdfcb5da637d1ad6b710f5580a58284474bc8a2d
 
 
 (defn ^:private load-py-fn [f fn-name fn-module-name-or-ns]
   (let [fn-ns      (symbol (str fn-module-name-or-ns))
         fn-sym     (symbol fn-name)]
+<<<<<<< HEAD
     (intern fn-ns (with-meta fn-sym (py-fn-metadata fn-name f)) f)))
+=======
+    (intern fn-ns (with-meta fn-sym (pymetadata fn-name f)) f)))
+>>>>>>> bdfcb5da637d1ad6b710f5580a58284474bc8a2d
 
 
 (defn ^:private load-python-lib [req]
@@ -199,6 +234,7 @@
                                                 #{}
                                                 (:refer etc)))
         current-ns     *ns*
+<<<<<<< HEAD
         current-ns-sym (symbol (str current-ns))
         python-namespace (find-ns module-name-or-ns)
         this-module (import-module (str module-name))]
@@ -207,6 +243,19 @@
       (remove-ns module-name)
       (reload-module this-module))
     (create-ns module-name-or-ns)
+=======
+        current-ns-sym (symbol (str current-ns))];; if the current namespace is already loaded, unless
+    ;; the :reload flag is specified, this will be a no-op
+    (when (not (and (find-ns module-name-or-ns)
+                    (not reload?)));; :reload behavior
+
+      ;; TODO: should we track things referred into the existing
+      ;;   ..: *ns* with an atom and clear them on :reload?
+
+      (when reload?
+        (remove-ns module-name)
+        (reload-module this-module))
+>>>>>>> bdfcb5da637d1ad6b710f5580a58284474bc8a2d
 
       ;; bind the python module to its symbolic name
       ;; in the current namespace
