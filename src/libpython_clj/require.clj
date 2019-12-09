@@ -133,7 +133,7 @@
            (and (empty? kwargs-map)
                 (nil? varargs)) '()
            (empty? kwargs-map)  (list '& [(symbol varargs)])
-           (nil? varargs)       (list '& [or-map])
+           (nil? varargs)       (list '& [kwargs-map])
            :else                (list '& [(symbol varargs)
                                           kwargs-map]))
          
@@ -341,8 +341,4 @@
     (load-python-lib (vector reqs))
     (vector? reqs)
     (load-python-lib reqs)))
-
-(comment
-  (require-python '([clojure :refer [parenthesis]] __future__))
-  (py/set-attr! __future__ "braces" parenthesis))
 
