@@ -136,7 +136,7 @@
            (nil? varargs)       (list '& [kwargs-map])
            :else                (list '& [(symbol varargs)
                                           kwargs-map]))
-         
+
          arglist  ((comp vec concat) (list* pos-args) opt-args)]
      (let [arglists  (conj res arglist)
            defaults' (if (not-empty defaults) (pop defaults) [])
@@ -151,28 +151,31 @@
          (recur argspec' defaults' arglists))))))
 
 
-(defn py-fn-metadata [fn-name x]
+(defn py-fn-metadata [fn-name x {:keys [no-arglists?]}]
   (let [fn-argspec (pyargspec x)
         fn-docstr  (get-pydoc x)]
     (merge
      fn-argspec
      {:doc  fn-docstr
-      :name fn-name}     
-     (when (py/callable? x)
+      :name fn-name}
+     (when (and (py/callable? x)
+                (not no-arglists?))
        (try
          {:arglists (pyarglists fn-argspec)}
          (catch Throwable e
            nil))))))
 
 
-(defn ^:private load-py-fn [f fn-name fn-module-name-or-ns]
+(defn ^:private load-py-fn [f fn-name fn-module-name-or-ns
+                            options]
   (let [fn-ns      (symbol (str fn-module-name-or-ns))
         fn-sym     (symbol fn-name)]
-    (intern fn-ns (with-meta fn-sym (py-fn-metadata fn-name f)) f)))
+    (intern fn-ns (with-meta fn-sym (py-fn-metadata fn-name f
+                                                    options)) f)))
 
 
 (defn ^:private load-python-lib [req]
-  (let [supported-flags     #{:reload}
+  (let [supported-flags     #{:reload :no-arglists}
         [module-name & etc] req
         flags               (into #{}
                                   (filter supported-flags)
@@ -184,6 +187,7 @@
                                    (map vec))
                                   etc)
         reload?             (:reload flags)
+        no-arglists?        (:no-arglists flags)
         module-name-or-ns   (:as etc module-name)
         exclude             (into #{} (:exclude etc))
         refer          (cond
@@ -215,7 +219,9 @@
         (try
           (when v
             (if (py/callable? v)
-              (load-py-fn v (symbol att-name) module-name-or-ns)
+              (load-py-fn v (symbol att-name) module-name-or-ns
+                          {:no-arglists?
+                           no-arglists?})
               (intern module-name-or-ns (symbol att-name) v)))
           (catch Throwable e
             (log/warnf e "Failed to require symbol %s" att-name)))))
@@ -284,6 +290,12 @@
    (requests/get \"https//www.google.com\") ;;=>  <Response [200]>
    (get \"https//www.google.com\") ;;=>  <Response [200]>
 
+   In some cases we may generate invalid arglists metadata for the clojure compiler.
+   In those cases we have a flag, :no-arglists that will disable adding arglists to
+   the generated metadata for the vars.  Use the reload flag below if you need to
+   force reload a namespace where invalid arglists have been generated.
+
+   (require-python '[numpy :refer [linspace] :no-arglists :as np])
 
    ## Use with custom modules ##
 
@@ -334,4 +346,3 @@
     (load-python-lib (vector reqs))
     (vector? reqs)
     (load-python-lib reqs)))
-

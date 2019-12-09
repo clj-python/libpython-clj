@@ -8,8 +8,7 @@
 
 (require-python '[math
                   :refer :*
-                  :exclude [sin cos]
-                  ])
+                  :exclude [sin cos]])
 
 
 (deftest base-require-test
