@@ -157,18 +157,12 @@
     (merge
      fn-argspec
      {:doc  fn-docstr
-      :name fn-name}
-     ;;TODO --
-     ;;We need to figure out a syntax that allows the actual functions
-     ;;to be called.  The arglists, while they look good the compiler parses
-     ;;them and then errors out.
-
+      :name fn-name}     
      (when (py/callable? x)
        (try
          {:arglists (pyarglists fn-argspec)}
          (catch Throwable e
-           nil)))
-     )))
+           nil))))))
 
 
 (defn ^:private load-py-fn [f fn-name fn-module-name-or-ns]
