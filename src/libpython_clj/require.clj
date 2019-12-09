@@ -133,11 +133,11 @@
            (and (empty? kwargs-map)
                 (nil? varargs)) '()
            (empty? kwargs-map)  (list '& [(symbol varargs)])
-           (nil? varargs)       (list '& [or-map])
+           (nil? varargs)       (list '& [kwargs-map])
            :else                (list '& [(symbol varargs)
                                           kwargs-map]))
-
-         arglist (concat (list* pos-args) opt-args)]
+         
+         arglist  ((comp vec concat) (list* pos-args) opt-args)]
      (let [arglists  (conj res arglist)
            defaults' (if (not-empty defaults) (pop defaults) [])
            argspec'  (update argspec :args
@@ -157,18 +157,12 @@
     (merge
      fn-argspec
      {:doc  fn-docstr
-      :name fn-name}
-     ;;TODO --
-     ;;We need to figure out a syntax that allows the actual functions
-     ;;to be called.  The arglists, while they look good the compiler parses
-     ;;them and then errors out.
-
-      ;; (when (py/callable? x)
-      ;;  (try
-      ;;    {:arglists (pyarglists fn-argspec)}
-      ;;    (catch Throwable e
-      ;;      nil)))
-     )))
+      :name fn-name}     
+     (when (py/callable? x)
+       (try
+         {:arglists (pyarglists fn-argspec)}
+         (catch Throwable e
+           nil))))))
 
 
 (defn ^:private load-py-fn [f fn-name fn-module-name-or-ns]
@@ -208,12 +202,12 @@
       (reload-module this-module))
     (create-ns module-name-or-ns)
 
-      ;; bind the python module to its symbolic name
-      ;; in the current namespace
+    ;; bind the python module to its symbolic name
+    ;; in the current namespace
 
 
-      ;; create namespace for module and bind python
-      ;; values to namespace symbols
+    ;; create namespace for module and bind python
+    ;; values to namespace symbols
     (when (or reload?
               (not python-namespace))
       ;;Mutably define the root namespace.
@@ -341,6 +335,3 @@
     (vector? reqs)
     (load-python-lib reqs)))
 
-(comment
-  (require-python '([clojure :refer [parenthesis]] __future__))
-  (py/set-attr! __future__ "braces" parenthesis))
