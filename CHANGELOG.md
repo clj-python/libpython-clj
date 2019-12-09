@@ -1,6 +1,6 @@
 # Time for a ChangeLog!
 
-## 1.20-SNAPSHOT
+## 1.20
 
 With two many huge things we had to skip a few versions!
 
