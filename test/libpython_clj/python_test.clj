@@ -1,6 +1,5 @@
 (ns libpython-clj.python-test
   (:require [libpython-clj.python :as py]
-            [libpython-clj.require :refer [require-python]]
             [tech.v2.datatype :as dtype]
             [tech.v2.datatype.functional :as dfn]
             [tech.v2.tensor :as dtt]
@@ -9,6 +8,14 @@
            [java.util Map List]))
 
 (py/initialize!)
+
+
+(defn crashit
+  []
+  (let [test-data (py/->python (py/as-python [1 2]))
+        test-py-data (py/->py-tuple [test-data test-data])
+        _ :ignored]
+    :ok))
 
 
 (deftest stdout-and-stderr
@@ -275,6 +282,5 @@
     (is (= (vec (range 10))
            ;;Range is an infinite sequence
            (-> (range)
-               (py/as-python)
                (islice 0 10)
                (vec))))))

@@ -368,7 +368,12 @@
               (throw (ex-info "Failed to find bridge type" {})))
           bridge-type (PyTypeObject. bridge-type-ptr)
           ^Pointer new-py-obj (libpy/_PyObject_New bridge-type)
-          pybridge (JVMBridgeType. new-py-obj)]
+          pybridge (JVMBridgeType. new-py-obj)
+          ]
+      (println (format "Creating bridge: 0x%x -> %s:%s"
+                       (Pointer/nativeValue new-py-obj)
+                       (get-object-handle (.interpreter bridge))
+                       (get-object-handle (.wrappedObject bridge))))
       (set! (.jvm_interpreter_handle pybridge) (get-object-handle
                                                 (.interpreter bridge)))
       (set! (.jvm_handle pybridge) (get-object-handle (.wrappedObject bridge)))

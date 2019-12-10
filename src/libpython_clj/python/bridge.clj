@@ -260,7 +260,11 @@
              (py-proto/att-type-map pyobj#)))
          py-proto/PyCall
          (do-call-fn [callable# arglist# kw-arg-map#]
-           (-> (py-proto/do-call-fn pyobj# arglist# kw-arg-map#)
+           (-> (py-proto/do-call-fn pyobj# (mapv as-python arglist#)
+                                    (->> kw-arg-map#
+                                         (map (fn [[k# v#]]
+                                                [k# (as-python v#)]))
+                                         (into {})))
                (as-jvm)))
          Object
          (toString [this#]

@@ -80,18 +80,26 @@
   ^JVMBridge [handle interpreter]
   (if-let [bridge-obj (find-jvm-bridge-entry handle interpreter)]
     (:jvm-bridge bridge-obj)
-    (throw (ex-info "Unable to find bridge for interpreter %s and handle %s"
-                    interpreter handle))))
+    (throw (Exception.
+            (format "Unable to find bridge for interpreter %s and handle %s"
+                    interpreter handle)))))
 
 
 (defn register-bridge!
   [^JVMBridge bridge ^PyObject bridge-pyobject]
   (let [interpreter (.interpreter bridge)
         bridge-handle (get-object-handle (.wrappedObject bridge))]
+    (when (contains? (get-in @(:interpreter-state* interpreter)
+                           [:bridge-objects])
+                     bridge-handle)
+      (throw (Exception. (format "Bridge already exists!! - %s" bridge-handle))))
     (swap! (:interpreter-state* interpreter) assoc-in
            [:bridge-objects bridge-handle]
            {:jvm-bridge bridge
             :pyobject bridge-pyobject})
+    (println "ADDING-BRIDGE" bridge-handle
+             (keys (get-in @(:interpreter-state* interpreter)
+                           [:bridge-objects])))
     :ok))
 
 
@@ -99,6 +107,7 @@
   [^JVMBridge bridge]
   (let [interpreter (.interpreter bridge)
         bridge-handle (get-object-handle (.wrappedObject bridge))]
+    (println "REMOVING-BRIDGE:" bridge-handle)
     (swap! (:interpreter-state* interpreter)
            update :bridge-objects dissoc bridge-handle)
     :ok))

@@ -95,7 +95,7 @@
     (py-proto/->jvm item options)))
 
 
-(def ^:dynamic *object-reference-logging* false)
+(def ^:dynamic *object-reference-logging* true)
 
 
 (def ^:dynamic *object-reference-tracker* nil)
