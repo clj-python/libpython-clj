@@ -1,5 +1,6 @@
 (ns libpython-clj.python-test
   (:require [libpython-clj.python :as py]
+            [libpython-clj.require :refer [require-python]]
             [tech.v2.datatype :as dtype]
             [tech.v2.datatype.functional :as dfn]
             [tech.v2.tensor :as dtt]
@@ -7,7 +8,7 @@
   (:import [java.io StringWriter]
            [java.util Map List]))
 
-  (py/initialize!)
+(py/initialize!)
 
 
 (deftest stdout-and-stderr
@@ -265,3 +266,15 @@
     (is (= (str (py/$.. np random shuffle))
            (str (-> (py/get-attr np "random")
                     (py/get-attr "shuffle")))))))
+
+
+(deftest infinite-seq
+  (let [islice (-> (py/import-module "itertools")
+                   (py/get-attr "islice"))]
+
+    (is (= (vec (range 10))
+           ;;Range is an infinite sequence
+           (-> (range)
+               (py/as-python)
+               (islice 0 10)
+               (vec))))))
