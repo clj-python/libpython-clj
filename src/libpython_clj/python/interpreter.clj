@@ -86,28 +86,24 @@
 
 
 (defn register-bridge!
-  [^JVMBridge bridge ^PyObject bridge-pyobject]
+  [^JVMBridge bridge ^Pointer bridge-pyobject]
   (let [interpreter (.interpreter bridge)
-        bridge-handle (get-object-handle (.wrappedObject bridge))]
+        bridge-handle (Pointer/nativeValue bridge-pyobject)]
     (when (contains? (get-in @(:interpreter-state* interpreter)
                            [:bridge-objects])
                      bridge-handle)
-      (throw (Exception. (format "Bridge already exists!! - %s" bridge-handle))))
+      (throw (Exception. (format "Bridge already exists!! - 0x%x" bridge-handle))))
     (swap! (:interpreter-state* interpreter) assoc-in
            [:bridge-objects bridge-handle]
            {:jvm-bridge bridge
-            :pyobject bridge-pyobject})
-    (println "ADDING-BRIDGE" bridge-handle
-             (keys (get-in @(:interpreter-state* interpreter)
-                           [:bridge-objects])))
+            :pyobject bridge-handle})
     :ok))
 
 
 (defn unregister-bridge!
-  [^JVMBridge bridge]
+  [^JVMBridge bridge ^Pointer bridge-pyobject]
   (let [interpreter (.interpreter bridge)
-        bridge-handle (get-object-handle (.wrappedObject bridge))]
-    (println "REMOVING-BRIDGE:" bridge-handle)
+        bridge-handle (Pointer/nativeValue bridge-pyobject)]
     (swap! (:interpreter-state* interpreter)
            update :bridge-objects dissoc bridge-handle)
     :ok))

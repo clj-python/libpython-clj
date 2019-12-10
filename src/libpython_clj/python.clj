@@ -45,6 +45,8 @@
                 ->py-long
                 ->py-string
                 ->python
+                ;;Used when you are returning a value from a function.
+                ->python-incref
                 ->jvm
                 make-tuple-fn
                 make-tuple-instance-fn
@@ -118,6 +120,7 @@
                 afn
                 as-jvm
                 as-python
+                as-python-incref ;; Used when returning a value from a function to python.
                 ->numpy
                 as-numpy)
 

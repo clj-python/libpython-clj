@@ -34,7 +34,8 @@
               ->py-tuple
               ->py-dict
               ->py-string
-              ->py-fn]]
+              ->py-fn]
+             :as pyobj]
             [libpython-clj.python.interop :as pyinterop
              :refer
              [expose-bridge-to-python!
@@ -200,6 +201,24 @@
   (->jvm pyobj))
 
 
+(defn- mostly-copy-arg
+  "This is the dirty boundary between the languages.  Copying as often faster
+  for simple things but we have to be careful not to attempt a copy of things that
+  are only iterable (and not random access)."
+  [arg]
+  (cond
+    (jna/as-ptr arg)
+    (jna/as-ptr arg)
+    (instance? RandomAccess arg)
+    (->python arg)
+    (instance? Map arg)
+    (->python arg)
+    (instance? Iterable arg)
+    (as-python arg)
+    :else
+    (->python arg)))
+
+
 (defmacro bridge-pyobject
   [pyobj interpreter & body]
   `(let [pyobj# ~pyobj
@@ -260,12 +279,14 @@
              (py-proto/att-type-map pyobj#)))
          py-proto/PyCall
          (do-call-fn [callable# arglist# kw-arg-map#]
-           (-> (py-proto/do-call-fn pyobj# (mapv as-python arglist#)
-                                    (->> kw-arg-map#
-                                         (map (fn [[k# v#]]
-                                                [k# (as-python v#)]))
-                                         (into {})))
-               (as-jvm)))
+           (with-interpreter interpreter#
+             (let [arglist# (mapv mostly-copy-arg arglist#)
+                   kw-arg-map# (->> kw-arg-map#
+                                    (map (fn [[k# v#]]
+                                           [k# (mostly-copy-arg v#)]))
+                                    (into {}))]
+               (-> (py-proto/do-call-fn pyobj# arglist# kw-arg-map#)
+                   (as-jvm)))))
          Object
          (toString [this#]
            (->jvm (py-proto/call-attr pyobj# "__str__")))
@@ -507,7 +528,8 @@
           long-addr (get-attr ctypes "data")
           hash-ary {:ctypes-map ctypes}
           ptr-val (-> (Pointer. long-addr)
-                      (resource/track #(get hash-ary :ctypes-map) [:gc]))]
+                      (resource/track #(get hash-ary :ctypes-map)
+                                      pyobj/*pyobject-tracking-flags*))]
       {:ptr ptr-val
        :datatype np-dtype
        :shape shape
@@ -682,47 +704,43 @@
                 (with-out-str
                   (st/print-stack-trace e#)))))))
 
-(defmacro impl-tuple-function
-  [& body]
-  `(reify CFunction$TupleFunction
-     (pyinvoke [this# ~'self ~'args]
-       (wrap-jvm-context
-        (-> (let [~'args (as-jvm ~'args)]
-              ~@body)
-            ;;as-python can create a bridge object or just a ptr
-            as-python
-            ;;convert any bridge objects to actual jna ptrs to match
-            ;;interface definitions
-            jna/->ptr-backing-store)))))
-
-
-(defn jvm-fn->iface
-  [jvm-fn]
-  (impl-tuple-function
-   (apply jvm-fn args)))
-
-
-(defn as-py-fn
-  [jvm-fn]
-  (-> (jvm-fn->iface jvm-fn)
-      ->py-fn))
-
 
 (defn jvm-iterator-as-python
   ^Pointer [^Iterator item]
   (with-gil nil
     (let [next-fn #(if (.hasNext item)
                      (-> (.next item)
+                         ;;As python tracks the object in a jvm context
                          (as-python)
-                         (jna/->ptr-backing-store))
+                         (jna/->ptr-backing-store)
+                         ;;But we are handing the object back to python which is expecting
+                         ;;a new reference.
+                         (pyobj/incref))
                      (do
                        (libpy/PyErr_SetNone
                         (err/PyExc_StopIteration))
                        nil))
           att-map
-          {"__next__" (->py-fn next-fn)}]
-      (create-bridge-from-att-map item att-map
-                                  :next-fn next-fn))))
+          {"__next__" (pyobj/make-tuple-fn next-fn
+                                           :arg-converter nil
+                                           :result-converter nil)}]
+      (create-bridge-from-att-map item att-map))))
+
+
+(defn as-python-incref
+  "Convert to python and add a reference.  Necessary for return values from
+  functions as python expects a new reference and the as-python pathway
+  ensures the jvm garbage collector also sees the reference."
+  [item]
+  (-> (as-python item)
+      (pyobj/incref)))
+
+
+(defn- as-py-fn
+  ^Pointer [obj-fn]
+  (pyobj/make-tuple-fn obj-fn
+                       :arg-converter as-jvm
+                       :result-converter as-python-incref))
 
 
 (defn jvm-map-as-python
@@ -763,13 +781,13 @@
            "append" (as-py-fn #(.add jvm-data %))
            "insert" (as-py-fn #(.add jvm-data (int %1) %2))
            "pop" (as-py-fn (fn [& args]
-                                   (let [index (int (if (first args)
-                                                      (first args)
-                                                      -1))
-                                         index (if (< index 0)
-                                                 (- (.size jvm-data) index)
-                                                 index)]
-                                     #(.remove jvm-data index))))}]
+                             (let [index (int (if (first args)
+                                                (first args)
+                                                -1))
+                                   index (if (< index 0)
+                                           (- (.size jvm-data) index)
+                                           index)]
+                               #(.remove jvm-data index))))}]
       (create-bridge-from-att-map jvm-data att-map))))
 
 
@@ -869,7 +887,7 @@
                             initial-buffer
                             (->py-tuple shape)
                             (->py-tuple strides))]
-      (resource/track retval #(get buffer-desc :ptr) [:gc]))))
+      (resource/track retval #(get buffer-desc :ptr) pyobj/*pyobject-tracking-flags*))))
 
 
 (extend-type Object

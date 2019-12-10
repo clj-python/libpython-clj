@@ -95,7 +95,7 @@
     (py-proto/->jvm item options)))
 
 
-(def ^:dynamic *object-reference-logging* true)
+(def ^:dynamic *object-reference-logging* false)
 
 
 (def ^:dynamic *object-reference-tracker* nil)
@@ -427,14 +427,14 @@
           :or {method-name "unnamed_function"
                documentation "not documented"}}]
   (with-gil
-    (let [py-self (or py-self (->python {}))]
+    ;;This is a nice little tidbit, cfunction_new
+    ;;steals the reference.
+    (let [py-self (when py-self (incref (->python py-self)))]
       (-> (libpy/PyCFunction_New (method-def-data->method-def
                                   {:name method-name
                                    :doc documentation
                                    :function cfunc})
-                                 ;;This is a nice little tidbit, cfunction_new
-                                 ;;steals the reference.
-                                 (libpy/Py_IncRef py-self))
+                                 py-self)
           (wrap-pyobject)))))
 
 

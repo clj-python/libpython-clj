@@ -215,7 +215,6 @@
                     (reify CFunction$tp_new
                       (pyinvoke [this self varargs kw_args]
                         (let [retval (libpy/PyType_GenericNew self varargs kw_args)]
-                          (println retval)
                           retval)
                         )))
          module-name (get-attr module "__name__")
@@ -274,7 +273,7 @@
 (defn pybridge->bridge
   ^JVMBridge [^Pointer pybridge]
   (let [bridge-type (JVMBridgeType. pybridge)]
-    (get-jvm-bridge (.jvm_handle bridge-type)
+    (get-jvm-bridge (Pointer/nativeValue pybridge)
                     (.jvm_interpreter_handle bridge-type))))
 
 
@@ -311,7 +310,7 @@
                                                e
                                                (with-out-str
                                                  (st/print-stack-trace e))))))
-                            (unregister-bridge! bridge))
+                            (unregister-bridge! bridge self))
                           (catch Throwable e
                             (log-error e)))
                         (try
@@ -343,17 +342,20 @@
                             0))))
         :tp_iter (reify CFunction$NoArgFunction
                    (pyinvoke [this self]
-                     (let [attr
-                           (-> (pybridge->bridge self)
-                               (.getAttr "__iter__"))]
-                       (py-proto/call attr))))
-
+                     (if-let [attr (-> (pybridge->bridge self)
+                                         (.getAttr "__iter__"))]
+                       (libpy/PyObject_CallObject (jna/as-ptr attr) nil)
+                       (do
+                         (libpy/PyErr_SetNone (libpy/PyExc_Exception))
+                         nil))))
         :tp_iternext (reify CFunction$NoArgFunction
                        (pyinvoke [this self]
-                         (when-let [next
-                                    (-> (pybridge->bridge self)
-                                        (.nextFn))]
-                           (next))))}))))
+                         (if-let [next (-> (pybridge->bridge self)
+                                           (.getAttr "__next__"))]
+                           (libpy/PyObject_CallObject (jna/as-ptr next) nil)
+                           (do
+                             (libpy/PyErr_SetNone (libpy/PyExc_Exception))
+                             nil))))}))))
 
 
 (defn expose-bridge-to-python!
@@ -368,23 +370,17 @@
               (throw (ex-info "Failed to find bridge type" {})))
           bridge-type (PyTypeObject. bridge-type-ptr)
           ^Pointer new-py-obj (libpy/_PyObject_New bridge-type)
-          pybridge (JVMBridgeType. new-py-obj)
-          ]
-      (println (format "Creating bridge: 0x%x -> %s:%s"
-                       (Pointer/nativeValue new-py-obj)
-                       (get-object-handle (.interpreter bridge))
-                       (get-object-handle (.wrappedObject bridge))))
+          pybridge (JVMBridgeType. new-py-obj)]
       (set! (.jvm_interpreter_handle pybridge) (get-object-handle
                                                 (.interpreter bridge)))
       (set! (.jvm_handle pybridge) (get-object-handle (.wrappedObject bridge)))
       (.write pybridge)
-      (register-bridge! bridge pybridge)
-      (-> (.getPointer pybridge)
-          wrap-pyobject))))
+      (register-bridge! bridge new-py-obj)
+      (wrap-pyobject new-py-obj))))
 
 
 (defn create-bridge-from-att-map
-  [src-item att-map & {:keys [next-fn]}]
+  [src-item att-map]
   (with-gil
     (let [interpreter (ensure-bound-interpreter)
           dir-data (->> (keys att-map)
@@ -402,21 +398,11 @@
             (dir [bridge] dir-data)
             (interpreter [bridge] interpreter)
             (wrappedObject [bridge] src-item)
-            (nextFn [bridge] next-fn)
-            libpy-base/PToPyObjectPtr
-            (->py-object-ptr [item]
-              (with-gil
-                (if-let [existing-bridge (find-jvm-bridge-entry
-                                          (get-object-handle src-item)
-                                          (ensure-bound-interpreter))]
-                  (:pyobject existing-bridge)
-                  (expose-bridge-to-python! item))))
             py-proto/PCopyToJVM
             (->jvm [item options] src-item)
             py-proto/PBridgeToJVM
             (as-jvm [item options] src-item))]
-      (expose-bridge-to-python! bridge)
-      (libpy-base/->py-object-ptr bridge))))
+      (expose-bridge-to-python! bridge))))
 
 
 (defmethod py-proto/pyobject->jvm :jvm-bridge
