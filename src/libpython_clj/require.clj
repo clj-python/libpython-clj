@@ -15,9 +15,15 @@
 
 (def ^:private types (py/import-module "types"))
 
-(def ^:private fn-type (py/get-attr types "FunctionType"))
+(def ^:private fn-type
+  (py/call-attr builtins "tuple"
+                [(py/get-attr types "FunctionType")
+                 (py/get-attr types "BuiltinFunctionType")]))
 
-(def ^:private method-type (py/get-attr types "MethodType"))
+(def ^:private method-type
+  (py/call-attr builtins "tuple"
+                [(py/get-attr types "MethodType")
+                 (py/get-attr types "BuiltinMethodType")]))
 
 (def ^:private isinstance? (py/get-attr builtins "isinstance"))
 
@@ -42,23 +48,35 @@
 (def ^:private vars (py/get-attr builtins "vars"))
 
 (defn ^:private py-fn-argspec [f]
-  (let [spec (argspec f)]
+  (if-let [spec (try (argspec f) (catch Throwable e nil))]
     {:args           (py/->jvm (py/get-attr spec "args"))
      :varargs        (py/->jvm (py/get-attr spec "varargs"))
      :varkw          (py/->jvm (py/get-attr spec "varkw"))
      :defaults       (py/->jvm (py/get-attr spec "defaults"))
      :kwonlyargs     (py/->jvm  (py/get-attr spec "kwonlyargs"))
      :kwonlydefaults (py/->jvm  (py/get-attr spec "kwonlydefaults"))
-     :annotations    (py/->jvm  (py/get-attr spec "annotations"))}))
+     :annotations    (py/->jvm  (py/get-attr spec "annotations"))}
+    (py-fn-argspec (py/get-attr f "__init__"))))
 
 (defn ^:private py-class-argspec [class]
   (let [constructor (py/get-attr class "__init__")]
     (py-fn-argspec constructor)))
 
 (defn pyargspec [x]
+  ;; TODO: certain builtin functions have
+  ;;   ..: signatures that are found in the first line
+  ;;   ..: of their docstring, aka, print.
+  ;;   ..: These seem to be uniform enough that
+  ;;   ..: most IDEs have a way of creating stubs
+  ;;   ..: for the signature.  If there is a uniform way
+  ;;   ..: to do this that doesn't simply involve an
+  ;;   ..: army of devs doing transcription I'd like to
+  ;;   ..: pull that in here
   (cond
     (fn? x) (py-fn-argspec x)
     (method? x) (py-fn-argspec x)
+    ;; (builtin-function? x) (py-builtin-fn-argspec x)
+    ;; (builtin-method? x) (py-builtin-method-argspec x)
     (string? x) ""
     (number? x) ""
     :else (py-class-argspec x)))
