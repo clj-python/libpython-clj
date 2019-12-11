@@ -1,0 +1,10 @@
+#!/bin/bash
+
+
+docker run --rm -it -u $(id -u):$(id -g) \
+  -e LEIN_REPL_HOST="0.0.0.0" \
+  -v /$HOME/.m2:/home/$USER/.m2 \
+  -v /$HOME/.lein:/home/$USER/.lein \
+  -v $(pwd)/:/libpython-clj \
+  --net=host -w /libpython-clj \
+  docker-conda $@

@@ -1,0 +1,34 @@
+# We will use Ubuntu for our image
+FROM ubuntu:latest
+
+# Updating Ubuntu packages
+
+
+RUN apt-get -qq update && apt-get -qq -y install curl wget bzip2 openjdk-8-jdk-headless \
+    && curl -sSL https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -o /tmp/miniconda.sh \
+    && bash /tmp/miniconda.sh -bfp /usr/local \
+    && rm -rf /tmp/miniconda.sh \
+    && conda install -y python=3 \
+    && conda update conda \
+    && curl -O https://download.clojure.org/install/linux-install-1.10.1.492.sh \
+    && chmod +x linux-install-1.10.1.492.sh \
+    && ./linux-install-1.10.1.492.sh && rm linux-install-1.10.1.492.sh \
+    && wget https://raw.githubusercontent.com/technomancy/leiningen/stable/bin/lein \
+    && chmod a+x lein \
+    && mv lein /usr/bin \
+    && apt-get -qq -y autoremove \
+    && apt-get autoclean \
+    && rm -rf /var/lib/apt/lists/* /var/log/dpkg.log \
+    && conda clean --all --yes
+
+
+ENV PATH /opt/conda/bin:$PATH
+
+
+ARG USERID
+ARG GROUPID
+ARG USERNAME
+
+RUN groupadd -g $GROUPID $USERNAME
+RUN useradd -u $USERID -g $GROUPID $USERNAME
+RUN mkdir /home/$USERNAME && chown $USERNAME:$USERNAME /home/$USERNAME
