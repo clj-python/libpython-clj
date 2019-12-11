@@ -1,5 +1,16 @@
 # Time for a ChangeLog!
 
+## 1.21
+
+Bugfix release.  Passing infinite sequences to python functions was
+causing a hang as libpython-clj attempted to copy the sequence.  The
+current calling convention does a shallow copy of things that are list-like
+or map-like, while bridging things that are iterable or don't fall into
+the above categories.
+
+This exposed a bug that caused reference counting to be subtly wrong when
+python iterated through a bridged object.  And that was my life for a day.
+
 ## 1.20
 
 With two many huge things we had to skip a few versions!

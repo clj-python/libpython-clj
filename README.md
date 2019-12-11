@@ -54,12 +54,21 @@ This is important to realize in that the code below doesn't look like python bec
 referencing the item and attribute systems by name and not via '.' or '[]'.
 
 
+### Installation
+
+#### Ubuntu
+
 ```console
-sudo apt install libpython3.6-dev
+sudo apt install libpython3.6
 # numpy and pandas are required for unit tests.  Numpy is required for
 # zero copy support.
 python3.6 -m pip install numpy pandas --user
 ```
+
+#### MacOSX
+
+Python installation instructions [here](https://docs.python-guide.org/starting/install3/osx/).
+
 
 
 ### Initialize python

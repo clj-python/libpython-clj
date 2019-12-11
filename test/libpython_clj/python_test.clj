@@ -284,3 +284,13 @@
            (-> (range)
                (islice 0 10)
                (vec))))))
+
+
+(deftest persistent-vector-nparray
+  (testing "Create numpy array from nested persistent vectors"
+    (let [ary-data (-> (py/import-module "numpy")
+                       (py/$a array [[1 2 3]
+                                     [4 5 6]]))]
+      (is (dfn/equals (dtt/->tensor [[1 2 3]
+                                     [4 5 6]])
+                      (py/as-tensor ary-data))))))
