@@ -216,7 +216,7 @@
     (instance? Iterable arg)
     (as-python arg)
     :else
-    (->python arg)))
+    (as-python arg)))
 
 
 (defmacro bridge-pyobject
