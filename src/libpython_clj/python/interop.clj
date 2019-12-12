@@ -166,10 +166,6 @@
            (into-array Object [(str fieldname)])))
 
 
-(defn create-python-type
-  [type-name module-name method-def-data])
-
-
 (defn method-def-data-seq->method-def-ref
   ^PyMethodDef$ByReference [method-def-data-seq]
   (when (seq method-def-data-seq)

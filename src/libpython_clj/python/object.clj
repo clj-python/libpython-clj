@@ -1052,3 +1052,28 @@
     :else
     {:type (python-type pyobj)
      :value (Pointer/nativeValue (jna/as-ptr pyobj))}))
+
+
+(defn is-instance?
+  "Returns true if inst is an instance of type.
+  False otherwise."
+  [py-inst py-type]
+  (with-gil
+    (= 1 (libpy/PyObject_IsInstance (->python py-inst)
+                                    ;;The type has to be a python type already.
+                                    py-type))))
+
+
+(defn hash-code
+  ^long [py-inst]
+  (with-gil
+    (long (libpy/PyObject_Hash (->python py-inst)))))
+
+
+(defn equals?
+  "Returns true of the python equals operator returns 1."
+  [lhs rhs]
+  (with-gil
+    (= 1 (libpy/PyObject_RichCompareBool (->python lhs)
+                                         (->python rhs)
+                                         :py-eq))))

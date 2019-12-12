@@ -1,12 +1,54 @@
 # Time for a ChangeLog!
 
+
+## 1.23-SNAPSHOT
+
+
+Equals, hashcode, nice default .toString of python types:
+
+```clojure
+user> (require '[libpython-clj.python :as py])
+nil
+user> (def test-tuple (py/->py-tuple [1 2]))
+#'user/test-tuple
+user> (require '[libpython-clj.require :refer [require-python]])
+nil
+user> (require-python '[builtins :as bt])
+nil
+user> (bt/type test-tuple)
+builtins.tuple
+user> test-tuple
+(1, 2)
+user> (def new-tuple (py/->py-tuple [3 4]))
+#'user/new-tuple
+user> (= test-tuple new-tuple)
+false
+user> (= test-tuple (py/->py-tuple [1 2]))
+true
+user> (.hashCode test-tuple)
+2130570162
+user> (.hashCode (py/->py-tuple [1 2]))
+2130570162
+user> (require-python '[numpy :as np])
+nil
+user> (def np-ary (np/array [1 2 3]))
+#'user/np-ary
+user> np-ary
+[1 2 3]
+user> (bt/type np-ary)
+numpy.ndarray
+user> (py/python-type *1)
+:type
+```
+
+
 ## 1.22
 
 Working to make more python environments work out of the box.  Currently have a
 testcase for conda working in a clean install of a docker container.  There is now a
 new method: `libpython-clj.python.interpreter/detect-startup-info` that attempts
-call python3-config and python3 --version in order to automagically configure the
-python library.
+call `python3-config --prefix` and `python3 --version` in order to automagically
+configure the python library.
 
 
 ## 1.21

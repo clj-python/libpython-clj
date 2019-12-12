@@ -96,6 +96,7 @@
                 PyObject_Call
                 PyObject_CallObject
                 PyObject_Hash
+                PyObject_IsInstance
                 PyObject_IsTrue
                 PyObject_Not
                 PyObject_Length

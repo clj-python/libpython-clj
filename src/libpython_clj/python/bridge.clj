@@ -289,7 +289,16 @@
                    (as-jvm)))))
          Object
          (toString [this#]
-           (->jvm (py-proto/call-attr pyobj# "__str__")))
+           (with-interpreter interpreter#
+             (if (= 1 (libpy/PyObject_IsInstance pyobj# (libpy/PyType_Type)))
+               (format "%s.%s"
+                       (->jvm (py-proto/get-attr pyobj# "__module__"))
+                       (->jvm (py-proto/get-attr pyobj# "__name__")))
+               (->jvm (py-proto/call-attr pyobj# "__str__")))))
+         (equals [this# other#]
+           (pyobj/equals? this# other#))
+         (hashCode [this#]
+           (.hashCode ^Object (pyobj/hash-code this#)))
          ~@body)
        {:type :pyobject})))
 

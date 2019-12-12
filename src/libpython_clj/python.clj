@@ -50,7 +50,10 @@
                 ->jvm
                 make-tuple-fn
                 make-tuple-instance-fn
-                create-class)
+                create-class
+                is-instance?
+                hash-code
+                equals?)
 
 
 (defmacro stack-resource-context

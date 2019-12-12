@@ -42,6 +42,7 @@
                    keyword)
                v]))
        (into {})))
+(def bool-fn-value-set (set (vals bool-fn-table)))
 
 
 (defn bool-fn-constant
@@ -51,7 +52,7 @@
                 (long item)
                 (keyword? item)
                 (get bool-fn-table item))
-        value-set (set (vals bool-fn-table))]
+        value-set bool-fn-value-set]
     (when-not (contains? value-set value)
       (throw (ex-info (format "Unrecognized bool fn %s" item) {})))
     (int value)))
@@ -309,8 +310,31 @@
 
    Changed in version 3.2: The return type is now Py_hash_t. This is a signed integer
    the same size as Py_ssize_t."
-  (size-t-type)
+  size-t-type
   [o ensure-pyobj])
+
+
+(def-pylib-fn PyObject_IsInstance
+  "Return 1 if inst is an instance of the class cls or a subclass of cls, or 0 if
+   not. On error, returns -1 and sets an exception.
+
+   If cls is a tuple, the check will be done against every entry in cls. The result
+   will be 1 when at least one of the checks returns 1, otherwise it will be 0.
+
+   If cls has a __instancecheck__() method, it will be called to determine the
+   subclass status as described in PEP 3119. Otherwise, inst is an instance of cls
+   if its class is a subclass of cls.
+
+   An instance inst can override what is considered its class by having a __class__
+   attribute.
+
+   An object cls can override if it is considered a class, and what its base
+   classes are, by having a __bases__ attribute (which must be a tuple of base
+   classes)."
+  Integer
+  [inst ensure-pyobj]
+  [cls ensure-pyobj])
+
 
 
 (def-pylib-fn PyObject_IsTrue

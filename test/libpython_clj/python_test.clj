@@ -10,13 +10,6 @@
 (py/initialize!)
 
 
-(defn crashit
-  []
-  (let [test-data (py/->python (py/as-python [1 2]))
-        test-py-data (py/->py-tuple [test-data test-data])
-        _ :ignored]
-    :ok))
-
 
 (deftest stdout-and-stderr
   (is (= "hey\n" (with-out-str
@@ -294,3 +287,16 @@
       (is (dfn/equals (dtt/->tensor [[1 2 3]
                                      [4 5 6]])
                       (py/as-tensor ary-data))))))
+
+
+(deftest python-tuple-equals
+  (testing "Python tuples have nice equal semantics."
+    (let [lhs (py/->py-tuple [1 2])
+          same (py/->py-tuple [1 2])
+          not-same (py/->py-tuple [3 4])]
+      (is (= lhs same))
+      (is (not= lhs not-same))
+      (is (= (.hashCode lhs)
+             (.hashCode same)))
+      (is (not= (.hashCode lhs)
+                (.hashCode not-same))))))
