@@ -307,7 +307,7 @@
     (catch Exception e)))
 
 
-(defn- detect-startup-info
+(defn detect-startup-info
   [{:keys [library-path python-home]}]
   (let [python-home (find-python-home python-home)
         java-library-path-addendum

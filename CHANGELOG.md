@@ -1,5 +1,14 @@
 # Time for a ChangeLog!
 
+## 1.22
+
+Working to make more python environments work out of the box.  Currently have a
+testcase for conda working in a clean install of a docker container.  There is now a
+new method: `libpython-clj.python.interpreter/detect-startup-info` that attempts
+call python3-config and python3 --version in order to automagically configure the
+python library.
+
+
 ## 1.21
 
 Bugfix release.  Passing infinite sequences to python functions was
