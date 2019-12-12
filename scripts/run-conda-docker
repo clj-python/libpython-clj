@@ -11,7 +11,6 @@ docker run --rm -it -u $(id -u):$(id -g) \
   -v $(pwd)/:/libpython-clj \
   --net=host -w /libpython-clj \
   docker-conda /bin/bash
-
-  # docker-conda lein update-in :dependencies conj \[nrepl\ \"0.6.0\"\]\
-  # -- update-in :plugins conj \[cider/cider-nrepl\ \"0.22.4\"\]\
-  # -- repl :headless :host localhost
+     # lein update-in :dependencies conj \[nrepl\ \"0.6.0\"\]\
+     #   -- update-in :plugins conj \[cider/cider-nrepl\ \"0.22.4\"\]\
+     #   -- repl :headless :host localhost

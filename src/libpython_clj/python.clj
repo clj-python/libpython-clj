@@ -226,9 +226,14 @@
   :program-name - optional but will show up in error messages from python.
   :no-io-redirect - there if you don't want python stdout and stderr redirection
      to *out* and *err*."
-  [& {:keys [program-name no-io-redirect? library-path]}]
+  [& {:keys [program-name
+             library-path
+             python-home
+             no-io-redirect?]}]
   (when-not @pyinterp/*main-interpreter*
-    (pyinterp/initialize! program-name library-path)
+    (pyinterp/initialize! :program-name program-name
+                          :library-path library-path
+                          :python-home python-home)
     ;;setup bridge mechansim and io redirection
     (pyinterop/register-bridge-type!)
     (when-not no-io-redirect?

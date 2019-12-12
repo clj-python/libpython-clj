@@ -6,13 +6,15 @@
              :refer [log-error log-warn log-info]]
             [tech.jna :as jna]
             [clojure.java.shell :as sh]
-            [clojure.string :as s])
+            [clojure.string :as s]
+            [clojure.tools.logging :as log])
   (:import [libpython_clj.jna
             JVMBridge
             PyObject]
            [com.sun.jna Pointer]
            [com.sun.jna.ptr PointerByReference]
-           [java.io StringWriter]))
+           [java.io StringWriter]
+           [java.nio.file Paths Path]))
 
 
 (set! *warn-on-reflection* true)
@@ -245,17 +247,6 @@
 
 
 
-
-(defn- try-load-python-library!
-  [libname]
-  (try
-    (jna/load-library libname)
-    (alter-var-root #'libpy-base/*python-library* (constantly libname))
-    (libpy/Py_InitializeEx 0)
-    libname
-    (catch Exception e)))
-
-
 (defn- ignore-shell-errors
   [& args]
   (try
@@ -280,39 +271,87 @@
   []
   (let [{:keys [out err exit]} (ignore-shell-errors "python3" "--version")]
     (when (= 0 exit)
-      (when-let [parts (->> (s/split out #"\.")
-                            (take 2)
-                            seq)]
-        (let [^String first-part (first parts)
-              first-part (if (.startsWith first-part "Python ")
-                           (.substring first-part (count "Python "))
-                           first-part)]
-          (s/join "." (concat [first-part] (rest parts))))))))
+      ;;Anaconda prints version info only to the error stream.
+      (when-let [version-info (first (filter seq [out err]))]
+        (log/infof "Python detected: %s" version-info)
+        (let [version-data (re-find #"\d+\.\d+\.\d+" version-info)
+              parts (->> (s/split version-data #"\.")
+                         (take 2)
+                         seq)]
+          (s/join "." parts))))))
 
 
-(defn set-java-library-path!
-  [python-home]
-  )
+(defn append-java-library-path!
+  [new-search-path]
+  (let [existing-paths (-> (System/getProperty "java.library.path")
+                           (s/split #":"))]
+    (when-not (contains? (set existing-paths) new-search-path)
+      (let [new-path-str (s/join ":" (concat [new-search-path]
+                                             existing-paths))]
+        (log/infof "Setting java library path: %s" new-path-str)
+        (System/setProperty "java.library.path" new-path-str)))))
+
+
+(defonce ^:private python-home-wide-ptr* (atom nil))
+
+
+(defn- try-load-python-library!
+  [libname python-home-wide-ptr]
+  (try
+    (jna/load-library libname)
+    (alter-var-root #'libpy-base/*python-library* (constantly libname))
+    (when python-home-wide-ptr
+      (libpy/Py_SetPythonHome python-home-wide-ptr))
+    (libpy/Py_InitializeEx 0)
+    libname
+    (catch Exception e)))
+
+
+(defn- detect-startup-info
+  [{:keys [library-path python-home]}]
+  (let [python-home (find-python-home python-home)
+        java-library-path-addendum
+        (when python-home
+          (-> (Paths/get python-home (into-array String ["lib"]))
+              (.toString)))
+        lib-version (find-python-lib-version)
+        libname (when (seq lib-version)
+                  (str "python" lib-version "m"))
+        retval
+        {:python-home python-home
+         :lib-version lib-version
+         :libname libname
+         :java-library-path-addendum java-library-path-addendum}]
+    (log/infof "Startup info detected: %s" retval)
+    retval))
 
 
 (defn initialize!
   [& {:keys [program-name
-             python-library-name
-             python-home]}]
+             library-path
+             python-home]
+      :as options}]
   (when-not @*main-interpreter*
-    (log-info "executing python initialize!")
-    (let [python-home (find-python-home python-home)
-          lib-version (find-python-lib-version)
-          library-names (if python-library-name
-                          [python-library-name]
+    (log-info "Executing python initialize!")
+    (let [{:keys [python-home libname java-library-path-addendum] :as startup-info}
+          (detect-startup-info options)
+          library-names (cond
+                          library-path
+                          [library-path]
+                          libname
                           (concat
-                           [(str "python" lib-version "m")]
-                           (libpy-base/library-names)))]
+                           [libname]
+                           (libpy-base/library-names))
+                          :else
+                          (libpy-base/library-names))]
+      (reset! python-home-wide-ptr* nil)
       (when python-home
-        (set-java-library-path! python-home))
+        (append-java-library-path! java-library-path-addendum)
+        ;;This can never be released if load-library succeeeds
+        (reset! python-home-wide-ptr* (jna/string->wide-ptr python-home)))
       (loop [[library-name & library-names] library-names]
         (if (and library-name
-                 (not (try-load-python-library! library-name)))
+                 (not (try-load-python-library! library-name @python-home-wide-ptr*)))
           (recur library-names))))
     ;;Set program name
     (when-let [program-name (or program-name *program-name* "")]
