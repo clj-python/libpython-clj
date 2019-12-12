@@ -1,7 +1,0 @@
-#!/bin/bash
-
-set -e
-
-pushd dockerfiles
-docker build -t docker-conda -f Dockerfile --build-arg USERID=$(id -u) --build-arg GROUPID=$(id -u) --build-arg USERNAME=$USER .
-popd
