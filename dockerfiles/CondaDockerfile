@@ -32,3 +32,5 @@ ARG USERNAME
 RUN groupadd -g $GROUPID $USERNAME
 RUN useradd -u $USERID -g $GROUPID $USERNAME
 RUN mkdir /home/$USERNAME && chown $USERNAME:$USERNAME /home/$USERNAME
+USER $USERNAME
+RUN conda create -n pyclj python=3.6 && echo "source activate pyclj" > /home/$USERNAME/.bashrc

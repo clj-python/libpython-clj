@@ -4,7 +4,9 @@
             [tech.resource :as resource]
             [libpython-clj.python.logging
              :refer [log-error log-warn log-info]]
-            [tech.jna :as jna])
+            [tech.jna :as jna]
+            [clojure.java.shell :as sh]
+            [clojure.string :as s])
   (:import [libpython_clj.jna
             JVMBridge
             PyObject]
@@ -241,6 +243,9 @@
 (defonce ^:dynamic *program-name* "")
 
 
+
+
+
 (defn- try-load-python-library!
   [libname]
   (try
@@ -251,13 +256,60 @@
     (catch Exception e)))
 
 
+(defn- ignore-shell-errors
+  [& args]
+  (try
+    (apply sh/sh args)
+    (catch Throwable e nil)))
+
+
+(defn- find-python-home
+  [& [python-home]]
+  (cond
+    python-home
+    python-home
+    (seq (System/getenv "PYTHONHOME"))
+    (System/getenv "PYTHONHOME")
+    :else
+    (let [{:keys [out err exit]} (ignore-shell-errors "python3-config" "--prefix")]
+      (when (= 0 exit)
+        (s/trimr out)))))
+
+
+(defn- find-python-lib-version
+  []
+  (let [{:keys [out err exit]} (ignore-shell-errors "python3" "--version")]
+    (when (= 0 exit)
+      (when-let [parts (->> (s/split out #"\.")
+                            (take 2)
+                            seq)]
+        (let [^String first-part (first parts)
+              first-part (if (.startsWith first-part "Python ")
+                           (.substring first-part (count "Python "))
+                           first-part)]
+          (s/join "." (concat [first-part] (rest parts))))))))
+
+
+(defn set-java-library-path!
+  [python-home]
+  )
+
+
 (defn initialize!
-  [& [program-name python-library-name]]
+  [& {:keys [program-name
+             python-library-name
+             python-home]}]
   (when-not @*main-interpreter*
     (log-info "executing python initialize!")
-    (let [user-names (when python-library-name
-                       [python-library-name])
-          library-names (or user-names (libpy-base/library-names))]
+    (let [python-home (find-python-home python-home)
+          lib-version (find-python-lib-version)
+          library-names (if python-library-name
+                          [python-library-name]
+                          (concat
+                           [(str "python" lib-version "m")]
+                           (libpy-base/library-names)))]
+      (when python-home
+        (set-java-library-path! python-home))
       (loop [[library-name & library-names] library-names]
         (if (and library-name
                  (not (try-load-python-library! library-name)))

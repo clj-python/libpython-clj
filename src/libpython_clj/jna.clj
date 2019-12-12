@@ -38,11 +38,13 @@
 
 
 (export-symbols libpython-clj.jna.interpreter
+                PySys_SetArgv
+                Py_SetProgramName
+                Py_SetPythonHome
                 Py_InitializeEx
                 Py_IsInitialized
                 Py_FinalizeEx
                 PyRun_SimpleString
-                PySys_SetArgv
                 get-type-name
                 lookup-type-symbols
                 Py_None
