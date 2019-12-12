@@ -1,7 +1,7 @@
 # Time for a ChangeLog!
 
 
-## 1.23-SNAPSHOT
+## 1.23
 
 
 Equals, hashcode, nice default .toString of python types:
