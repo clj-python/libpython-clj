@@ -300,3 +300,10 @@
              (.hashCode same)))
       (is (not= (.hashCode lhs)
                 (.hashCode not-same))))))
+
+
+(deftest range-nparray
+  (let [ary-data (-> (py/import-module "numpy")
+                     (py/$a array (range 10)))]
+    (is (dfn/equals (dtt/->tensor (range 10))
+                    (py/as-tensor ary-data)))))
