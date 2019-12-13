@@ -27,21 +27,21 @@
   (System/identityHashCode obj))
 
 
-(defn py-system-attribute [executable attr]
+(defn python-system-data [executable]
   (let [{out :out err :err}
-        (sh executable
-            "-c"
-            (format "import sys,json; print(getattr(sys, '%s'))" attr))]
-    (clojure.string/trim out)))
+        (sh executable "-c" "import sys, json; 
+print(json.dumps(
+{\"platform\":         sys.platform,
+  \"prefix\":           sys.prefix,
+  \"base_prefix\":      sys.base_prefix,
+  \"executable\":       sys.executable,
+  \"base_exec_prefix\": sys.base_exec_prefix,
+  \"exec_prefix\":      sys.exec_prefix,
+  \"version\":          list(sys.version_info)[:3]}))")] 
+    (when (clojure.string/blank? err)
+      (json/parse-string out true))))
 
-(defn py-system-version [executable]
-  (let [{out :out err :err}
-        (sh executable "-c"
-            (format "import sys, json; print(list(getattr(sys, 'version_info')[:3]))"))]
-    (json/parse-string out)))
-
-
-(defn python-system-info
+(defn system-info
   "An information map about the Python system information provided
   by a Python executable (string).
 
@@ -66,16 +66,22 @@
   :version
   (list python-major python-minor python-micro)"
   [executable]
-  (letfn [(system-attribte [x]
-            (py-system-attribute executable x))]
+  (let [{platform         :platform
+         prefix           :prefix
+         base-prefix      :base_prefix
+         executable       :executable
+         exec-prefix      :exec_prefix
+         base-exec-prefix :base_exec_prefix
+         version          :version}
+        (json/parse-string (python-system-data executable))]
+    {:platform         platform
+     :prefix           prefix
+     :base-prefix      base-prefix
+     :executable       executable
+     :exec-prefix      exec-prefix
+     :base-exec-prefix base-exec-prefix
+     :version          version}))
 
-    {:platform         (system-attribte "platform")
-     :prefix           (system-attribte "prefix")
-     :base-prefix      (system-attribte "base_prefix")
-     :executable       (system-attribte "executable")
-     :exec-prefix      (system-attribte "exec_prefix")
-     :base-exec-prefix (system-attribte "base_exec_prefix")
-     :version          (py-system-version executable)}))
 
 (defn python-library-regex [system-info]
   (let [{version  :version
@@ -373,7 +379,7 @@
         (s/trimr out)))))
 
 
-(defn- find-python-lib-version
+(defn find-python-lib-version
   []
   (let [{:keys [out err exit]} (ignore-shell-errors "python3" "--version")]
     (when (= 0 exit)
@@ -456,8 +462,9 @@
         ;;This can never be released if load-library succeeeds
         (reset! python-home-wide-ptr* (jna/string->wide-ptr python-home)))
       (loop [[library-name & library-names] library-names]
-        (if (and library-name
-                 (not (try-load-python-library! library-name @python-home-wide-ptr*)))
+        (if-let [library-name (and (try-load-python-library! library-name @python-home-wide-ptr*)
+                                   library-name)]
+          (log/info "Loaded Python library:" library-name)
           (recur library-names))))
     ;;Set program name
     (when-let [program-name (or program-name *program-name* "")]
