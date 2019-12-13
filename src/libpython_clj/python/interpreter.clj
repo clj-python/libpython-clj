@@ -41,7 +41,7 @@ print(json.dumps(
     (when (clojure.string/blank? err)
       (json/parse-string out true))))
 
-(defn system-info
+(defn python-system-info
   "An information map about the Python system information provided
   by a Python executable (string).
 
@@ -73,7 +73,7 @@ print(json.dumps(
          exec-prefix      :exec_prefix
          base-exec-prefix :base_exec_prefix
          version          :version}
-        (json/parse-string (python-system-data executable))]
+        (python-system-data executable)]
     {:platform         platform
      :prefix           prefix
      :base-prefix      base-prefix
@@ -127,6 +127,8 @@ print(json.dumps(
     system-info)))
 
 (comment
+
+  (python-system-data "python3.7")
   ;; library paths workflow
 
   (let [executable "python3.7"
