@@ -127,8 +127,6 @@ print(json.dumps(
     system-info)))
 
 (comment
-
-  (python-system-data "python3.7")
   ;; library paths workflow
 
   (let [executable "python3.7"
