@@ -6,8 +6,10 @@
              :refer [log-error log-warn log-info]]
             [tech.jna :as jna]
             [clojure.java.shell :as sh]
+            [clojure.java.io :as io]
             [clojure.string :as s]
-            [clojure.tools.logging :as log])
+            [clojure.tools.logging :as log]
+            [cheshire.core :as json])
   (:import [libpython_clj.jna
             JVMBridge
             PyObject]
@@ -23,6 +25,110 @@
 (defn get-object-handle
   [obj]
   (System/identityHashCode obj))
+
+
+(defn py-system-attribute [executable attr]
+  (let [{out :out err :err}
+        (sh executable
+            "-c"
+            (format "import sys,json; print(getattr(sys, '%s'))" attr))]
+    (clojure.string/trim out)))
+
+(defn py-system-version [executable]
+  (let [{out :out err :err}
+        (sh executable "-c"
+            (format "import sys, json; print(list(getattr(sys, 'version_info')[:3]))"))]
+    (json/parse-string out)))
+
+
+(defn python-system-info
+  "An information map about the Python system information provided
+  by a Python executable (string).
+
+  :platform (operating system information)
+  :prefix
+  A string giving the site-specific directory prefix where the platform independent Python files are installed; by default, this is the string '/usr/local'. This can be set at build time with the --prefix argument to the configure script. The main collection of Python library modules is installed in the directory prefix/lib/pythonX.Y while the platform independent header files (all except pyconfig.h) are stored in prefix/include/pythonX.Y, where X.Y is the version number of Python, for example 3.2.
+  Note If a virtual environment is in effect, this value will be changed in site.py to point to the virtual environment. The value for the Python installation will still be available, via base_prefix.
+
+  :base-prefix
+  Set during Python startup, before site.py is run, to the same value as prefix. If not running in a virtual environment, the values will stay the same; if site.py finds that a virtual environment is in use, the values of prefix and exec_prefix will be changed to point to the virtual environment, whereas base_prefix and base_exec_prefix will remain pointing to the base Python installation (the one which the virtual environment was created from).
+
+  :executable
+  A string giving the absolute path of the executable binary for the Python interpreter, on systems where this makes sense. If Python is unable to retrieve the real path to its executable, sys.executable will be an empty string or None.
+
+  :exec-prefix
+  A string giving the site-specific directory prefix where the platform-dependent Python files are installed; by default, this is also '/usr/local'. This can be set at build time with the --exec-prefix argument to the configure script. Specifically, all configuration files (e.g. the pyconfig.h header file) are installed in the directory exec_prefix/lib/pythonX.Y/config, and shared library modules are installed in exec_prefix/lib/pythonX.Y/lib-dynload, where X.Y is the version number of Python, for example 3.2.
+  Note If a virtual environment is in effect, this value will be changed in site.py to point to the virtual environment. The value for the Python installation will still be available, via base_exec_prefix.
+
+  :base-exec-prefix
+  Set during Python startup, before site.py is run, to the same value as exec_prefix. If not running in a virtual environment, the values will stay the same; if site.py finds that a virtual environment is in use, the values of prefix and exec_prefix will be changed to point to the virtual environment, whereas base_prefix and base_exec_prefix will remain pointing to the base Python installation (the one which the virtual environment was created from).
+
+  :version
+  (list python-major python-minor python-micro)"
+  [executable]
+  (letfn [(system-attribte [x]
+            (py-system-attribute executable x))]
+
+    {:platform         (system-attribte "platform")
+     :prefix           (system-attribte "prefix")
+     :base-prefix      (system-attribte "base_prefix")
+     :executable       (system-attribte "executable")
+     :exec-prefix      (system-attribte "exec_prefix")
+     :base-exec-prefix (system-attribte "base_exec_prefix")
+     :version          (py-system-version executable)}))
+
+(defn python-library-regex [system-info]
+  (let [{version  :version
+         platform :platform} system-info
+        [major minor micro]  (vec version)]
+    (re-pattern
+     (format
+      (condp (partial =) (keyword platform)
+        ;; TODO: not sure what the strings returned by
+        ;;   ..: mac and windows are for sys.platform
+        :linux   "libpython%s.%sm.so$"
+        :mac     "libpython%s.%sm.dylib$"
+        :windows "python%s.%sm.dll$")
+      major minor))))
+
+(defn python-library-paths
+  "Returns vector of matching python libraries in order of:
+  - virtual-env (library)
+  - installation prefix (library)
+  - default installation location
+  - virtual-env (executable)
+  - installation prefix (executable)
+  - default executable location"
+  [system-info python-regex]
+  (transduce
+   (comp
+    (map io/file)
+    (map file-seq)
+    cat
+    (map str)
+    (filter #(re-find python-regex %)))
+   (fn
+     ([[seen results]] results)
+     ([[seen? results] input]
+      (if (not (seen? input))
+        [(conj seen? input) (conj results input)]
+        [seen? results])))
+   ;; [seen? results]
+   [#{} []]
+   ((comp
+     vec
+     (juxt :base-prefix :prefix :base-exec-prefix :exec-prefix))
+    system-info)))
+
+(comment
+  ;; library paths workflow
+
+  (let [executable "python3.7"
+        system-info (python-system-info executable)
+        pyregex (python-library-regex system-info)]
+    (python-library-paths system-info pyregex))
+  ;;=> ["/usr/lib/x86_64-linux-gnu/libpython3.7m.so" "/usr/lib/python3.7/config-3.7m-x86_64-linux-gnu/libpython3.7m.so"]
+  )
 
 
 ;;All interpreters share the same type symbol table as types are uniform
