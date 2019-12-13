@@ -209,7 +209,7 @@
   (cond
     (jna/as-ptr arg)
     (jna/as-ptr arg)
-    (instance? RandomAccess arg)
+    (dtype/reader? arg)
     (->python arg)
     (instance? Map arg)
     (->python arg)

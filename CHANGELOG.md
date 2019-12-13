@@ -1,6 +1,14 @@
 # Time for a ChangeLog!
 
 
+## 1.24
+
+
+Clojure's range is now respected in two different ways:
+* `(range)` - bridges to a python iterable
+* `(range 5)` - copies to a python list
+
+
 ## 1.23
 
 

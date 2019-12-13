@@ -5,7 +5,7 @@
             [libpython-clj.python.logging
              :refer [log-error log-warn log-info]]
             [tech.jna :as jna]
-            [clojure.java.shell :as sh]
+            [clojure.java.shell :refer [sh]]
             [clojure.java.io :as io]
             [clojure.string :as s]
             [clojure.tools.logging :as log]
@@ -29,7 +29,7 @@
 
 (defn python-system-data [executable]
   (let [{out :out err :err}
-        (sh executable "-c" "import sys, json; 
+        (sh executable "-c" "import sys, json;
 print(json.dumps(
 {\"platform\":         sys.platform,
   \"prefix\":           sys.prefix,
@@ -37,7 +37,7 @@ print(json.dumps(
   \"executable\":       sys.executable,
   \"base_exec_prefix\": sys.base_exec_prefix,
   \"exec_prefix\":      sys.exec_prefix,
-  \"version\":          list(sys.version_info)[:3]}))")] 
+  \"version\":          list(sys.version_info)[:3]}))")]
     (when (clojure.string/blank? err)
       (json/parse-string out true))))
 
@@ -362,7 +362,7 @@ print(json.dumps(
 (defn- ignore-shell-errors
   [& args]
   (try
-    (apply sh/sh args)
+    (apply sh args)
     (catch Throwable e nil)))
 
 
@@ -379,7 +379,7 @@ print(json.dumps(
         (s/trimr out)))))
 
 
-(defn find-python-lib-version
+(defn- find-python-lib-version
   []
   (let [{:keys [out err exit]} (ignore-shell-errors "python3" "--version")]
     (when (= 0 exit)
@@ -405,15 +405,18 @@ print(json.dumps(
 
 
 (defonce ^:private python-home-wide-ptr* (atom nil))
+(defonce ^:private python-path-wide-ptr* (atom nil))
 
 
 (defn- try-load-python-library!
-  [libname python-home-wide-ptr]
+  [libname python-home-wide-ptr python-path-wide-ptr]
   (try
     (jna/load-library libname)
     (alter-var-root #'libpy-base/*python-library* (constantly libname))
     (when python-home-wide-ptr
       (libpy/Py_SetPythonHome python-home-wide-ptr))
+    (when python-path-wide-ptr
+      (libpy/Py_SetProgramName python-path-wide-ptr))
     (libpy/Py_InitializeEx 0)
     libname
     (catch Exception e)))
@@ -457,14 +460,19 @@ print(json.dumps(
                           :else
                           (libpy-base/library-names))]
       (reset! python-home-wide-ptr* nil)
+      (reset! python-path-wide-ptr* nil)
       (when python-home
         (append-java-library-path! java-library-path-addendum)
         ;;This can never be released if load-library succeeeds
-        (reset! python-home-wide-ptr* (jna/string->wide-ptr python-home)))
+        (reset! python-home-wide-ptr* (jna/string->wide-ptr python-home))
+        (reset! python-path-wide-ptr* (jna/string->wide-ptr
+                                       (format "%s/bin/python3"
+                                               python-home))))
       (loop [[library-name & library-names] library-names]
-        (if-let [library-name (and (try-load-python-library! library-name @python-home-wide-ptr*)
-                                   library-name)]
-          (log/info "Loaded Python library:" library-name)
+        (if (and library-name
+                 (not (try-load-python-library! library-name
+                                                @python-home-wide-ptr*
+                                                @python-path-wide-ptr*)))
           (recur library-names))))
     ;;Set program name
     (when-let [program-name (or program-name *program-name* "")]

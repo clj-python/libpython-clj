@@ -1,0 +1,9 @@
+#!/bin/bash
+
+source activate pyclj
+
+export LD_LIBRARY_PATH="/home/chrisn/.conda/envs/pyclj/lib"
+
+lein update-in :dependencies conj \[nrepl\ \"0.6.0\"\]\
+     -- update-in :plugins conj \[cider/cider-nrepl\ \"0.22.4\"\]\
+     -- repl :headless :host localhost
