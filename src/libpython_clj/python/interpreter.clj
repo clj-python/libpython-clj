@@ -5,7 +5,7 @@
             [libpython-clj.python.logging
              :refer [log-error log-warn log-info]]
             [tech.jna :as jna]
-            [clojure.java.shell :as sh]
+            [clojure.java.shell :refer [sh]]
             [clojure.java.io :as io]
             [clojure.string :as s]
             [clojure.tools.logging :as log]
@@ -356,7 +356,7 @@
 (defn- ignore-shell-errors
   [& args]
   (try
-    (apply sh/sh args)
+    (apply sh args)
     (catch Throwable e nil)))
 
 
@@ -399,15 +399,18 @@
 
 
 (defonce ^:private python-home-wide-ptr* (atom nil))
+(defonce ^:private python-path-wide-ptr* (atom nil))
 
 
 (defn- try-load-python-library!
-  [libname python-home-wide-ptr]
+  [libname python-home-wide-ptr python-path-wide-ptr]
   (try
     (jna/load-library libname)
     (alter-var-root #'libpy-base/*python-library* (constantly libname))
     (when python-home-wide-ptr
       (libpy/Py_SetPythonHome python-home-wide-ptr))
+    (when python-path-wide-ptr
+      (libpy/Py_SetProgramName python-path-wide-ptr))
     (libpy/Py_InitializeEx 0)
     libname
     (catch Exception e)))
@@ -451,13 +454,19 @@
                           :else
                           (libpy-base/library-names))]
       (reset! python-home-wide-ptr* nil)
+      (reset! python-path-wide-ptr* nil)
       (when python-home
         (append-java-library-path! java-library-path-addendum)
         ;;This can never be released if load-library succeeeds
-        (reset! python-home-wide-ptr* (jna/string->wide-ptr python-home)))
+        (reset! python-home-wide-ptr* (jna/string->wide-ptr python-home))
+        (reset! python-path-wide-ptr* (jna/string->wide-ptr
+                                       (format "%s/bin/python3"
+                                               python-home))))
       (loop [[library-name & library-names] library-names]
         (if (and library-name
-                 (not (try-load-python-library! library-name @python-home-wide-ptr*)))
+                 (not (try-load-python-library! library-name
+                                                @python-home-wide-ptr*
+                                                @python-path-wide-ptr*)))
           (recur library-names))))
     ;;Set program name
     (when-let [program-name (or program-name *program-name* "")]
