@@ -198,67 +198,72 @@
   style 'require syntax.  Possibly overengineered."
   [supported-flags reqs]
   
-  (let [supported-flags #{:reload}]
-    (letfn [(supported-flag-item
-              ;; scanned a supported tag token
-              [supported-flags flag results item items]
-              (cond
-                ;; add flag, continue scanning
-                (true? item) (next-flag-item
-                              supported-flags
-                              (conj results flag)
-                              (first items)
-                              (rest items))
+  (letfn [(supported-flag-item
+            ;; scanned a supported tag token
+            [supported-flags flag results item items]
+            (cond
+              ;; add flag, continue scanning
+              (true? item) (next-flag-item
+                            supported-flags
+                            (conj results flag)
+                            (first items)
+                            (rest items))
 
-                ;; don't add flag, continue scanning
-                (false? item) (next-flag-item
-                               supported-flags
-                               results
-                               (first items)
-                               (rest items))
+              ;; don't add flag, continue scanning
+              (false? item) (next-flag-item
+                             supported-flags
+                             results
+                             (first items)
+                             (rest items))
 
-                
-                :else
-                ;; unary flag -- add flag and continue scanning
-                (next-flag-item
-                 supported-flags
-                 (conj  results flag)
+              
+              :else
+              ;; unary flag -- add flag but scan current item/s
+              (next-flag-item
+               supported-flags
+               (conj  results flag)
+               item
+               items)))
+
+
+          ;; scan flags
+          (next-flag-item [supported-flags results item items]
+            (cond
+              ;; supported flag scanned, begin FSM parse
+              (get supported-flags item)
+              (let [flag            (get supported-flags item)
+                    remaining-flags (clojure.set/difference
+                                     supported-flags #{flag})]
+                (supported-flag-item
+                 remaining-flags
+                 flag
+                 results
                  (first items)
-                 (rest items))))
+                 (rest items)))
+
+              ;; FSM complete
+              (nil? item) (into #{} results)
+
+              ;; no flag scanned, continue scanning
+              :else (recur
+                     supported-flags
+                     results
+                     (first items)
+                     (rest items))))
+
+          ;; entrypoint
+          (get-flags [supported-flags reqs]
+            (next-flag-item supported-flags
+                            []
+                            (first reqs)
+                            (rest reqs)))]
+    (trampoline get-flags supported-flags reqs)))
 
 
-            ;; scan flags
-            (next-flag-item [supported-flags results item items]
-              (cond
-                ;; supported flag scanned, begin FSM parse
-                (get supported-flags item)
-                (let [flag            (get supported-flags item)
-                      remaining-flags (clojure.set/difference
-                                       supported-flags #{flag})]
-                  (supported-flag-item
-                   remaining-flags
-                   flag
-                   results
-                   (first items)
-                   (rest items)))
+(comment
 
-                ;; FSM complete
-                (nil? item) (into #{} results)
-
-                ;; no flag scanned, continue scanning
-                :else (recur
-                       supported-flags
-                       results
-                       (first items)
-                       (rest items))))
-
-            ;; entrypoint
-            (get-flags [supported-flags reqs]
-              (next-flag-item supported-flags
-                              []
-                              (first reqs)
-                              (rest reqs)))]
-      (trampoline get-flags supported-flags [:reload true]))))
+  (parse-flags #{:a :b} '[:a :b true])
+  )
 
 (defn ^:private load-python-lib [req]
   (let [supported-flags     #{:reload :no-arglists}

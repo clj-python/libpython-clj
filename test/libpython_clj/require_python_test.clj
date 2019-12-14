@@ -1,5 +1,5 @@
 (ns libpython-clj.require-python-test
-  (:require [libpython-clj.require :as req :refer [require-python]]
+  (:require [libpython-clj.require :as req :refer [require-python] :reload true]
             [clojure.test :refer :all]))
 
 
@@ -43,8 +43,7 @@
     (is (= #{:a :b} (parse-flags #{:a :b} '[:a true :b])))
     (is (= #{:a :b} (parse-flags #{:a :b} '[:a  :b true])))
     (is (= #{:a :b} (parse-flags #{:a :b} '[:a  true :b true])))
-    (is (= #{:a} (parse-flags #{:a :b} '[:a  false :b true])))
-    (is (= #{:a} (parse-flags #{:a :b} '[:b true :a false])))
-    (is (= #{:a} (parse-flags #{:a :b} '[:b :a false])))
-    (is (= #{:a} (parse-flags #{:a :b} '[:b :a false :a true])))))
-
+    (is (= #{:b} (parse-flags #{:a :b} '[:a  false :b true])))
+    (is (= #{:b} (parse-flags #{:a :b} '[:b true :a false])))
+    (is (= #{:b} (parse-flags #{:a :b} '[:b :a false])))
+    (is (= #{:b} (parse-flags #{:a :b} '[:b :a false :a true])))))
