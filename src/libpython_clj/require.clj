@@ -219,10 +219,13 @@
         python-namespace (find-ns module-name-or-ns)
         this-module (import-module (str module-name))]
 
-    (when reload?
-      (remove-ns module-name)
-      (reload-module this-module))
-    (create-ns module-name-or-ns)
+    (cond
+      reload?
+      (do
+        (remove-ns module-name)
+        (reload-module this-module))
+      (not python-namespace)
+      (create-ns module-name-or-ns))
 
     ;; bind the python module to its symbolic name
     ;; in the current namespace
@@ -252,8 +255,10 @@
                            (into {}))]
 
       ;;Always make the loaded namespace available to the current namespace.
-      (intern current-ns-sym (with-meta module-name-or-ns
-                               {:doc (doc this-module)}))
+      (intern current-ns-sym
+              (with-meta module-name-or-ns
+                {:doc (doc this-module)})
+              this-module)
       (let [refer-symbols
             (cond
               ;; include everything into the current namespace,

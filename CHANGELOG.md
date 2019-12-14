@@ -1,6 +1,12 @@
 # Time for a ChangeLog!
 
 
+## 1.25
+
+
+Fixed (with tests) major issue with require-python.
+
+
 ## 1.24
 
 
