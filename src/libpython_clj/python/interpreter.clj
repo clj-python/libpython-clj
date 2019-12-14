@@ -31,7 +31,7 @@
   (let [{out :out err :err}
         (sh executable "-c" "import sys, json;
 print(json.dumps(
-{\"platform\":         sys.platform,
+{\"platform\":          sys.platform,
   \"prefix\":           sys.prefix,
   \"base_prefix\":      sys.base_prefix,
   \"executable\":       sys.executable,
