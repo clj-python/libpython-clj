@@ -81,6 +81,7 @@
     (number? x) ""
     :else (py-class-argspec x)))
 
+
 (defn pyarglists
   ([argspec] (pyarglists argspec
                          (if-let [defaults
@@ -140,7 +141,12 @@
                            (when (not-empty or-map)
                              {:or or-map})
                            (when (not-empty as-varkw)
-                             as-varkw)) opt-args
+                             as-varkw))
+
+
+
+
+         opt-args
          (cond
            (and (empty? kwargs-map)
                 (nil? varargs)) '()
@@ -162,6 +168,7 @@
          arglists
          (recur argspec' defaults' arglists))))))
 
+
 (defn py-fn-metadata [fn-name x {:keys [no-arglists?]}]
   (let [fn-argspec (pyargspec x)
         fn-docstr  (get-pydoc x)]
@@ -175,6 +182,7 @@
          {:arglists (pyarglists fn-argspec)}
          (catch Throwable e
            nil))))))
+
 
 (defn ^:private load-py-fn [f fn-name fn-module-name-or-ns
                             options]
@@ -302,6 +310,8 @@
               (intern module-name-or-ns (symbol att-name) v)))
           (catch Throwable e
             (log/warnf e "Failed to require symbol %s" att-name)))))
+
+
     (let [python-namespace (find-ns module-name-or-ns)
           ;;ns-publics is a map of symbol to var.  Var's have metadata on them.
           public-data      (->> (ns-publics python-namespace)
@@ -421,17 +431,3 @@
     (load-python-lib (vector reqs))
     (vector? reqs)
     (load-python-lib reqs)))
-
-(comment
-  (require-python '[os])
-  (require-python '[foo :as fug :reload true])
-
-  (flags* #{:reload} '[foo :as fug :reload false])
-
-  (fug/fib 1)
-
-  (partition-all 2 1 (range 10))
-
-  (clojure.set/difference #{:hey} #{:hey})
-  )
-
