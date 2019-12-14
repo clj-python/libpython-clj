@@ -192,6 +192,47 @@
                                                     options)) f)))
 
 
+(defn ^:private load-python-lib-data [req]
+  (let [supported-flags     #{:reload :no-arglists}
+        [module-name & etc] req
+        flags               (into #{}
+                                  (filter supported-flags)
+                                  etc)
+        etc                 (into {}
+                                  (comp
+                                   (remove supported-flags)
+                                   (partition-all 2)
+                                   (map vec))
+                                  etc)
+        reload?             (:reload flags)
+        no-arglists?        (:no-arglists flags)
+        module-name-or-ns   (:as etc module-name)
+        exclude             (into #{} (:exclude etc))
+        refer               (cond
+                              (= :all (:refer etc)) #{:all}
+                              (= :* (:refer etc))   #{:*}
+                              :else                 (into
+                                                     #{}
+                                                     (:refer etc)))
+        current-ns          *ns*
+        current-ns-sym      (symbol (str current-ns))
+        python-namespace    (find-ns module-name-or-ns)
+        this-module         (import-module (str module-name))]
+    {:current-ns        current-ns
+     :current-ns-sym    current-ns-sym
+     :reload?           reload?
+     :no-arglists?      no-arglists?
+     :module-name-or-ns module-name-or-ns
+     :this-module       this-module
+     :python-namespace  python-namespace
+     :exclude           exclude
+     :etc               etc
+     :flags             flags}
+    
+
+    )
+  )
+
 (defn ^:private load-python-lib [req]
   (let [supported-flags     #{:reload :no-arglists}
         [module-name & etc] req
