@@ -260,10 +260,6 @@
     (trampoline get-flags supported-flags reqs)))
 
 
-(comment
-
-  (parse-flags #{:a :b} '[:a :b true])
-  )
 
 (defn ^:private load-python-lib [req]
   (let [supported-flags     #{:reload :no-arglists}
