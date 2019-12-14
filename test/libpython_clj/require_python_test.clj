@@ -1,5 +1,5 @@
 (ns libpython-clj.require-python-test
-  (:require [libpython-clj.require :refer [require-python]]
+  (:require [libpython-clj.require :as req :refer [require-python]]
             [libpython-clj.python :as py]
             [clojure.test :refer :all]))
 
@@ -21,3 +21,32 @@
     (is (= 10.0 (double (floor 10.1))))
     (is (= pymath (py/import-module "math")))
     (is (thrown? Throwable (require-python '[math :refer [blah]])))))
+
+
+(deftest parse-flags-test
+  ;; sanity check
+  (is (= #{:reload :foo}
+         #{:foo :reload}))
+  (let [parse-flags #'req/parse-flags]
+    (is (= #{:reload} (parse-flags
+                       #{:reload}
+                       '[:reload foo])))
+    (is (= #{} (parse-flags #{} '[:reload foo])))
+    (is (= #{:reload} (parse-flags #{:reload} '[:reload true])))
+    (is (= #{:reload} (parse-flags #{:reload} '[:reload :as foo])))
+    (is (= #{:reload} (parse-flags #{:reload} '[:reload foo :as])))
+    (is (= #{:reload} (parse-flags #{:reload} '[foo :reload :as bar])))
+    (is (= #{} (parse-flags #{:reload} '[:reload false])))
+    (is (= #{} (parse-flags #{:reload} '[:reload false :reload])))
+    (is (= #{} (parse-flags #{:reload} '[:reload false :reload true])))
+    (is (= #{:reload} (parse-flags  #{:reload} '[:reload :reload false])))
+    (is (= #{:reload} (parse-flags #{:reload} '[:reload true :reload false])))
+    (is (= #{:a :b}) (parse-flags #{:a :b} '[:a true :b]))
+    (is (= #{:a :b}) (parse-flags #{:a :b} '[:a :b]))
+    (is (= #{:a :b} (parse-flags #{:a :b} '[:a true :b])))
+    (is (= #{:a :b} (parse-flags #{:a :b} '[:a  :b true])))
+    (is (= #{:a :b} (parse-flags #{:a :b} '[:a  true :b true])))
+    (is (= #{:b} (parse-flags #{:a :b} '[:a  false :b true])))
+    (is (= #{:b} (parse-flags #{:a :b} '[:b true :a false])))
+    (is (= #{:b} (parse-flags #{:a :b} '[:b :a false])))
+    (is (= #{:b} (parse-flags #{:a :b} '[:b :a false :a true])))))

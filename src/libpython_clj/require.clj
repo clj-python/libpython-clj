@@ -191,16 +191,84 @@
     (intern fn-ns (with-meta fn-sym (py-fn-metadata fn-name f
                                                     options)) f)))
 
+(defn- parse-flags
+  "FSM style parser for flags.  Designed to support both
+  unary style flags aka '[foo :reload] and
+  boolean flags '[foo :reload true] to support Clojure
+  style 'require syntax.  Possibly overengineered."
+  [supported-flags reqs]
+  
+  (letfn [(supported-flag-item
+            ;; scanned a supported tag token
+            [supported-flags flag results item items]
+            (cond
+              ;; add flag, continue scanning
+              (true? item) (next-flag-item
+                            supported-flags
+                            (conj results flag)
+                            (first items)
+                            (rest items))
+
+              ;; don't add flag, continue scanning
+              (false? item) (next-flag-item
+                             supported-flags
+                             results
+                             (first items)
+                             (rest items))
+
+              
+              :else
+              ;; unary flag -- add flag but scan current item/s
+              (next-flag-item
+               supported-flags
+               (conj  results flag)
+               item
+               items)))
+
+
+          ;; scan flags
+          (next-flag-item [supported-flags results item items]
+            (cond
+              ;; supported flag scanned, begin FSM parse
+              (get supported-flags item)
+              (let [flag            (get supported-flags item)
+                    remaining-flags (clojure.set/difference
+                                     supported-flags #{flag})]
+                (supported-flag-item
+                 remaining-flags
+                 flag
+                 results
+                 (first items)
+                 (rest items)))
+
+              ;; FSM complete
+              (nil? item) (into #{} results)
+
+              ;; no flag scanned, continue scanning
+              :else (recur
+                     supported-flags
+                     results
+                     (first items)
+                     (rest items))))
+
+          ;; entrypoint
+          (get-flags [supported-flags reqs]
+            (next-flag-item supported-flags
+                            []
+                            (first reqs)
+                            (rest reqs)))]
+    (trampoline get-flags supported-flags reqs)))
+
+
 
 (defn ^:private load-python-lib [req]
   (let [supported-flags     #{:reload :no-arglists}
         [module-name & etc] req
-        flags               (into #{}
-                                  (filter supported-flags)
-                                  etc)
+        flags               (flags* supported-flags etc)
         etc                 (into {}
                                   (comp
                                    (remove supported-flags)
+                                   (remove boolean?)
                                    (partition-all 2)
                                    (map vec))
                                   etc)
@@ -208,16 +276,16 @@
         no-arglists?        (:no-arglists flags)
         module-name-or-ns   (:as etc module-name)
         exclude             (into #{} (:exclude etc))
-        refer          (cond
-                         (= :all (:refer etc)) #{:all}
-                         (= :* (:refer etc))   #{:*}
-                         :else                 (into
-                                                #{}
-                                                (:refer etc)))
-        current-ns     *ns*
-        current-ns-sym (symbol (str current-ns))
-        python-namespace (find-ns module-name-or-ns)
-        this-module (import-module (str module-name))]
+        refer               (cond
+                              (= :all (:refer etc)) #{:all}
+                              (= :* (:refer etc))   #{:*}
+                              :else                 (into
+                                                     #{}
+                                                     (:refer etc)))
+        current-ns          *ns*
+        current-ns-sym      (symbol (str current-ns))
+        python-namespace    (find-ns module-name-or-ns)
+        this-module         (import-module (str module-name))]
 
     (cond
       reload?
@@ -250,9 +318,9 @@
 
     (let [python-namespace (find-ns module-name-or-ns)
           ;;ns-publics is a map of symbol to var.  Var's have metadata on them.
-          public-data (->> (ns-publics python-namespace)
-                           (remove #(exclude (first %)))
-                           (into {}))]
+          public-data      (->> (ns-publics python-namespace)
+                                (remove #(exclude (first %)))
+                                (into {}))]
 
       ;;Always make the loaded namespace available to the current namespace.
       (intern current-ns-sym
