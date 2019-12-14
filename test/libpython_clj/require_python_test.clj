@@ -1,6 +1,5 @@
 (ns libpython-clj.require-python-test
-  (:require [libpython-clj.require :as req :refer [require-python] :reload true]
-  (:require [libpython-clj.require :refer [require-python]]
+  (:require [libpython-clj.require :as req :refer [require-python]]
             [libpython-clj.python :as py]
             [clojure.test :refer :all]))
 
