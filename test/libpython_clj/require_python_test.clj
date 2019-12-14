@@ -47,3 +47,4 @@
     (is (= #{:a} (parse-flags #{:a :b} '[:b true :a false])))
     (is (= #{:a} (parse-flags #{:a :b} '[:b :a false])))
     (is (= #{:a} (parse-flags #{:a :b} '[:b :a false :a true])))))
+
