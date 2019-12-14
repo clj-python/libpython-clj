@@ -81,7 +81,6 @@
     (number? x) ""
     :else (py-class-argspec x)))
 
-
 (defn pyarglists
   ([argspec] (pyarglists argspec
                          (if-let [defaults
@@ -141,12 +140,7 @@
                            (when (not-empty or-map)
                              {:or or-map})
                            (when (not-empty as-varkw)
-                             as-varkw))
-
-
-
-
-         opt-args
+                             as-varkw)) opt-args
          (cond
            (and (empty? kwargs-map)
                 (nil? varargs)) '()
@@ -168,7 +162,6 @@
          arglists
          (recur argspec' defaults' arglists))))))
 
-
 (defn py-fn-metadata [fn-name x {:keys [no-arglists?]}]
   (let [fn-argspec (pyargspec x)
         fn-docstr  (get-pydoc x)]
@@ -183,7 +176,6 @@
          (catch Throwable e
            nil))))))
 
-
 (defn ^:private load-py-fn [f fn-name fn-module-name-or-ns
                             options]
   (let [fn-ns      (symbol (str fn-module-name-or-ns))
@@ -191,22 +183,79 @@
     (intern fn-ns (with-meta fn-sym (py-fn-metadata fn-name f
                                                     options)) f)))
 
+(defn- parse-flags
+  "FSM style parser for flags.  Designed to support both
+  unary style flags aka '[foo :reload] and
+  boolean flags '[foo :reload true] to support Clojure
+  style 'require syntax.  Possibly overengineered."
+  [supported-flags reqs]
+  
+  (let [supported-flags #{:reload}]
+    (letfn [(supported-flag-item
+              ;; scanned a supported tag token
+              [supported-flags flag results item items]
+              (cond
+                ;; add flag, continue scanning
+                (true? item) (next-flag-item
+                              supported-flags
+                              (conj results flag)
+                              (first items)
+                              (rest items))
+
+                ;; don't add flag, continue scanning
+                (false? item) (next-flag-item
+                               supported-flags
+                               results
+                               (first items)
+                               (rest items))
+
+                
+                :else
+                ;; unary flag -- add flag and continue scanning
+                (next-flag-item
+                 supported-flags
+                 (conj  results flag)
+                 (first items)
+                 (rest items))))
+
+
+            ;; scan flags
+            (next-flag-item [supported-flags results item items]
+              (cond
+                ;; supported flag scanned, begin FSM parse
+                (get supported-flags item)
+                (let [flag (get supported-flags item)]
+                  (supported-flag-item
+                   ;; stop scanner from looking for these
+                   ;; supported flags
+                   (clojure.set/difference supported-flags #{flag})
+                   flag
+                   results
+                   (first items)
+                   (rest items)))
+
+                ;; FSM complete
+                (nil? item)      (into #{} results)
+
+                ;; no flag scanned, continue scanning
+                :else            (recur
+                                  supported-flags
+                                  results
+                                  (first items)
+                                  (rest items))))
+
+            ;; entrypoint
+            (get-flags [supported-flags reqs]
+              (next-flag-item supported-flags
+                              []
+                              (first reqs)
+                              (rest reqs)))]
+      (trampoline get-flags supported-flags [:reload true]))))
 
 (defn ^:private load-python-lib [req]
   (let [supported-flags     #{:reload :no-arglists}
-        binary-flags        (into #{} (map (fn [flag] [flag true]))
-                                  supported-flags)
-        [module-name & etc] req        
-        flags               (into #{}
-                                  (comp
-                                   (map (fn [a] (if (vector? a) a [a])))
-                                   (map (fn [[a b]]
-                                          (if (or (true? b)
-                                                  (nil? b))
-                                            a)))
-                                   (remove nil?)
-                                   (filter supported-flags))
-                                  etc)
+        [module-name & etc] req
+        flags               (flags* supported-flags etc)
         etc                 (into {}
                                   (comp
                                    (remove supported-flags)
@@ -253,8 +302,6 @@
               (intern module-name-or-ns (symbol att-name) v)))
           (catch Throwable e
             (log/warnf e "Failed to require symbol %s" att-name)))))
-
-
     (let [python-namespace (find-ns module-name-or-ns)
           ;;ns-publics is a map of symbol to var.  Var's have metadata on them.
           public-data      (->> (ns-publics python-namespace)
@@ -374,4 +421,17 @@
     (load-python-lib (vector reqs))
     (vector? reqs)
     (load-python-lib reqs)))
+
+(comment
+  (require-python '[os])
+  (require-python '[foo :as fug :reload true])
+
+  (flags* #{:reload} '[foo :as fug :reload false])
+
+  (fug/fib 1)
+
+  (partition-all 2 1 (range 10))
+
+  (clojure.set/difference #{:hey} #{:hey})
+  )
 
