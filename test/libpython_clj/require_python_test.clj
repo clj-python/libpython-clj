@@ -28,7 +28,6 @@
     (is (= #{:reload} (parse-flags
                        #{:reload}
                        '[:reload foo])))
-
     (is (= #{} (parse-flags #{} '[:reload foo])))
     (is (= #{:reload} (parse-flags #{:reload} '[:reload true])))
     (is (= #{:reload} (parse-flags #{:reload} '[:reload :as foo])))
@@ -47,15 +46,4 @@
     (is (= #{:a} (parse-flags #{:a :b} '[:a  false :b true])))
     (is (= #{:a} (parse-flags #{:a :b} '[:b true :a false])))
     (is (= #{:a} (parse-flags #{:a :b} '[:b :a false])))
-    (is (= #{:a} (parse-flags #{:a :b} '[:b :a false :a true])))
-    
-
-    
-    )
-  
-  )
-
-(comment
-
-  (parse-flags-test)
-  )
+    (is (= #{:a} (parse-flags #{:a :b} '[:b :a false :a true])))))
