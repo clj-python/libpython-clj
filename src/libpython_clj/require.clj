@@ -291,7 +291,8 @@
       reload?
       (do
         (remove-ns module-name)
-        (reload-module this-module))
+        (reload-module this-module)
+        (create-ns module-name-or-ns))
       (not python-namespace)
       (create-ns module-name-or-ns))
 
