@@ -194,13 +194,23 @@
 
 (defn ^:private load-python-lib [req]
   (let [supported-flags     #{:reload :no-arglists}
-        [module-name & etc] req
+        binary-flags        (into #{} (map (fn [flag] [flag true]))
+                                  supported-flags)
+        [module-name & etc] req        
         flags               (into #{}
-                                  (filter supported-flags)
+                                  (comp
+                                   (map (fn [a] (if (vector? a) a [a])))
+                                   (map (fn [[a b]]
+                                          (if (or (true? b)
+                                                  (nil? b))
+                                            a)))
+                                   (remove nil?)
+                                   (filter supported-flags))
                                   etc)
         etc                 (into {}
                                   (comp
                                    (remove supported-flags)
+                                   (remove boolean?)
                                    (partition-all 2)
                                    (map vec))
                                   etc)
@@ -208,16 +218,16 @@
         no-arglists?        (:no-arglists flags)
         module-name-or-ns   (:as etc module-name)
         exclude             (into #{} (:exclude etc))
-        refer          (cond
-                         (= :all (:refer etc)) #{:all}
-                         (= :* (:refer etc))   #{:*}
-                         :else                 (into
-                                                #{}
-                                                (:refer etc)))
-        current-ns     *ns*
-        current-ns-sym (symbol (str current-ns))
-        python-namespace (find-ns module-name-or-ns)
-        this-module (import-module (str module-name))]
+        refer               (cond
+                              (= :all (:refer etc)) #{:all}
+                              (= :* (:refer etc))   #{:*}
+                              :else                 (into
+                                                     #{}
+                                                     (:refer etc)))
+        current-ns          *ns*
+        current-ns-sym      (symbol (str current-ns))
+        python-namespace    (find-ns module-name-or-ns)
+        this-module         (import-module (str module-name))]
 
     (when reload?
       (remove-ns module-name)
@@ -247,9 +257,9 @@
 
     (let [python-namespace (find-ns module-name-or-ns)
           ;;ns-publics is a map of symbol to var.  Var's have metadata on them.
-          public-data (->> (ns-publics python-namespace)
-                           (remove #(exclude (first %)))
-                           (into {}))]
+          public-data      (->> (ns-publics python-namespace)
+                                (remove #(exclude (first %)))
+                                (into {}))]
 
       ;;Always make the loaded namespace available to the current namespace.
       (intern current-ns-sym (with-meta module-name-or-ns
@@ -364,3 +374,4 @@
     (load-python-lib (vector reqs))
     (vector? reqs)
     (load-python-lib reqs)))
+
