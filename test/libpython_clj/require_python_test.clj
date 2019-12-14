@@ -1,5 +1,7 @@
 (ns libpython-clj.require-python-test
   (:require [libpython-clj.require :as req :refer [require-python] :reload true]
+  (:require [libpython-clj.require :refer [require-python]]
+            [libpython-clj.python :as py]
             [clojure.test :refer :all]))
 
 
@@ -8,7 +10,8 @@
 
 (require-python '[math
                   :refer :*
-                  :exclude [sin cos]])
+                  :exclude [sin cos]
+                  :as pymath])
 
 
 (deftest base-require-test
@@ -17,6 +20,7 @@
     (is (contains? publics 'floor))
     (is (not (contains? publics 'sin)))
     (is (= 10.0 (double (floor 10.1))))
+    (is (= pymath (py/import-module "math")))
     (is (thrown? Throwable (require-python '[math :refer [blah]])))))
 
 
