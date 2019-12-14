@@ -1,12 +1,13 @@
 # Time for a ChangeLog!
 
 
-## 1.26-SNAPSHOT
-
+## 1.26
 
 
 * [python startup work](https://github.com/cnuernber/libpython-clj/commit/16da3d885f29bde59ea219c9438b9d3654387971)
 * [python generates & clojure transducers](https://github.com/cnuernber/libpython-clj/pull/27) 
+* [requre-python reload fix](https://github.com/cnuernber/libpython-clj/pull/24)
+* Bugfix with require-python :reload semantics.
 
 
 
