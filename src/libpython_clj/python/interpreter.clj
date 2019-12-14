@@ -27,19 +27,19 @@
   (System/identityHashCode obj))
 
 
-(defn py-system-attribute [executable attr]
+(defn python-system-data [executable]
   (let [{out :out err :err}
-        (sh executable
-            "-c"
-            (format "import sys,json; print(getattr(sys, '%s'))" attr))]
-    (clojure.string/trim out)))
-
-(defn py-system-version [executable]
-  (let [{out :out err :err}
-        (sh executable "-c"
-            (format "import sys, json; print(list(getattr(sys, 'version_info')[:3]))"))]
-    (json/parse-string out)))
-
+        (sh executable "-c" "import sys, json;
+print(json.dumps(
+{\"platform\":          sys.platform,
+  \"prefix\":           sys.prefix,
+  \"base_prefix\":      sys.base_prefix,
+  \"executable\":       sys.executable,
+  \"base_exec_prefix\": sys.base_exec_prefix,
+  \"exec_prefix\":      sys.exec_prefix,
+  \"version\":          list(sys.version_info)[:3]}))")]
+    (when (clojure.string/blank? err)
+      (json/parse-string out true))))
 
 (defn python-system-info
   "An information map about the Python system information provided
@@ -66,16 +66,22 @@
   :version
   (list python-major python-minor python-micro)"
   [executable]
-  (letfn [(system-attribte [x]
-            (py-system-attribute executable x))]
+  (let [{platform         :platform
+         prefix           :prefix
+         base-prefix      :base_prefix
+         executable       :executable
+         exec-prefix      :exec_prefix
+         base-exec-prefix :base_exec_prefix
+         version          :version}
+        (python-system-data executable)]
+    {:platform         platform
+     :prefix           prefix
+     :base-prefix      base-prefix
+     :executable       executable
+     :exec-prefix      exec-prefix
+     :base-exec-prefix base-exec-prefix
+     :version          version}))
 
-    {:platform         (system-attribte "platform")
-     :prefix           (system-attribte "prefix")
-     :base-prefix      (system-attribte "base_prefix")
-     :executable       (system-attribte "executable")
-     :exec-prefix      (system-attribte "exec_prefix")
-     :base-exec-prefix (system-attribte "base_exec_prefix")
-     :version          (py-system-version executable)}))
 
 (defn python-library-regex [system-info]
   (let [{version  :version
