@@ -232,25 +232,25 @@
               (cond
                 ;; supported flag scanned, begin FSM parse
                 (get supported-flags item)
-                (let [flag (get supported-flags item)]
+                (let [flag            (get supported-flags item)
+                      remaining-flags (clojure.set/difference
+                                       supported-flags #{flag})]
                   (supported-flag-item
-                   ;; stop scanner from looking for these
-                   ;; supported flags
-                   (clojure.set/difference supported-flags #{flag})
+                   remaining-flags
                    flag
                    results
                    (first items)
                    (rest items)))
 
                 ;; FSM complete
-                (nil? item)      (into #{} results)
+                (nil? item) (into #{} results)
 
                 ;; no flag scanned, continue scanning
-                :else            (recur
-                                  supported-flags
-                                  results
-                                  (first items)
-                                  (rest items))))
+                :else (recur
+                       supported-flags
+                       results
+                       (first items)
+                       (rest items))))
 
             ;; entrypoint
             (get-flags [supported-flags reqs]
