@@ -197,7 +197,7 @@
   boolean flags '[foo :reload true] to support Clojure
   style 'require syntax.  Possibly overengineered."
   [supported-flags reqs]
-  
+
   (letfn [(supported-flag-item
             ;; scanned a supported tag token
             [supported-flags flag results item items]
@@ -216,7 +216,7 @@
                              (first items)
                              (rest items))
 
-              
+
               :else
               ;; unary flag -- add flag but scan current item/s
               (next-flag-item
@@ -264,7 +264,7 @@
 (defn ^:private load-python-lib [req]
   (let [supported-flags     #{:reload :no-arglists}
         [module-name & etc] req
-        flags               (flags* supported-flags etc)
+        flags               (parse-flags supported-flags etc)
         etc                 (into {}
                                   (comp
                                    (remove supported-flags)
