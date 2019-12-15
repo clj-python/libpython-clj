@@ -207,13 +207,16 @@
                              supported-flags
                              results
                              (first items)
-                             (rest items)) :else
+                             (rest items))
+              :else
               ;; unary flag -- add flag but scan current item/s
               (next-flag-item
                supported-flags
                (conj  results flag)
                item
-               items)));; scan flags
+               items)))
+
+          ;; scan flags
           (next-flag-item [supported-flags results item items]
             (cond
               ;; supported flag scanned, begin FSM parse
@@ -415,7 +418,6 @@
                 refer-symbols]
          :as   lib-config}
         (preload-python-lib! req)]
-    
 
     (intern-public-and-refer-symbols! lib-config)))
 
@@ -497,12 +499,3 @@
     (vector? reqs)
     (load-python-lib reqs)))
 
-(comment
-  (require-python '[math
-                    :refer :*
-                    :exclude [sin cos]
-                    :as pymath
-                    :reload true])
-
-  
-  )
