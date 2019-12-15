@@ -81,7 +81,6 @@
     (number? x) ""
     :else (py-class-argspec x)))
 
-
 (defn pyarglists
   ([argspec] (pyarglists argspec
                          (if-let [defaults
@@ -142,10 +141,6 @@
                              {:or or-map})
                            (when (not-empty as-varkw)
                              as-varkw))
-
-
-
-
          opt-args
          (cond
            (and (empty? kwargs-map)
@@ -168,7 +163,6 @@
          arglists
          (recur argspec' defaults' arglists))))))
 
-
 (defn py-fn-metadata [fn-name x {:keys [no-arglists?]}]
   (let [fn-argspec (pyargspec x)
         fn-docstr  (get-pydoc x)]
@@ -182,7 +176,6 @@
          {:arglists (pyarglists fn-argspec)}
          (catch Throwable e
            nil))))))
-
 
 (defn ^:private load-py-fn [f fn-name fn-module-name-or-ns
                             options]
@@ -215,8 +208,6 @@
                              results
                              (first items)
                              (rest items))
-
-
               :else
               ;; unary flag -- add flag but scan current item/s
               (next-flag-item
@@ -224,7 +215,6 @@
                (conj  results flag)
                item
                items)))
-
 
           ;; scan flags
           (next-flag-item [supported-flags results item items]
@@ -259,9 +249,37 @@
                             (rest reqs)))]
     (trampoline get-flags supported-flags reqs)))
 
+(defn- extract-refer-symbols
+  [{:keys [refer this-module]} public-data]
+  (cond
+    ;; include everything into the current namespace,
+    ;; ignore __all__ directive
+    (or (refer :all)
+        (and (not (py/has-attr? this-module "__all__"))
+             (refer :*)))
+    (keys public-data)
+    ;; only include that specfied by __all__ attribute
+    ;; of python module if specified, else same as :all
+    (refer :*)
+    (->> (py/get-attr this-module "__all__")
+         (map (fn [item-name]
+                (let [item-sym (symbol item-name)]
+                  (when (contains? public-data item-sym)
+                    item-sym))))
+         (remove nil?))
 
+    ;; [.. :refer [..]] behavior
+    :else
+    (do
+      (when-let [missing (->> refer
+                              (remove (partial contains? public-data))
+                              seq)]
+        (throw (Exception.
+                (format "'refer' symbols not found: %s"
+                        (vec missing)))))
+      refer)))
 
-(defn ^:private load-python-lib [req]
+(defn ^:private python-lib-configuration [req]
   (let [supported-flags     #{:reload :no-arglists}
         [module-name & etc] req
         flags               (parse-flags supported-flags etc)
@@ -286,80 +304,122 @@
         current-ns-sym      (symbol (str current-ns))
         python-namespace    (find-ns module-name-or-ns)
         this-module         (import-module (str module-name))]
+    {:supported-flags   supported-flags
+     :etc               etc
+     :reload?           reload?
+     :no-arglists?      no-arglists?
+     :module-name       module-name
+     :module-name-or-ns module-name-or-ns
+     :exclude           exclude
+     :refer             refer
+     :current-ns        current-ns
+     :current-ns-sym    current-ns-sym
+     :python-namespace  python-namespace
+     :this-module       this-module}))
 
-    (cond
-      reload?
-      (do
-        (remove-ns module-name)
-        (reload-module this-module)
-        (create-ns module-name-or-ns))
-      (not python-namespace)
-      (create-ns module-name-or-ns))
+(defn- extract-public-data
+  [{:keys [exclude python-namespace module-name-or-ns]}]
+  (let [python-namespace
+        (or python-namespace
+            (find-ns module-name-or-ns))]
+    (->> (ns-publics python-namespace)
+         (remove #(exclude (first %)))
+         (into {}))))
 
-    ;; bind the python module to its symbolic name
-    ;; in the current namespace
+(defn- reload-python-ns!
+  [module-name this-module module-name-or-ns]
+  (do
+    (remove-ns module-name)
+    (reload-module this-module)
+    (create-ns module-name-or-ns)))
 
+(defn- create-python-ns!
+  [module-name-or-ns]
+  (create-ns module-name-or-ns))
 
-    ;; create namespace for module and bind python
-    ;; values to namespace symbols
-    (when (or reload?
-              (not python-namespace))
-      ;;Mutably define the root namespace.
-      (doseq [[att-name v] (vars this-module)]
-        (try
-          (when v
-            (if (py/callable? v)
-              (load-py-fn v (symbol att-name) module-name-or-ns
-                          {:no-arglists?
-                           no-arglists?})
-              (intern module-name-or-ns (symbol att-name) v)))
-          (catch Throwable e
-            (log/warnf e "Failed to require symbol %s" att-name)))))
+(defn ^:private maybe-reload-or-create-ns!
+  [{:keys            [reload?
+                      this-module
+                      module-name
+                      module-name-or-ns]
+    python-namespace :python-namespace}]
+  (cond
+    reload?                (reload-python-ns! module-name
+                                              this-module
+                                              module-name-or-ns)
+    (not python-namespace) (create-python-ns! module-name-or-ns)))
 
+(defn enhanced-python-lib-configuration
+  [{:keys [python-namespace exclude this-module]
+    :as   lib-config}]
+  (let [public-data (extract-public-data lib-config)]
+    (merge
+     lib-config
+     {:public-data   public-data
+      :refer-symbols (extract-refer-symbols lib-config
+                                            public-data)})))
 
-    (let [python-namespace (find-ns module-name-or-ns)
-          ;;ns-publics is a map of symbol to var.  Var's have metadata on them.
-          public-data      (->> (ns-publics python-namespace)
-                                (remove #(exclude (first %)))
-                                (into {}))]
+(defn- bind-py-symbols-to-ns!
+  [{:keys [reload?
+           python-namespace
+           this-module
+           module-name-or-ns
+           no-arglists?]}]
+  (when (or reload? (not python-namespace))
+    ;;Mutably define the root namespace.
+    (doseq [[att-name v] (vars this-module)]
+      (try
+        (when v
+          (if (py/callable? v)
+            (load-py-fn v (symbol att-name) module-name-or-ns
+                        {:no-arglists?
+                         no-arglists?})
+            (intern module-name-or-ns (symbol att-name) v)))
+        (catch Throwable e
+          (log/warnf e "Failed to require symbol %s" att-name))))))
 
-      ;;Always make the loaded namespace available to the current namespace.
-      (intern current-ns-sym
-              (with-meta module-name-or-ns
-                {:doc (doc this-module)})
-              this-module)
-      (let [refer-symbols
-            (cond
-              ;; include everything into the current namespace,
-              ;; ignore __all__ directive
-              (or (refer :all)
-                  (and (not (py/has-attr? this-module "__all__"))
-                       (refer :*)))
-              (keys public-data)
-              ;; only include that specfied by __all__ attribute
-              ;; of python module if specified, else same as :all
-              (refer :*)
-              (->> (py/get-attr this-module "__all__")
-                   (map (fn [item-name]
-                          (let [item-sym (symbol item-name)]
-                            (when (contains? public-data item-sym)
-                              item-sym))))
-                   (remove nil?))
+(defn- bind-module-ns!
+  [{:keys [current-ns-sym module-name-or-ns this-module]}]
+  (intern current-ns-sym
+          (with-meta module-name-or-ns
+            {:doc (doc this-module)})
+          this-module))
 
-              ;; [.. :refer [..]] behavior
-              :else
-              (do
-                (when-let [missing (->> refer
-                                        (remove (partial contains? public-data))
-                                        seq)]
-                  (throw (Exception.
-                          (format "'refer' symbols not found: %s"
-                                  (vec missing)))))
-                refer))]
-        (doseq [[s v] (select-keys public-data refer-symbols)]
-          (intern current-ns-sym
-                  (with-meta s (meta v))
-                  (deref v)))))))
+(defn- intern-public-and-refer-symbols!
+  [{:keys [public-data refer-symbols current-ns-sym]}]
+  (doseq [[s v] (select-keys public-data refer-symbols)]
+    (intern current-ns-sym
+            (with-meta s (meta v))
+            (deref v))))
+
+(defn preload-python-lib! [req]
+  (let [lib-config (python-lib-configuration req)]
+    (maybe-reload-or-create-ns! lib-config)
+    (bind-py-symbols-to-ns! lib-config)
+    (bind-module-ns! lib-config)
+    (enhanced-python-lib-configuration lib-config)))
+
+(defn ^:private load-python-lib [req]
+  (let [{:keys [supported-flags
+                flags
+                etc
+                reload?
+                no-arglists?
+                module-name
+                module-name-or-ns
+                exclude
+                refer
+                current-ns
+                current-ns-sym
+                python-namespace
+                this-module
+                python-namespace
+                public-data
+                refer-symbols]
+         :as   lib-config}
+        (preload-python-lib! req)]
+
+    (intern-public-and-refer-symbols! lib-config)))
 
 (defn require-python
   "## Basic usage ##
@@ -438,3 +498,4 @@
     (load-python-lib (vector reqs))
     (vector? reqs)
     (load-python-lib reqs)))
+
