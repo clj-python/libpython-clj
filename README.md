@@ -3,6 +3,7 @@
 JNA libpython bindings to the tech ecosystem.
 
 [![Clojars Project](https://img.shields.io/clojars/v/cnuernber/libpython-clj.svg)](https://clojars.org/cnuernber/libpython-clj)
+[![travis integration](https://travis-ci.com/cnuernber/libpython-clj.svg?branch=master)](https://travis-ci.com/cnuernber/libpython-clj)
 
 * Bridge between JVM objects and Python objects easily; use Python in your Java and
   use some Java in your Python.
