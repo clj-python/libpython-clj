@@ -47,6 +47,8 @@
 
 (def ^:private vars (py/get-attr builtins "vars"))
 
+(def ^:private pyclass? (py/get-attr inspect "isclass"))
+
 (defn ^:private py-fn-argspec [f]
   (if-let [spec (try (argspec f) (catch Throwable e nil))]
     {:args           (py/->jvm (py/get-attr spec "args"))
@@ -181,8 +183,11 @@
                             options]
   (let [fn-ns      (symbol (str fn-module-name-or-ns))
         fn-sym     (symbol fn-name)]
-    (intern fn-ns (with-meta fn-sym (py-fn-metadata fn-name f
-                                                    options)) f)))
+    (intern fn-ns
+            (with-meta
+              fn-sym
+              (py-fn-metadata fn-name f
+                              options)) f)))
 
 (defn- parse-flags
   "FSM style parser for flags.  Designed to support both
@@ -279,12 +284,11 @@
                         (vec missing)))))
       refer)))
 
-
 (defn- python-lib-configuration
   "Build a configuration map of a python library.  Current ns is option and used
   during testing but unnecessary during normal running events."
   [req & [current-ns]]
-  (let [supported-flags     #{:reload :no-arglists}
+  (let [supported-flags     #{:reload :no-arglists :alpha-load-ns-classes}
         [module-name & etc] req
         flags               (parse-flags supported-flags etc)
         etc                 (into {}
@@ -296,6 +300,7 @@
                                   etc)
         reload?             (:reload flags)
         no-arglists?        (:no-arglists flags)
+        load-ns-classes?    (:alpha-load-ns-classes flags)
         module-name-or-ns   (:as etc module-name)
         exclude             (into #{} (:exclude etc))
         refer               (cond
@@ -312,6 +317,7 @@
      :etc               etc
      :reload?           reload?
      :no-arglists?      no-arglists?
+     :load-ns-classes?  load-ns-classes?
      :module-name       module-name
      :module-name-or-ns module-name-or-ns
      :exclude           exclude
@@ -389,6 +395,100 @@
             {:doc (doc this-module)})
           this-module))
 
+(defn- generate-class-namespace-configs
+  [{:keys [module-name-or-ns this-module] :as lib-config}]
+  (letfn [(pyclass-pair? [[attr attr-val]] (pyclass? attr-val))
+          (pyclass-ns-config [[attr attr-val]]
+            {:namespace      module-name-or-ns
+             :attribute-type :class
+             :classname      attr
+             :class-symbol   (symbol attr)
+             :class          attr-val
+             :attributes     ((comp
+                               (py/get-attr builtins "dict")
+                               vars) attr-val)})
+          (pyclass-attribute-fanout
+            [{:keys [namespace
+                     classname
+                     class-symbol
+                     class
+                     attributes]
+              :as   attr-config}]
+            (into [attr-config]
+                  (for [[attr attr-val] (seq attributes)
+                        :let
+                        [attr-type
+                         (if (and (not (nil? attr-val))
+                                  (py/callable?  attr-val))
+
+                           :method
+                           :attribute)]]
+                    (merge
+                     (dissoc attr-config :attributes :type)
+                     {:attribute-type attr-type
+                      :type           :class-attribute
+                      :attribute      attr-val
+                      :attribute-name attr}))))]
+    (into []
+          (comp
+           (filter pyclass-pair?)
+           (map pyclass-ns-config)
+           (map pyclass-attribute-fanout)
+           cat)
+          (seq (vars this-module)))))
+
+(defmulti class-sort :attribute-type)
+(defmethod class-sort :class [_] 0)
+(defmethod class-sort :method [_] 1)
+(defmethod class-sort :attribute [_] 2)
+
+(defmulti intern-ns-class :attribute-type)
+
+(defmethod intern-ns-class :class
+  [{original-namespace :namespace
+    cls-name           :classname
+    cls-sym            :class-symbol
+    cls                :class
+    :as cls-ns-config}]
+  (let [cls-ns (symbol (str original-namespace "." cls-sym))]
+    (create-ns cls-ns)
+    cls-ns-config))
+
+(defmethod intern-ns-class :method
+  [{original-namespace :namespace
+    cls-name           :classname
+    cls-sym            :class-symbol
+    cls                :class
+    method-name        :attribute-name
+    method             :attribute
+    :as cls-ns-config}]
+  (let [cls-ns (symbol (str original-namespace "." cls-sym))]
+    (load-py-fn method (symbol method-name)
+                cls-ns {})
+    cls-ns-config))
+
+(defmethod intern-ns-class :attribute
+  [{original-namespace :namespace
+    cls-name           :classname
+    cls-sym            :class-symbol
+    cls                :class
+    attribute-name     :attribute-name
+    attribute          :attribute
+    :as cls-ns-config}]
+  (let [cls-ns (symbol (str original-namespace "." cls-sym))]
+    (intern cls-ns (symbol attribute-name) attribute)
+    cls-ns-config))
+
+(defn- bind-class-namespaces!
+  [lib-config]
+  (let [class-namespace-configs
+        (->>
+         (generate-class-namespace-configs
+          lib-config)
+         (sort-by class-sort))]
+    (doseq [cls-namespace-config class-namespace-configs]
+      (intern-ns-class cls-namespace-config))))
+
 (defn- intern-public-and-refer-symbols!
   [{:keys [public-data refer-symbols current-ns-sym]}]
   (doseq [[s v] (select-keys public-data refer-symbols)]
@@ -409,6 +509,7 @@
                 etc
                 reload?
                 no-arglists?
+                load-ns-classes?
                 module-name
                 module-name-or-ns
                 exclude
@@ -423,7 +524,13 @@
          :as   lib-config}
         (preload-python-lib! req)]
 
-    (intern-public-and-refer-symbols! lib-config)))
+    (intern-public-and-refer-symbols! lib-config)
+
+    ;; alpha
+    ;; TODO: does not respect reloading or much of the other
+    ;;   ..: syntax (yet)
+    (when load-ns-classes?
+      (bind-class-namespaces! lib-config))))
 
 (defn require-python
   "## Basic usage ##
