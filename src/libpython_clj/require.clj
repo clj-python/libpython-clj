@@ -279,7 +279,11 @@
                         (vec missing)))))
       refer)))
 
-(defn ^:private python-lib-configuration [req]
+
+(defn- python-lib-configuration
+  "Build a configuration map of a python library.  Current ns is option and used
+  during testing but unnecessary during normal running events."
+  [req & [current-ns]]
   (let [supported-flags     #{:reload :no-arglists}
         [module-name & etc] req
         flags               (parse-flags supported-flags etc)
@@ -300,7 +304,7 @@
                               :else                 (into
                                                      #{}
                                                      (:refer etc)))
-        current-ns          *ns*
+        current-ns          (or current-ns *ns*)
         current-ns-sym      (symbol (str current-ns))
         python-namespace    (find-ns module-name-or-ns)
         this-module         (import-module (str module-name))]
@@ -498,4 +502,3 @@
     (load-python-lib (vector reqs))
     (vector? reqs)
     (load-python-lib reqs)))
-

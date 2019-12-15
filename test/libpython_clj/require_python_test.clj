@@ -54,7 +54,9 @@
 (deftest python-lib-configuration-test
   (let [python-lib-configuration #'req/python-lib-configuration
         simple-req               '[csv]
-        simple-spec              (python-lib-configuration simple-req)
+        simple-spec              (python-lib-configuration
+                                  simple-req
+                                  (find-ns 'libpython-clj.require-python-test))
         {:keys [exclude
                 supported-flags
                 current-ns-sym
@@ -87,7 +89,9 @@
                                    :reload true
                                    :refer [get]
                                    :no-arglists]
-        simple-spec              (python-lib-configuration simple-req)
+        simple-spec              (python-lib-configuration
+                                  simple-req
+                                  (find-ns 'libpython-clj.require-python-test))
         {:keys [exclude
                 supported-flags
                 current-ns-sym
@@ -111,8 +115,7 @@
     (is (= 'requests module-name module-name-or-ns))
     (is (= reload? :reload))
     (is (= no-arglists? :no-arglists))
-    (is (= { :refer '[get]}) etc)
+    (is (= {:refer '[get]} etc))
     (is (= requests-module this-module))
     (is (= #{'get} refer))
     (is (nil? python-namespace))))
-
