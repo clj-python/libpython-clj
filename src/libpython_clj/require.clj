@@ -140,7 +140,8 @@
                            (when (not-empty or-map)
                              {:or or-map})
                            (when (not-empty as-varkw)
-                             as-varkw)) opt-args
+                             as-varkw))
+         opt-args
          (cond
            (and (empty? kwargs-map)
                 (nil? varargs)) '()
