@@ -28,7 +28,7 @@
 
 
 (defn python-system-data [executable]
-  (let [{out :out err :err}
+  (let [{:keys [out err exit]}
         (sh executable "-c" "import sys, json;
 print(json.dumps(
 {\"platform\":          sys.platform,
@@ -38,7 +38,7 @@ print(json.dumps(
   \"base_exec_prefix\": sys.base_exec_prefix,
   \"exec_prefix\":      sys.exec_prefix,
   \"version\":          list(sys.version_info)[:3]}))")]
-    (when (clojure.string/blank? err)
+    (when (= 0 exit)
       (json/parse-string out true))))
 
 (defn python-system-info
@@ -135,6 +135,41 @@ print(json.dumps(
     (python-library-paths system-info pyregex))
   ;;=> ["/usr/lib/x86_64-linux-gnu/libpython3.7m.so" "/usr/lib/python3.7/config-3.7m-x86_64-linux-gnu/libpython3.7m.so"]
   )
+
+(defn- ignore-shell-errors
+  [& args]
+  (try
+    (apply sh args)
+    (catch Throwable e nil)))
+
+
+(defn detect-startup-info
+  [{:keys [library-path python-home]}]
+  (let [executable "python3"
+        system-info (python-system-info executable)
+        python-home (cond
+                      python-home
+                      python-home
+                      (seq (System/getenv "PYTHONHOME"))
+                      (System/getenv "PYTHONHOME")
+                      :else
+                      (:prefix system-info))
+        java-library-path-addendum (when python-home
+                                     (-> (Paths/get python-home
+                                                    (into-array String ["lib"]))
+                                         (.toString)))
+        [ver-maj ver-med _ver-min] (:version system-info)
+        lib-version (format "%s.%s" ver-maj ver-med)
+        libname (or library-path
+                    (when (seq lib-version)
+                      (str "python" lib-version "m")))
+        retval
+        {:python-home python-home
+         :lib-version lib-version
+         :libname libname
+         :java-library-path-addendum java-library-path-addendum}]
+    (log/infof "Startup info detected: %s" retval)
+    retval))
 
 
 ;;All interpreters share the same type symbol table as types are uniform
@@ -358,27 +393,6 @@ print(json.dumps(
 
 
 
-
-(defn- ignore-shell-errors
-  [& args]
-  (try
-    (apply sh args)
-    (catch Throwable e nil)))
-
-
-(defn- find-python-home
-  [& [python-home]]
-  (cond
-    python-home
-    python-home
-    (seq (System/getenv "PYTHONHOME"))
-    (System/getenv "PYTHONHOME")
-    :else
-    (let [{:keys [out err exit]} (ignore-shell-errors "python3-config" "--prefix")]
-      (when (= 0 exit)
-        (s/trimr out)))))
-
-
 (defn- find-python-lib-version
   []
   (let [{:keys [out err exit]} (ignore-shell-errors "python3" "--version")]
@@ -422,29 +436,9 @@ print(json.dumps(
     (catch Exception e)))
 
 
-(defn detect-startup-info
-  [{:keys [library-path python-home]}]
-  (let [python-home (find-python-home python-home)
-        java-library-path-addendum
-        (when python-home
-          (-> (Paths/get python-home (into-array String ["lib"]))
-              (.toString)))
-        lib-version (find-python-lib-version)
-        libname (when (seq lib-version)
-                  (str "python" lib-version "m"))
-        retval
-        {:python-home python-home
-         :lib-version lib-version
-         :libname libname
-         :java-library-path-addendum java-library-path-addendum}]
-    (log/infof "Startup info detected: %s" retval)
-    retval))
-
-
 (defn initialize!
   [& {:keys [program-name
-             library-path
-             python-home]
+             library-path]
       :as options}]
   (when-not @*main-interpreter*
     (log-info "Executing python initialize!")
