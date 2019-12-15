@@ -74,9 +74,6 @@
     ;; no exclusions
     (is (= #{} exclude))
     (is (= #{:no-arglists :reload} supported-flags))
-    (is (= 'libpython-clj.require-python-test
-           current-ns-sym
-           (symbol (str current-ns))))
     (is (= 'csv module-name module-name-or-ns))
     (is (nil? reload?))
     (is (nil? no-arglists?))
@@ -109,9 +106,6 @@
     ;; no exclusions
     (is (= #{} exclude))
     (is (= #{:no-arglists :reload} supported-flags))
-    (is (= 'libpython-clj.require-python-test
-           current-ns-sym
-           (symbol (str  current-ns))))
     (is (= 'requests module-name module-name-or-ns))
     (is (= reload? :reload))
     (is (= no-arglists? :no-arglists))
