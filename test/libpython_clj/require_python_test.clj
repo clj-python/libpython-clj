@@ -73,7 +73,8 @@
 
     ;; no exclusions
     (is (= #{} exclude))
-    (is (= #{:no-arglists :reload} supported-flags))
+    (is (= #{:no-arglists :reload :alpha-load-ns-classes}
+           supported-flags))
     (is (= 'libpython-clj.require-python-test
            current-ns-sym
            (symbol (str current-ns))))
@@ -108,7 +109,6 @@
 
     ;; no exclusions
     (is (= #{} exclude))
-    (is (= #{:no-arglists :reload} supported-flags))
     (is (= 'libpython-clj.require-python-test
            current-ns-sym
            (symbol (str  current-ns))))
