@@ -75,7 +75,6 @@
     (is (= #{} exclude))
     (is (= #{:no-arglists :reload :alpha-load-ns-classes}
            supported-flags))
-    (is (= #{:no-arglists :reload} supported-flags))
     (is (= 'csv module-name module-name-or-ns))
     (is (nil? reload?))
     (is (nil? no-arglists?))
