@@ -115,7 +115,7 @@
 (defn as-python
   "Bridge a jvm object into python"
   [item & [options]]
-  (if (not item)
+  (if (nil? item)
     (py-none)
     (py-proto/as-python item options)))
 

@@ -1,14 +1,16 @@
 (ns libpython-clj.python-test
   (:require [libpython-clj.python :as py]
+            [libpython-clj.jna :as libpy]
             [tech.v2.datatype :as dtype]
             [tech.v2.datatype.functional :as dfn]
             [tech.v2.tensor :as dtt]
+            [tech.jna :as jna]
             [clojure.test :refer :all])
   (:import [java.io StringWriter]
-           [java.util Map List]))
+           [java.util Map List]
+           [com.sun.jna Pointer]))
 
 (py/initialize!)
-
 
 
 (deftest stdout-and-stderr
@@ -307,3 +309,13 @@
                      (py/$a array (range 10)))]
     (is (dfn/equals (dtt/->tensor (range 10))
                     (py/as-tensor ary-data)))))
+
+
+(deftest false-is-always-py-false
+  (let [py-false (libpy/Py_False)
+        ->false (py/->python false)
+        as-false (py/as-python false)]
+    (is (= (Pointer/nativeValue (jna/as-ptr py-false))
+           (Pointer/nativeValue (jna/as-ptr ->false))))
+    (is (= (Pointer/nativeValue (jna/as-ptr py-false))
+           (Pointer/nativeValue (jna/as-ptr as-false))))))

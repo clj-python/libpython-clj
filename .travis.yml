@@ -1,0 +1,8 @@
+language: clojure
+lein: 2.8.2
+before_install:
+  - sudo apt-get -y install python3
+  - sudo python3 -mpip install numpy
+addons:
+  apt:
+    update: true

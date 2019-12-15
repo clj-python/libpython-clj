@@ -790,7 +790,8 @@
     (with-gil
       (-> (cond
             (seq kw-arg-map)
-            (libpy/PyObject_Call callable (->py-tuple arglist)
+            (libpy/PyObject_Call callable
+                                 (->py-tuple arglist)
                                  (->py-dict kw-arg-map))
             (seq arglist)
             (libpy/PyObject_CallObject callable (->py-tuple arglist))
