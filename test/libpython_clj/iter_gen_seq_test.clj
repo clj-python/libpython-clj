@@ -17,8 +17,8 @@ def fortwice(xs):
     for x in xs:
         yield x")]
     (is (= [1 2 3 4 5 6 7 8 9 10]
-           (vec (fortwice  (python/map inc (range 10))))))  ;;=> [1 2 3 4 5 6 7 8 9 10]
+           (vec (fortwice  (python/map inc (range 10))))))
     (is (= [1 2 3 4 5 6 7 8 9 10 1 2 3 4 5 6 7 8 9 10]
-           (vec (fortwice (map inc (range 10)))))) ;;=> [1 2 3 4 5 6 7 8 9 10 1 2 3 4 5 6 7 8 9 10]
+           (vec (fortwice (map inc (range 10))))))
     (is (= [1 2 3 4 5 6 7 8 9 10 1 2 3 4 5 6 7 8 9 10]
            (vec (fortwice  (vec (python/map inc (range 10)))))))))

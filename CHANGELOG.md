@@ -1,6 +1,17 @@
 # Time for a ChangeLog!
 
 
+## 1.28
+
+
+* `(range 5)` - clojure ranges <-> python ranges when possible.
+* bridged types derive from collections.abc.* so that they pass instance checks in
+  libraries that are checking for generic types.
+* Really interesting unit test for 
+  [generators, ranges and sequences](test/libpython-clj.iter_gen_seq_test.clj).
+
+
+
 ## 1.27
 
 * Fixed bug where (as-python {:is_train false}) results in a dictionary with a none
