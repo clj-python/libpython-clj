@@ -9,6 +9,7 @@
             [tech.jna :as jna])
   (:import [com.sun.jna Pointer]
            [com.sun.jna.ptr PointerByReference]
+           [java.lang.reflect Field]
            [java.io Writer]
            [libpython_clj.jna PyObject
             CFunction$KeyWordFunction

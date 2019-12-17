@@ -48,10 +48,12 @@
             [tech.v2.datatype.functional :as dtype-fn]
             [tech.v2.datatype :as dtype]
             [tech.resource :as resource]
-            [clojure.set :as c-set])
-  (:import [java.util Map RandomAccess List Map$Entry Iterator]
+            [clojure.set :as c-set]
+            [clojure.tools.logging :as log])
+  (:import [java.util Map RandomAccess List Map$Entry Iterator UUID]
+           [java.util.concurrent ConcurrentHashMap]
            [clojure.lang IFn Symbol Keyword Seqable
-            Fn MapEntry]
+            Fn MapEntry Range LongRange]
            [tech.v2.datatype ObjectReader ObjectWriter ObjectMutable
             ObjectIter MutableRemove]
            [tech.v2.datatype.typed_buffer TypedBuffer]
@@ -199,6 +201,12 @@
 (defmethod pyobject-as-jvm :bool
   [pyobj]
   (->jvm pyobj))
+
+
+(defmethod pyobject-as-jvm :range
+  [pyobj]
+  (->jvm pyobj))
+
 
 
 (defn- mostly-copy-arg
@@ -714,28 +722,6 @@
                   (st/print-stack-trace e#)))))))
 
 
-(defn jvm-iterator-as-python
-  ^Pointer [^Iterator item]
-  (with-gil nil
-    (let [next-fn #(if (.hasNext item)
-                     (-> (.next item)
-                         ;;As python tracks the object in a jvm context
-                         (as-python)
-                         (jna/->ptr-backing-store)
-                         ;;But we are handing the object back to python which is expecting
-                         ;;a new reference.
-                         (pyobj/incref))
-                     (do
-                       (libpy/PyErr_SetNone
-                        (err/PyExc_StopIteration))
-                       nil))
-          att-map
-          {"__next__" (pyobj/make-tuple-fn next-fn
-                                           :arg-converter nil
-                                           :result-converter nil)}]
-      (create-bridge-from-att-map item att-map))))
-
-
 (defn as-python-incref
   "Convert to python and add a reference.  Necessary for return values from
   functions as python expects a new reference and the as-python pathway
@@ -752,64 +738,259 @@
                        :result-converter as-python-incref))
 
 
+(defonce ^:private jvm-handle-map (ConcurrentHashMap.))
+
+(defn- make-jvm-object-handle
+  ^long [item]
+  (let [^ConcurrentHashMap hash-map jvm-handle-map]
+    (loop [handle (pyinterp/get-object-handle item)]
+      (let [handle (long handle)]
+        (if (not (.containsKey hash-map handle))
+          (do
+            (.put hash-map handle item)
+            handle)
+          (recur (.hashCode (UUID/randomUUID))))))))
+
+(defn- get-jvm-object
+  [handle]
+  (.get ^ConcurrentHashMap jvm-handle-map (long handle)))
+
+(defn- remove-jvm-object
+  [handle]
+  (.remove ^ConcurrentHashMap jvm-handle-map (long handle))
+  nil)
+
+(defn- py-self->jvm-handle
+  [self]
+  (->jvm (py-proto/get-attr self "jvm_handle")))
+
+(defn- py-self->jvm-obj
+  ^Object [self]
+  (-> (py-self->jvm-handle self)
+      get-jvm-object))
+
+(defn- as-tuple-instance-fn
+  [fn-obj]
+  (pyobj/make-tuple-instance-fn fn-obj :result-converter as-python-incref))
+
+
+(defn- self->map
+  ^Map [self]
+  (py-self->jvm-obj self))
+
+
+(defonce mapping-type
+  (delay
+    (with-gil
+      (let [mod (pyinterop/import-module "collections.abc")
+            map-type (py-proto/get-attr mod "MutableMapping")]
+        ;;In order to make things work ingeneral
+        (pyobj/create-class
+         "jvm-map-as-python"
+         [map-type]
+         {"__init__" (as-tuple-instance-fn
+                      (fn [self jvm-handle]
+                        (py-proto/set-attr! self "jvm_handle" jvm-handle)
+                        nil))
+          "__del__" (as-tuple-instance-fn
+                     #(try
+                        (remove-jvm-object (py-self->jvm-handle %))
+                        (catch Throwable e
+                          (log/warnf e "Error removing object"))))
+          "__contains__" (as-tuple-instance-fn #(.containsKey (self->map %1) (as-jvm %2)))
+          "__eq__" (as-tuple-instance-fn #(.equals (self->map %1) (as-jvm %2)))
+          "__getitem__" (as-tuple-instance-fn
+                         #(do (println "getting" (as-jvm %2))
+                              (.get (self->map %1) (as-jvm %2))))
+          "__setitem__" (as-tuple-instance-fn #(.put (self->map %1) (as-jvm %2) %3))
+          "__delitem__" (as-tuple-instance-fn #(.remove (self->map %1) (as-jvm %2)))
+          "__hash__" (as-tuple-instance-fn #(.hashCode (self->map %1)))
+          "__iter__" (as-tuple-instance-fn #(.iterator ^Iterable (keys (self->map %1))))
+          "__len__" (as-tuple-instance-fn #(.size (self->map %1)))
+          "__str__" (as-tuple-instance-fn #(.toString (self->map %1)))
+          "clear" (as-tuple-instance-fn #(.clear (self->map %1)))
+          "keys" (as-tuple-instance-fn #(seq (.keySet (self->map %1))))
+          "values" (as-tuple-instance-fn #(seq (.values (self->map %1))))
+          "pop" (as-tuple-instance-fn #(.remove (self->map %1) (as-jvm %2)))})))))
+
+
 (defn jvm-map-as-python
-  ^Pointer [^Map jvm-data]
+  [^Map jvm-data]
   (with-gil
-    (let [att-map
-          {"__contains__" (as-py-fn #(.containsKey jvm-data %))
-           "__eq__" (as-py-fn #(.equals jvm-data %))
-           "__getitem__" (as-py-fn #(.get jvm-data %))
-           "__setitem__" (as-py-fn #(.put jvm-data %1 %2))
-           "__delitem__" (as-py-fn #(.remove jvm-data %))
-           "__hash__" (as-py-fn #(.hashCode jvm-data))
-           "__iter__" (as-py-fn #(.iterator ^Iterable (keys jvm-data)))
-           "__len__" (as-py-fn #(.size jvm-data))
-           "__str__" (as-py-fn #(.toString jvm-data))
-           "clear" (as-py-fn #(.clear jvm-data))
-           "keys" (as-py-fn #(seq (.keySet jvm-data)))
-           "values" (as-py-fn #(seq (.values jvm-data)))
-           "pop" (as-py-fn #(.remove jvm-data %))}]
-      (create-bridge-from-att-map jvm-data att-map))))
+    (py-proto/call (jna/as-ptr (deref mapping-type)) (make-jvm-object-handle jvm-data))))
+
+
+(defmethod py-proto/pyobject->jvm :jvm-map-as-python
+  [pyobj]
+  (py-self->jvm-obj pyobj))
+
+
+(defmethod pyobject-as-jvm :jvm-map-as-python
+  [pyobj]
+  (->jvm pyobj))
+
+
+(defn- self->list
+  ^List [self]
+  (py-self->jvm-obj self))
+
+(defonce sequence-type
+  (delay
+    (let [mod (pyinterop/import-module "collections.abc")
+          seq-type (py-proto/get-attr mod "MutableSequence")]
+      (pyobj/create-class
+       "jvm-list-as-python"
+       [seq-type]
+       {"__init__" (as-tuple-instance-fn
+                      (fn [self jvm-handle]
+                        (py-proto/set-attr! self "jvm_handle" jvm-handle)
+                        nil))
+        "__del__" (as-tuple-instance-fn
+                   #(try
+                      (remove-jvm-object (py-self->jvm-handle %))
+                      (catch Throwable e
+                        (log/warnf e "Error removing object"))))
+        "__contains__" (as-tuple-instance-fn #(.contains (self->list %1) %2))
+        "__eq__" (as-tuple-instance-fn #(.equals (self->list %1) (->jvm %2)))
+        "__getitem__" (as-tuple-instance-fn #(.get (self->list %1) (int (->jvm %2))))
+        "__setitem__" (as-tuple-instance-fn #(.set (self->list %1)
+                                                   (int (->jvm %2))
+                                                   (as-jvm %3)))
+        "__delitem__" (as-tuple-instance-fn #(.remove (self->list %1)
+                                                      (int (->jvm %2))))
+        "__hash__" (as-tuple-instance-fn #(.hashCode (self->list %1)))
+        "__iter__" (as-tuple-instance-fn #(.iterator (self->list %1)))
+        "__len__" (as-tuple-instance-fn #(.size (self->list %1)))
+        "__str__" (as-tuple-instance-fn #(.toString (self->list %1)))
+        "clear" (as-tuple-instance-fn #(.clear (self->list %1)))
+        "sort" (as-tuple-instance-fn #(.sort (self->list %1) nil))
+        "append" (as-tuple-instance-fn #(.add (self->list %1) %2))
+        "insert" (as-tuple-instance-fn #(.add (self->list %1) (int (->jvm %2)) %3))
+        "pop" (as-tuple-instance-fn
+               (fn [self & args]
+                 (let [jvm-data (self->list self)
+                       args (map ->jvm args)
+                       index (int (if (first args)
+                                     (first args)
+                                     -1))
+                       index (if (< index 0)
+                               (- (.size jvm-data) index)
+                               index)]
+                   #(.remove jvm-data index))))}))))
 
 
 (defn jvm-list-as-python
-  ^Pointer [^List jvm-data]
+  [^List jvm-data]
   (with-gil
-    (let [att-map
-          {"__contains__" (as-py-fn #(.contains jvm-data %))
-           "__eq__" (as-py-fn #(.equals jvm-data %))
-           "__getitem__" (as-py-fn #(.get jvm-data (int %)))
-           "__setitem__" (as-py-fn #(.set jvm-data (int %1) %2))
-           "__delitem__" (as-py-fn #(.remove jvm-data (int %)))
-           "__hash__" (as-py-fn #(.hashCode jvm-data))
-           "__iter__" (as-py-fn #(.iterator jvm-data))
-           "__len__" (as-py-fn #(.size jvm-data))
-           "__str__" (as-py-fn #(.toString jvm-data))
-           "clear" (as-py-fn #(.clear jvm-data))
-           "sort" (as-py-fn #(.sort jvm-data nil))
-           "append" (as-py-fn #(.add jvm-data %))
-           "insert" (as-py-fn #(.add jvm-data (int %1) %2))
-           "pop" (as-py-fn (fn [& args]
-                             (let [index (int (if (first args)
-                                                (first args)
-                                                -1))
-                                   index (if (< index 0)
-                                           (- (.size jvm-data) index)
-                                           index)]
-                               #(.remove jvm-data index))))}]
-      (create-bridge-from-att-map jvm-data att-map))))
+    (py-proto/call (jna/as-ptr (deref sequence-type)) (make-jvm-object-handle jvm-data))))
+
+
+(defmethod py-proto/pyobject->jvm :jvm-list-as-python
+  [pyobj]
+  (py-self->jvm-obj pyobj))
+
+
+(defmethod pyobject-as-jvm :jvm-list-as-python
+  [pyobj]
+  (->jvm pyobj))
+
+
+(defonce iterable-type
+  (delay
+    (with-gil
+      (let [mod (pyinterop/import-module "collections.abc")
+            iter-base-cls (py-proto/get-attr mod "Iterable")]
+        (pyobj/create-class
+         "jvm-iterable-as-python"
+         [iter-base-cls]
+         {"__init__" (as-tuple-instance-fn
+                      (fn [self jvm-handle]
+                        (py-proto/set-attr! self "jvm_handle" jvm-handle)
+                        nil))
+          "__del__" (as-tuple-instance-fn
+                     #(try
+                        (remove-jvm-object (py-self->jvm-handle %))
+                        (catch Throwable e
+                          (log/warnf e "Error removing object"))))
+          "__iter__" (as-tuple-instance-fn
+                      #(.iterator ^Iterable (py-self->jvm-obj %)))
+          "__eq__" (as-tuple-instance-fn #(.equals (py-self->jvm-obj %1)
+                                                   (as-jvm %2)))
+          "__hash__" (as-tuple-instance-fn
+                      #(.hashCode (py-self->jvm-obj %)))
+          "__str__" (as-tuple-instance-fn
+                     #(.toString (py-self->jvm-obj %)))})))))
 
 
 (defn jvm-iterable-as-python
-  ^Pointer [^Iterable jvm-data]
+  [^Iterable jvm-data]
   (with-gil
-    (let [att-map
-          {"__iter__" (as-py-fn #(.iterator jvm-data))
-           "__eq__" (as-py-fn #(.equals jvm-data %))
-           "__hash__" (as-py-fn #(.hashCode jvm-data))
-           "__str__" (as-py-fn #(.toString jvm-data))}]
-      (create-bridge-from-att-map jvm-data att-map))))
+    (py-proto/call (jna/as-ptr (deref iterable-type)) (make-jvm-object-handle jvm-data))))
 
+
+(defmethod py-proto/pyobject->jvm :jvm-iterable-as-python
+  [pyobj]
+  (py-self->jvm-obj pyobj))
+
+
+(defmethod pyobject-as-jvm :jvm-iterable-as-python
+  [pyobj]
+  (->jvm pyobj))
+
+
+(defonce iterator-type
+  (delay
+    (with-gil
+      (let [mod (pyinterop/import-module "collections.abc")
+            iter-base-cls (py-proto/get-attr mod "Iterator")
+            next-fn (fn [self]
+                      (let [^Iterator item (py-self->jvm-obj self)]
+                        (if (.hasNext item)
+                          (-> (.next item)
+                              ;;As python tracks the object in a jvm context
+                              (as-python)
+                              (jna/->ptr-backing-store)
+                              ;;But we are handing the object back to python which is expecting
+                              ;;a new reference.
+                              (pyobj/incref))
+                          (do
+                            (libpy/PyErr_SetNone
+                             (err/PyExc_StopIteration))
+                            nil))))]
+        (pyobj/create-class
+         "jvm-iterator-as-python"
+         [iter-base-cls]
+         {"__init__" (as-tuple-instance-fn
+                      (fn [self jvm-handle]
+                        (py-proto/set-attr! self "jvm_handle" jvm-handle)
+                        nil))
+          "__del__" (as-tuple-instance-fn
+                     #(try
+                        (remove-jvm-object (py-self->jvm-handle %))
+                        (catch Throwable e
+                          (log/warnf e "Error removing object"))))
+          "__next__" (pyobj/make-tuple-instance-fn
+                      next-fn
+                      ;;In this case we are explicitly taking care of all conversions
+                      ;;to python and back so we do not ask for any converters.
+                      :arg-converter nil
+                      :result-converter nil)})))))
+
+
+(defn jvm-iterator-as-python
+  [^Iterator jvm-data]
+  (with-gil
+    (py-proto/call (jna/as-ptr (deref iterator-type)) (make-jvm-object-handle jvm-data))))
+
+
+(defmethod py-proto/pyobject->jvm :jvm-iterator-as-python
+  [pyobj]
+  (py-self->jvm-obj pyobj))
+
+
+(defmethod pyobject-as-jvm :jvm-iterator-as-python
+  [pyobj]
+  (->jvm pyobj))
 
 (extend-protocol py-proto/PBridgeToPython
   Number
@@ -822,6 +1003,14 @@
   (as-python [item options] (->python item))
   Boolean
   (as-python [item options] (->python item))
+  Range
+  (as-python [item options]
+    (if (casting/integer-type? (dtype/get-datatype item))
+      (->python item options)
+      (jvm-iterable-as-python item)))
+  LongRange
+  (as-python [item options]
+    (->python item options))
   Iterable
   (as-python [item options]
     (cond

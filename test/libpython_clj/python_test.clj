@@ -319,3 +319,18 @@
            (Pointer/nativeValue (jna/as-ptr ->false))))
     (is (= (Pointer/nativeValue (jna/as-ptr py-false))
            (Pointer/nativeValue (jna/as-ptr as-false))))))
+
+
+(deftest instance-abc-classes
+  (let [py-dict (py/->python {"a" 1 "b" 2})
+        bridged-dict (py/as-python {"a" 1 "b" 2})
+        bridged-iter (py/as-python (repeat 5 1))
+        bridged-list (py/as-python (vec (range 10)))
+        pycol (py/import-module "collections")
+        mapping-type (py/get-attr pycol "Mapping")
+        iter-type (py/get-attr pycol "Iterable")
+        sequence-type (py/get-attr pycol "Sequence")]
+    (is (py/is-instance? py-dict mapping-type))
+    (is (py/is-instance? bridged-dict mapping-type))
+    (is (py/is-instance? bridged-iter iter-type))
+    (is (py/is-instance? bridged-list sequence-type))))

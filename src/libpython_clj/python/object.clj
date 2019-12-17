@@ -44,6 +44,7 @@
             [clojure.tools.logging :as log])
   (:import [com.sun.jna Pointer CallbackReference]
            [com.sun.jna.ptr PointerByReference]
+           [java.lang.reflect Field]
            [libpython_clj.jna
             PyObject
             CFunction$KeyWordFunction
@@ -58,7 +59,8 @@
            [clojure.lang Symbol Keyword
             IPersistentMap
             IPersistentVector
-            IPersistentSet]))
+            IPersistentSet
+            Range LongRange]))
 
 
 (set! *warn-on-reflection* true)
@@ -574,6 +576,13 @@
           new-cls (py-proto/call (libpy/PyType_Type) name bases cls-dict)]
       (py-proto/as-jvm new-cls nil))))
 
+(def ^:private lr-step-field (doto (.getDeclaredField ^Class LongRange "step")
+                               (.setAccessible true)))
+
+
+(def ^:private r-step-field (doto (.getDeclaredField ^Class Range "step")
+                              (.setAccessible true)))
+
 
 (extend-protocol py-proto/PCopyToPython
   Number
@@ -595,6 +604,20 @@
     (if item
       (py-true)
       (py-false)))
+  Range
+  (->python [item options]
+    (if (casting/integer-type? (dtype/get-datatype item))
+      (let [start (first item)
+            step (.get ^Field r-step-field item)
+            stop (+ start (* step (count item)))]
+        (py-proto/call (libpy/PyRange_Type) start stop step))
+      (->py-list item)))
+  LongRange
+  (->python [item options]
+    (let [start (first item)
+          step (.get ^Field lr-step-field item)
+          stop (+ start (* step (count item)))]
+      (py-proto/call (libpy/PyRange_Type) start stop step)))
   Iterable
   (->python [item options]
     (cond
@@ -1033,26 +1056,36 @@
   (numpy-scalar->jvm pyobj))
 
 
+(defmethod pyobject->jvm :range
+  [pyobj]
+  (with-gil
+    (let [start (->jvm (py-proto/get-attr pyobj "start"))
+          step (->jvm (py-proto/get-attr pyobj "step"))
+          stop (->jvm (py-proto/get-attr pyobj "stop"))]
+      (range start stop step))))
+
+
 (defmethod pyobject->jvm :default
   [pyobj]
-  (cond
-    ;;Things could implement mapping and sequence logically so mapping
-    ;;takes precedence
-    (= 1 (libpy/PyMapping_Check pyobj))
-    (if-let [map-items (try (-> (libpy/PyMapping_Items pyobj)
-                                wrap-pyobject)
-                            (catch Throwable e nil))]
-      (python->jvm-copy-hashmap pyobj map-items)
-      (do
-        ;;Ignore error.  The mapping check isn't thorough enough to work.
-        (libpy/PyErr_Clear)
-        (python->jvm-copy-persistent-vector pyobj)))
-    ;;Sequences become persistent vectors
-    (= 1 (libpy/PySequence_Check pyobj))
-    (python->jvm-copy-persistent-vector pyobj)
-    :else
-    {:type (python-type pyobj)
-     :value (Pointer/nativeValue (jna/as-ptr pyobj))}))
+  (with-gil
+    (cond
+      ;;Things could implement mapping and sequence logically so mapping
+      ;;takes precedence
+      (= 1 (libpy/PyMapping_Check pyobj))
+      (if-let [map-items (try (-> (libpy/PyMapping_Items pyobj)
+                                  wrap-pyobject)
+                              (catch Throwable e nil))]
+        (python->jvm-copy-hashmap pyobj map-items)
+        (do
+          ;;Ignore error.  The mapping check isn't thorough enough to work.
+          (libpy/PyErr_Clear)
+          (python->jvm-copy-persistent-vector pyobj)))
+      ;;Sequences become persistent vectors
+      (= 1 (libpy/PySequence_Check pyobj))
+      (python->jvm-copy-persistent-vector pyobj)
+      :else
+      {:type (python-type pyobj)
+       :value (Pointer/nativeValue (jna/as-ptr pyobj))})))
 
 
 (defn is-instance?
