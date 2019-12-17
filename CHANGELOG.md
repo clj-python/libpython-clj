@@ -8,7 +8,7 @@
 * bridged types derive from collections.abc.* so that they pass instance checks in
   libraries that are checking for generic types.
 * Really interesting unit test for 
-  [generators, ranges and sequences](test/libpython-clj.iter_gen_seq_test.clj).
+  [generators, ranges and sequences](test/libpython_clj.iter_gen_seq_test.clj).
 
 
 
