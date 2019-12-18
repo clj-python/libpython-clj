@@ -8,7 +8,7 @@
 * bridged types derive from collections.abc.* so that they pass instance checks in
   libraries that are checking for generic types.
 * Really interesting unit test for 
-  [generators, ranges and sequences](test/libpython-clj.iter_gen_seq_test.clj).
+  [generators, ranges and sequences](test/libpython_clj/iter_gen_seq_test.clj).
 
 
 
@@ -24,7 +24,7 @@
 
 
 * [python startup work](https://github.com/cnuernber/libpython-clj/commit/16da3d885f29bde59ea219c9438b9d3654387971)
-* [python generates & clojure transducers](https://github.com/cnuernber/libpython-clj/pull/27)
+* [python generators & clojure transducers](https://github.com/cnuernber/libpython-clj/pull/27)
 * [requre-python reload fix](https://github.com/cnuernber/libpython-clj/pull/24)
 * Bugfix with require-python :reload semantics.
 
