@@ -31,7 +31,6 @@
     (is (= #{:reload} (parse-flags
                        #{:reload}
                        '[:reload foo])))
-    (is (= #{} (parse-flags #{} '[:reload foo])))
     (is (= #{:reload} (parse-flags #{:reload} '[:reload true])))
     (is (= #{:reload} (parse-flags #{:reload} '[:reload :as foo])))
     (is (= #{:reload} (parse-flags #{:reload} '[:reload foo :as])))

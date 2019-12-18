@@ -49,6 +49,8 @@
 
 (def ^:private pyclass? (py/get-attr inspect "isclass"))
 
+(def ^:private pymodule? (py/get-attr inspect "ismodule"))
+
 (defn ^:private py-fn-argspec [f]
   (if-let [spec (try (argspec f) (catch Throwable e nil))]
     {:args           (py/->jvm (py/get-attr spec "args"))
@@ -195,7 +197,17 @@
   boolean flags '[foo :reload true] to support Clojure
   style 'require syntax.  Possibly overengineered."
   [supported-flags reqs]
-
+  ;; Ensure we error out when flags passed in are mistyped.
+  ;; First attempt is to filter keywords and make sure any keywords are
+  ;; in supported-flags
+  (let [total-flags (set (concat supported-flags [:as :refer :exclude
+                                                  :* :all]))]
+    (when-let [missing-flags (->> reqs
+                                  (filter #(and (not (total-flags %))
+                                                (keyword? %)))
+                                  seq)]
+      (throw (Exception. (format "Unsupported flags: %s"
+                                 (set missing-flags))))))
   (letfn [(supported-flag-item
             ;; scanned a supported tag token
             [supported-flags flag results item items]
@@ -479,6 +491,7 @@
     (intern cls-ns (symbol attribute-name) attribute)
     cls-ns-config))
 
+
 (defn- bind-class-namespaces!
   [lib-config]
   (let [class-namespace-configs
@@ -609,4 +622,3 @@
     (load-python-lib (vector reqs))
     (vector? reqs)
     (load-python-lib reqs)))
-
