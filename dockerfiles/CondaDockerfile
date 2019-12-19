@@ -39,4 +39,4 @@ RUN conda create -n pyclj python=3.6 && conda install -n pyclj numpy mxnet \
 
 
 ## To install pip packages into the pyclj environment do
-RUN conda run -n pyclj python3 -mpip install xyz
+RUN conda run -n pyclj python3 -mpip install numpy
