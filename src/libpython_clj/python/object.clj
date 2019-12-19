@@ -980,15 +980,19 @@
     (let [ppos (jna/size-t-ref 0)
           pkey (PointerByReference.)
           pvalue (PointerByReference.)
-          retval (transient {})]
+          retval (java.util.ArrayList.)]
+      ;;Dictionary iteration doesn't appear to be reentrant so we have
+      ;;to do 2 passes.
       (loop [next-retval (libpy/PyDict_Next pyobj ppos pkey pvalue)]
         (if (not= 0 next-retval)
           (do
-            (assoc! retval
-                    (->jvm (jna/as-ptr pkey))
-                    (->jvm (jna/as-ptr pvalue)))
+            (.add retval [(jna/as-ptr pkey)
+                          (jna/as-ptr pvalue)])
             (recur (libpy/PyDict_Next pyobj ppos pkey pvalue)))
-          (persistent! retval))))))
+          (->> retval
+               (map (fn [[k v]]
+                      [(->jvm k) (->jvm v)]))
+               (into {})))))))
 
 
 (defmethod pyobject->jvm :set

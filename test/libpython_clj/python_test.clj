@@ -334,3 +334,11 @@
     (is (py/is-instance? bridged-dict mapping-type))
     (is (py/is-instance? bridged-iter iter-type))
     (is (py/is-instance? bridged-list sequence-type))))
+
+
+(deftest nested-map-and-back
+  (let [py-dict (-> (py/run-simple-string "testdata={'camera_id': 'CODOT-10106-12067', 'country': 'United States', 'state': 'Colorado', 'city': 'Fountain', 'provider': 'CO DOT', 'description': '0.6 mi N of Ray Nixon Rd Int', 'direction': 'North', 'video': False, 'links': {'jpeg': {'url': 'https://www.cotrip.org/dimages/camera?imageURL=remote/CTMCCAM025S125-20-N.jpg'}}, 'tags': ['auto_rerated'], 'ratings': {'road_weather': 4, 'visibility': 4}, 'health': {}, 'created_at': '2016-04-19T20:27:45.030Z', 'time_zone_offset': -25200}")
+                    (get-in [:globals "testdata"]))
+        jvm-dict (py/->jvm py-dict)]
+    (is (= (get jvm-dict "ratings")
+           (py/->jvm (py/get-item py-dict "ratings"))))))
