@@ -1,8 +1,6 @@
 #!/bin/bash
 
-## This is incomplete, you still have to mess around with pythonpath and such.  The
-## goal at this stage is to get this docker container to launch a repl that allows
-## initialize! to work out of the box.
+scripts/build-conda-docker
 
 docker run --rm -it -u $(id -u):$(id -g) \
   -e LEIN_REPL_HOST="0.0.0.0" \

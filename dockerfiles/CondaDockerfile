@@ -10,7 +10,6 @@ RUN apt-get -qq update && apt-get -qq -y install curl wget bzip2 openjdk-8-jdk-h
     && rm -rf /tmp/miniconda.sh \
     && conda install -y python=3 \
     && conda update conda \
-    && conda install -y mxnet numpy \
     && curl -O https://download.clojure.org/install/linux-install-1.10.1.492.sh \
     && chmod +x linux-install-1.10.1.492.sh \
     && ./linux-install-1.10.1.492.sh && rm linux-install-1.10.1.492.sh \
@@ -34,5 +33,10 @@ RUN groupadd -g $GROUPID $USERNAME
 RUN useradd -u $USERID -g $GROUPID $USERNAME
 RUN mkdir /home/$USERNAME && chown $USERNAME:$USERNAME /home/$USERNAME
 USER $USERNAME
-RUN conda create -n pyclj python=3.6 && conda install -n pyclj numpy mxnet\
+
+RUN conda create -n pyclj python=3.6 && conda install -n pyclj numpy mxnet \
     && echo "source activate pyclj" > /home/$USERNAME/.bashrc
+
+
+## To install pip packages into the pyclj environment do
+RUN conda run -n pyclj python3 -mpip install xyz
