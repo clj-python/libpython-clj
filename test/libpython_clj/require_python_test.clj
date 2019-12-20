@@ -112,3 +112,35 @@
     (is (= requests-module this-module))
     (is (= #{'get} refer))
     (is (nil? python-namespace))))
+
+
+(require-python '([builtins :as python]
+                  [builtins.list :as python.pylist]))
+
+;; NOTE -- even though builtins.list has been aliased to
+;; to python.pylist, you are still required to require
+;; "builtins as python" in order to construct a list
+
+(deftest require-python-classes-with-alias-test
+  (let [l (python/list)]
+    (is (= (vec l) []))
+    (python.pylist/append l 1)
+    (is (= (vec l) [1]))
+    (python.pylist/append l 3)
+    (is (= (vec l) [1 3]))
+    (python.pylist/append l 5)
+    (is (= (vec l) [1 3 5]))
+    (is (= python.pylist/append python.list/append))
+    (python.pylist/clear l)
+    (is (= (python/list) (vec l)))))
+
+
+(require-python 'csv.DictWriter)
+
+(deftest require-python-classes
+  ;; simple creation/recall test
+  (is csv.DictWriter/__init__)
+  (is csv.DictWriter/writeheader)
+  (is csv.DictWriter/writerow)
+  (is csv.DictWriter/writerows))
+
