@@ -42,6 +42,8 @@
 
 (def ^:private importlib (py/import-module "importlib"))
 
+(def ^:private importlib_util (py/import-module "importlib.util"))
+
 (def ^:private reload-module (py/get-attr importlib "reload"))
 
 (def ^:priviate import-module (py/get-attr importlib "import_module"))
@@ -57,9 +59,7 @@
 
 (defn ^:private findspec [x]
   (let [-findspec
-        (-> importlib
-            (py/get-attr "util")
-            (py/get-attr "find_spec"))]
+        (-> importlib_util (py/get-attr "find_spec"))]
     (-findspec x)))
 
 (def ^:private hasattr (py/get-attr builtins "hasattr"))
