@@ -1,9 +1,13 @@
 (ns libpython-clj.require
   (:refer-clojure :exclude [fn? doc])
   (:require [libpython-clj.python :as py]
-            [clojure.tools.logging :as log]))
+            [clojure.tools.logging :as log]
+            [clojure.java.io :as io]))
 
 (py/initialize!)
+
+;; for hot reloading multimethod in development
+(ns-unmap 'libpython-clj.require 'intern-ns-class)
 
 (def ^:private builtins (py/import-module "builtins"))
 
@@ -50,6 +54,44 @@
 (def ^:private pyclass? (py/get-attr inspect "isclass"))
 
 (def ^:private pymodule? (py/get-attr inspect "ismodule"))
+
+(def ^:private findspec (-> importlib
+                            (py/get-attr "util")
+                            (py/get-attr "find_spec")))
+
+(def ^:private hasattr (py/get-attr builtins "hasattr"))
+
+(defn ^:private module-string? [x]
+  (try
+    (findspec x)
+    (catch Throwable e
+      false)))
+
+(defn module-path-string
+  "Given a.b, return a
+   Given a.b.c, return a.b
+   Given a.b.c.d, return a.b.c  etc."
+  [x]
+  (clojure.string/join
+   "."
+   (pop (clojure.string/split (str x) #"[.]"))))
+
+(defn module-path-last-string
+  "Given a.b.c.d, return d"
+  [x]
+  (last (clojure.string/split (str x) #"[.]")))
+
+(defn ^:private possible-class?
+  "The presumption here is that, given a symbol like 'builtins.list,
+  if 'builtins.list does not have a __path__ attribute but 'builtins does,
+  it's possible that 'list is a class of 'builtins.
+
+  This is a slightly cheaper test than a try/except wrapper around
+  a module."
+  [pos-class]
+  (let [module? (module-path-string pos-class)]
+    (and (not (module-string? pos-class))
+         (boolean (module-string? module?)))))
 
 (defn ^:private py-fn-argspec [f]
   (if-let [spec (try (argspec f) (catch Throwable e nil))]
@@ -296,6 +338,21 @@
                         (vec missing)))))
       refer)))
 
+(defn import-module-or-cls! [x]
+  (if (possible-class? x)
+    (let [module? (module-path-string x)
+          class?  (module-path-last-string x)]
+      (try
+        (let [m   (import-module module?)
+              cls (py/get-attr m class?)]
+          (if (nil? cls)
+            (throw (Exception. "Unable to load " x)))
+          [m cls])
+        (catch Exception e
+          (log/error (str "Unable to load " x))
+          (throw e))))
+    [(import-module (str x)) nil]))
+
 (defn- python-lib-configuration
   "Build a configuration map of a python library.  Current ns is option and used
   during testing but unnecessary during normal running events."
@@ -324,20 +381,52 @@
         current-ns          (or current-ns *ns*)
         current-ns-sym      (symbol (str current-ns))
         python-namespace    (find-ns module-name-or-ns)
-        this-module         (import-module (str module-name))]
+        [this-module cls]   (import-module-or-cls! module-name)]
+
     {:supported-flags   supported-flags
      :etc               etc
      :reload?           reload?
      :no-arglists?      no-arglists?
-     :load-ns-classes?  load-ns-classes?
-     :module-name       module-name
-     :module-name-or-ns module-name-or-ns
+     :load-ns-classes?  true
+
+     ;; if something like 'builtins.list was requested,
+     ;; the module name is 'builtins
+     :module-name       (if (pyclass? cls)
+                          (module-path-string module-name)
+                          module-name)
+
+     ;; if something like 'builtins.list was requested,
+     ;; the module-name is 'builtins
+     ;; or in the situation of
+     ;; '[builtins.list :as python.pylist]
+     ;; 'python would be bound to :module-name-or-ns
+     :module-name-or-ns (if (and (pyclass? cls)
+                                 (or (symbol? module-name-or-ns)
+                                     (string? module-name-or-ns)))
+                          (module-path-string module-name-or-ns)
+                          module-name-or-ns)
+
+     ;; presumes possibilty of alias in situations like
+     ;; '[builtins.list :as python.pylist]
+     ;; 'pylist would be bound to :class-name-or-ns in this case
+
+     :class-name-or-ns (if (and (pyclass? cls)
+                                (or (symbol? module-name-or-ns)
+                                    (string? module-name-or-ns)))
+                         (module-path-last-string module-name-or-ns)
+                         nil)
+
      :exclude           exclude
      :refer             refer
      :current-ns        current-ns
      :current-ns-sym    current-ns-sym
      :python-namespace  python-namespace
-     :this-module       this-module}))
+     :this-module       this-module
+     :module?           (pymodule? this-module)
+     :class?            (pyclass? cls)
+     :class-name        (when (pyclass? cls)
+                          (module-path-last-string
+                           module-name))}))
 
 (defn- extract-public-data
   [{:keys [exclude python-namespace module-name-or-ns]}]
@@ -364,8 +453,13 @@
                       this-module
                       module-name
                       module-name-or-ns]
+    cls?             :class?
     python-namespace :python-namespace}]
+
+  ;; in the event of '[builtins.list :as python.pylist]
+  ;; this function is a no-op
   (cond
+    cls?                   nil
     reload?                (reload-python-ns! module-name
                                               this-module
                                               module-name-or-ns)
@@ -373,21 +467,29 @@
 
 (defn enhanced-python-lib-configuration
   [{:keys [python-namespace exclude this-module]
+    cls? :class?
     :as   lib-config}]
-  (let [public-data (extract-public-data lib-config)]
-    (merge
-     lib-config
-     {:public-data   public-data
-      :refer-symbols (extract-refer-symbols lib-config
-                                            public-data)})))
+  ;; in the even of '[builtins.list :as python.pylist]
+  ;; or something similar, we do not provide enhanced
+  ;; data
+  (if cls?
+    lib-config
+    (let [public-data (extract-public-data lib-config)]
+      (merge
+       lib-config
+       {:public-data   public-data
+        :refer-symbols (extract-refer-symbols
+                        lib-config
+                        public-data)}))))
 
 (defn- bind-py-symbols-to-ns!
   [{:keys [reload?
            python-namespace
            this-module
            module-name-or-ns
-           no-arglists?]}]
-  (when (or reload? (not python-namespace))
+           no-arglists?]
+    cls?   :class?}]
+  (when (and (or reload? (not python-namespace)) (not cls?))
     ;;Mutably define the root namespace.
     (doseq [[att-name v] (vars this-module)]
       (try
@@ -401,20 +503,59 @@
           (log/warnf e "Failed to require symbol %s" att-name))))))
 
 (defn- bind-module-ns!
-  [{:keys [current-ns-sym module-name-or-ns this-module]}]
-  (intern current-ns-sym
-          (with-meta module-name-or-ns
-            {:doc (doc this-module)})
-          this-module))
+  [{:keys [current-ns-sym
+           module-name-or-ns
+           class-name-or-ns
+           this-module]
+    cls? :class?}]
+
+  ;; in event of '[builtins.list :as python.pylist]
+  ;; this is a no-op
+  (when (not cls?)
+    (intern current-ns-sym
+            (with-meta module-name-or-ns
+              {:doc (doc this-module)})
+            this-module)))
 
 (defn- generate-class-namespace-configs
-  [{:keys [module-name-or-ns this-module] :as lib-config}]
-  (letfn [(pyclass-pair? [[attr attr-val]] (pyclass? attr-val))
+  [{:keys [module-name-or-ns
+           this-module
+           class-name
+           class-name-or-ns
+           ]
+    cls?  :class?
+    :as   lib-config}]
+  (letfn [(pyclass-pair? [[attr attr-val]]
+
+            (or
+
+             ;; in the event that something like
+             ;; builtins.list was requested,
+             ;; we do not want to bind every
+             ;; class in the module to the ns, only the
+             ;; requested class
+
+             (and cls?
+                  (pyclass? attr-val)
+                  (and (hasattr attr-val "__name__")
+                       (= class-name
+                          (py/get-attr
+                           attr-val
+                           "__name__"))))
+
+             ;; if a module like 'builtins was specified
+             ;; without a class like 'builtins.list,
+             ;; we bind every class in the module to the module-ns
+
+             (and (not cls?)
+                  (pyclass? attr-val))))
           (pyclass-ns-config [[attr attr-val]]
             {:namespace      module-name-or-ns
              :attribute-type :class
-             :classname      attr
+             :classname      attr             
              :class-symbol   (symbol attr)
+             :class-binding  (or class-name-or-ns
+                                 class-name)
              :class          attr-val
              :attributes     ((comp
                                (py/get-attr builtins "dict")
@@ -439,6 +580,8 @@
                      (dissoc attr-config :attributes :type)
                      {:attribute-type attr-type
                       :type           :class-attribute
+                      :class-binding  (or class-name-or-ns
+                                          class-name)
                       :attribute      attr-val
                       :attribute-name attr}))))]
     (into []
@@ -461,8 +604,17 @@
     cls-name           :classname
     cls-sym            :class-symbol
     cls                :class
-    :as cls-ns-config}]
-  (let [cls-ns (symbol (str original-namespace "." cls-sym))]
+    cls-binding        :class-binding
+    :as                cls-ns-config}]
+
+  ;; cls-binding percolates down to here in the situation where
+  ;; '[builtins.list :as python.pylist] occurs
+  
+  (let [cls-ns (symbol (str original-namespace
+                            "."
+                            (or
+                             cls-binding
+                             cls-sym)))]
     (create-ns cls-ns)
     cls-ns-config))
 
@@ -471,10 +623,16 @@
     cls-name           :classname
     cls-sym            :class-symbol
     cls                :class
+    cls-binding        :class-binding
     method-name        :attribute-name
     method             :attribute
-    :as cls-ns-config}]
-  (let [cls-ns (symbol (str original-namespace "." cls-sym))]
+    :as                cls-ns-config}]
+
+  ;; cls-binding percolates down to here in the situation where
+  ;; '[builtins.list :as python.pylist] occurs
+
+  (let [cls-ns (symbol (str original-namespace "."
+                            (or  cls-binding cls-sym)))]
     (load-py-fn method (symbol method-name)
                 cls-ns {})
     cls-ns-config))
@@ -484,16 +642,23 @@
     cls-name           :classname
     cls-sym            :class-symbol
     cls                :class
+    cls-binding        :class-binding
     attribute-name     :attribute-name
     attribute          :attribute
-    :as cls-ns-config}]
-  (let [cls-ns (symbol (str original-namespace "." cls-sym))]
+    :as                cls-ns-config}]
+
+  ;; cls-binding percolates down to here in the situation where
+  ;; '[builtins.list :as python.pylist] occurs
+
+  (let [cls-ns (symbol (str original-namespace "."
+                            (or  cls-binding cls-sym)))]
     (intern cls-ns (symbol attribute-name) attribute)
     cls-ns-config))
 
-
 (defn- bind-class-namespaces!
-  [lib-config]
+  [{cls?   :class?
+    module :module?
+    :as    lib-config}]
   (let [class-namespace-configs
         (->>
          (generate-class-namespace-configs
@@ -533,11 +698,14 @@
                 this-module
                 python-namespace
                 public-data
-                refer-symbols]
+                refer-symbols
+                class?
+                module?]
          :as   lib-config}
         (preload-python-lib! req)]
 
-    (intern-public-and-refer-symbols! lib-config)
+    (when (not class?)
+      (intern-public-and-refer-symbols! lib-config))
 
     ;; alpha
     ;; TODO: does not respect reloading or much of the other
@@ -622,3 +790,4 @@
     (load-python-lib (vector reqs))
     (vector? reqs)
     (load-python-lib reqs)))
+
