@@ -55,9 +55,12 @@
 
 (def ^:private pymodule? (py/get-attr inspect "ismodule"))
 
-(def ^:private findspec (-> importlib
-                            (py/get-attr "util")
-                            (py/get-attr "find_spec")))
+(defn ^:private findspec [x]
+  (let [-findspec
+        (-> importlib
+            (py/get-attr "util")
+            (py/get-attr "find_spec"))]
+    (-findspec x)))
 
 (def ^:private hasattr (py/get-attr builtins "hasattr"))
 
