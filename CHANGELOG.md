@@ -1,5 +1,11 @@
 # Time for a ChangeLog!
 
+## 1.30-SNAPSHOT
+
+
+* Fixed potential crash related to use of delay mechanism and stack based gc.
+* Added logging to complain loudly if refcounts appear to be bad.
+
 
 ## 1.29
 
