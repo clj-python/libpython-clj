@@ -106,6 +106,19 @@
 (def ^:dynamic *pyobject-tracking-flags* [:gc])
 
 
+(defn incref
+  "Incref and return object"
+  [pyobj]
+  (let [pyobj (jna/as-ptr pyobj)]
+    (libpy/Py_IncRef pyobj)
+    pyobj))
+
+
+(defn refcount
+  ^long [pyobj]
+  (long (.ob_refcnt (PyObject. (jna/as-ptr pyobj)))))
+
+
 (defn wrap-pyobject
   "Wrap object such that when it is no longer accessible via the program decref is
   called. Used for new references.  This is some of the meat of the issue, however,
@@ -135,16 +148,20 @@
       (resource/track pyobj
                       #(with-interpreter interpreter
                          (try
-                           (when *object-reference-logging*
-                             (let [obj-data (PyObject. (Pointer. pyobj-value))]
-                               (println (format "releasing object - 0x%x:%4d:%s"
-                                                pyobj-value
-                                                (.ob_refcnt obj-data)
-                                                py-type-name))))
-                           (when *object-reference-tracker*
-                             (swap! *object-reference-tracker*
-                                    update pyobj-value (fn [arg]
-                                                         (dec (or arg 0)))))
+                           (let [refcount (refcount pyobj)
+                                 obj-data (PyObject. (Pointer. pyobj-value))]
+                             (if (< refcount 1)
+                               (log/errorf "Fatal error -- releasing object - 0x%x:%4d:%s
+Object's refcount is bad.  Crash is imminent" pyobj-value refcount py-type-name)
+                               (when *object-reference-logging*
+                                 (println (format "releasing object - 0x%x:%4d:%s"
+                                                  pyobj-value
+                                                  (.ob_refcnt obj-data)
+                                                  py-type-name))))
+                             (when *object-reference-tracker*
+                               (swap! *object-reference-tracker*
+                                      update pyobj-value (fn [arg]
+                                                           (dec (or arg 0))))))
                            (libpy/Py_DecRef (Pointer. pyobj-value))
                            (catch Throwable e
                              (log/error e "Exception while releasing object"))))
@@ -170,19 +187,6 @@
     (let [pyobj (jna/as-ptr pyobj)]
       (libpy/Py_IncRef pyobj)
       (wrap-pyobject pyobj))))
-
-
-(defn incref
-  "Incref and return object"
-  [pyobj]
-  (let [pyobj (jna/as-ptr pyobj)]
-    (libpy/Py_IncRef pyobj)
-    pyobj))
-
-
-(defn refcount
-  [pyobj]
-  (.ob_refcnt (PyObject. (jna/as-ptr pyobj))))
 
 
 (defn py-true

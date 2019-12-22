@@ -779,8 +779,21 @@
   (py-self->jvm-obj self))
 
 
+(defmacro pydelay
+  "Create a delay object that uses only gc reference semantics.  If stack reference
+  semantics happen to be in effect when this delay executes the object may still be
+  reachable by your program when it's reference counts are released leading to
+  bad/crashy behavior.  This ensures that can't happen at the cost of possibly an object
+  sticking around."
+  [& body]
+  `(delay
+     (with-gil
+       (with-bindings {#'pyobj/*pyobject-tracking-flags* [:gc]}
+         ~@body))))
+
+
 (defonce mapping-type
-  (delay
+  (pydelay
     (with-gil
       (let [mod (pyinterop/import-module "collections.abc")
             map-type (py-proto/get-attr mod "MutableMapping")]
@@ -835,7 +848,7 @@
   (py-self->jvm-obj self))
 
 (defonce sequence-type
-  (delay
+  (pydelay
     (let [mod (pyinterop/import-module "collections.abc")
           seq-type (py-proto/get-attr mod "MutableSequence")]
       (pyobj/create-class
@@ -896,7 +909,7 @@
 
 
 (defonce iterable-type
-  (delay
+  (pydelay
     (with-gil
       (let [mod (pyinterop/import-module "collections.abc")
             iter-base-cls (py-proto/get-attr mod "Iterable")]
@@ -939,7 +952,7 @@
 
 
 (defonce iterator-type
-  (delay
+  (pydelay
     (with-gil
       (let [mod (pyinterop/import-module "collections.abc")
             iter-base-cls (py-proto/get-attr mod "Iterator")
