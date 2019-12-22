@@ -6,6 +6,8 @@
             [libpython-clj.python.object :as pyobj]
             [libpython-clj.python.bridge :as pybridge]
             [libpython-clj.jna :as pyjna]
+            ;;Protocol implementations purely for nd-ness
+            [libpython-clj.python.np-array]
             [tech.jna :as jna])
   (:import [com.sun.jna Pointer]
            [com.sun.jna.ptr PointerByReference]

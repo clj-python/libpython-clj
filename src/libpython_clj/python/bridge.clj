@@ -209,7 +209,7 @@
 
 
 
-(defn- mostly-copy-arg
+(defn mostly-copy-arg
   "This is the dirty boundary between the languages.  Copying as often faster
   for simple things but we have to be careful not to attempt a copy of things that
   are only iterable (and not random access)."
@@ -513,6 +513,10 @@
 
 (defn obj-dtype->dtype
   [py-dtype]
+  (when-let [fields (get-attr py-dtype "fields")]
+    (throw (ex-info (format "Cannot convert numpy object with fields: %s"
+                            (call-attr fields "__str__"))
+                    {})))
   (if-let [retval (->> (py-proto/get-attr py-dtype "name")
                        (get py-dtype->dtype-map))]
     retval
@@ -524,18 +528,10 @@
 (defn numpy->desc
   [np-obj]
   (with-gil
-    (let [np-obj (as-jvm np-obj)
-          np (-> (pyinterop/import-module "numpy")
-                 (as-jvm))
-          ctypes (get-attr np-obj "ctypes")
-          ptr-dtype (-> (call-attr np "dtype" "p")
-                        obj-dtype->dtype)
-          obj-dtype (get-attr np-obj "dtype")
-          np-dtype  (obj-dtype->dtype obj-dtype)
-          _ (when-let [fields (get-attr obj-dtype "fields")]
-              (throw (ex-info (format "Cannot convert numpy object with fields: %s"
-                                      (call-attr fields "__str__"))
-                              {})))
+    (let [np (pyinterop/import-module "numpy")
+          ctypes (py-proto/as-jvm (get-attr np-obj "ctypes") {})
+          np-dtype (-> (py-proto/as-jvm (get-attr np-obj "dtype") {})
+                       (obj-dtype->dtype))
           shape (-> (get-attr ctypes "shape")
                     (as-list)
                     vec)
