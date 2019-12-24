@@ -2,6 +2,7 @@
   (:require [libpython-clj.jna.base
              :refer [def-pylib-fn
                      def-no-gil-pylib-fn
+                     as-pyobj
                      ensure-pyobj
                      ensure-pytuple
                      ensure-pydict

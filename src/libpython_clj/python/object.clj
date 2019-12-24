@@ -109,14 +109,14 @@
 (defn incref
   "Incref and return object"
   [pyobj]
-  (let [pyobj (jna/as-ptr pyobj)]
+  (let [pyobj (libpy/as-pyobj pyobj)]
     (libpy/Py_IncRef pyobj)
     pyobj))
 
 
 (defn refcount
   ^long [pyobj]
-  (long (.ob_refcnt (PyObject. (jna/as-ptr pyobj)))))
+  (long (.ob_refcnt (PyObject. (libpy/as-pyobj pyobj)))))
 
 
 (defn wrap-pyobject
@@ -129,10 +129,10 @@
     (check-error-throw))
   ;;We don't wrap pynone
   (if (and pyobj
-             (not= (Pointer/nativeValue (jna/as-ptr pyobj))
-                   (Pointer/nativeValue (jna/as-ptr (libpy/Py_None)))))
+             (not= (Pointer/nativeValue (libpy/as-pyobj pyobj))
+                   (Pointer/nativeValue (libpy/as-pyobj (libpy/Py_None)))))
     (let [interpreter (ensure-bound-interpreter)
-          pyobj-value (Pointer/nativeValue (jna/as-ptr pyobj))
+          pyobj-value (Pointer/nativeValue (libpy/as-pyobj pyobj))
           py-type-name (name (python-type pyobj))]
       (when *object-reference-logging*
         (let [obj-data (PyObject. (Pointer. pyobj-value))]
@@ -184,7 +184,7 @@ Object's refcount is bad.  Crash is imminent" pyobj-value refcount py-type-name)
   references that need to escape the current scope."
   [pyobj]
   (with-gil
-    (let [pyobj (jna/as-ptr pyobj)]
+    (let [pyobj (libpy/as-pyobj pyobj)]
       (libpy/Py_IncRef pyobj)
       (wrap-pyobject pyobj))))
 
@@ -220,7 +220,7 @@ Object's refcount is bad.  Crash is imminent" pyobj-value refcount py-type-name)
 
 (defn py-raw-type
   ^Pointer [pyobj]
-  (let [pyobj (PyObject. (jna/as-ptr pyobj))]
+  (let [pyobj (PyObject. (libpy/as-pyobj pyobj))]
     (.ob_type pyobj)))
 
 
@@ -990,8 +990,8 @@ Object's refcount is bad.  Crash is imminent" pyobj-value refcount py-type-name)
       (loop [next-retval (libpy/PyDict_Next pyobj ppos pkey pvalue)]
         (if (not= 0 next-retval)
           (do
-            (.add retval [(jna/as-ptr pkey)
-                          (jna/as-ptr pvalue)])
+            (.add retval [(libpy/as-pyobj pkey)
+                          (libpy/as-pyobj pvalue)])
             (recur (libpy/PyDict_Next pyobj ppos pkey pvalue)))
           (->> retval
                (map (fn [[k v]]
@@ -1093,7 +1093,7 @@ Object's refcount is bad.  Crash is imminent" pyobj-value refcount py-type-name)
       (python->jvm-copy-persistent-vector pyobj)
       :else
       {:type (python-type pyobj)
-       :value (Pointer/nativeValue (jna/as-ptr pyobj))})))
+       :value (Pointer/nativeValue (libpy/as-pyobj pyobj))})))
 
 
 (defn is-instance?

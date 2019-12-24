@@ -39,14 +39,21 @@
        (as-tensor [item]
                   (-> (py-bridge/numpy->desc item)
                       dtt/buffer-descriptor->tensor))
-
        dtype-proto/PDatatype
        (get-datatype
         [this]
-        {:base-datatype (-> (py-proto/get-attr pyobj "dtype")
-                            (py-proto/as-jvm {})
-                            (py-bridge/obj-dtype->dtype))
-         :datatype :numpy-array})
+        (-> (py-proto/get-attr pyobj "dtype")
+            (py-proto/as-jvm {})
+            (py-bridge/obj-dtype->dtype)))
+
+
+       dtype-proto/POperationType
+       (operation-type
+        [this]
+        :numpy-array)
+
+       dtype-proto/PCountable
+       (ecount [this] (apply * (dtype-proto/shape this)))
 
        dtype-proto/PShape
        (shape
@@ -60,6 +67,12 @@
         [item]
         (-> (py-proto/as-tensor item)
             (dtype-proto/->buffer-backing-store)))
+
+       dtype-proto/PToJNAPointer
+       (convertible-to-data-ptr? [item] true)
+       (->jna-ptr
+        [item]
+        (:ptr (py-bridge/numpy->desc item)))
 
        dtype-proto/PBuffer
        (sub-buffer
@@ -140,17 +153,18 @@
       (case op
         :+ (py-proto/call-attr lhs "sum")))))
 
+
 (defmethod op-provider/unary-provider :numpy-array
   [lhs]
   default-provider)
 
 
-(defmethod op-provider/binary-provider [:primitive :numpy-array]
+(defmethod op-provider/binary-provider [:scalar :numpy-array]
   [lhs rhs]
   default-provider)
 
 
-(defmethod op-provider/binary-provider [:numpy-array :primitive]
+(defmethod op-provider/binary-provider [:numpy-array :scalar]
   [lhs rhs]
   default-provider)
 

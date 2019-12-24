@@ -16,4 +16,7 @@
         tens (dtt/->tensor test-data)]
     (is (dfn/equals (-> (dfn/- np-ary 4)
                         (py/as-tensor))
-                    (dfn/- tens 4)))))
+                    (dfn/- tens 4)))
+    (is (dfn/equals [1 2 3 4]
+                    (dtype/make-container :java-array :int64
+                                          (dtype/->reader np-ary))))))

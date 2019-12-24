@@ -33,6 +33,17 @@
   (convertible-to-pyobject-ptr? [item] true)
   (->py-object-ptr [item] item))
 
+(extend-type Object
+  PToPyObjectPtr
+  (convertible-to-pyobject-ptr? [item] (jna/is-jna-ptr-convertible? item))
+  (->py-object-ptr [item] (jna/->ptr-backing-store item)))
+
+
+(defn as-pyobj
+  [item]
+  (when (and item (convertible-to-pyobject-ptr? item))
+    (->py-object-ptr item)))
+
 
 (defn ensure-pyobj
   [item]

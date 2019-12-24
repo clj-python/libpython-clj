@@ -215,8 +215,8 @@
   are only iterable (and not random access)."
   [arg]
   (cond
-    (jna/as-ptr arg)
-    (jna/as-ptr arg)
+    (libpy/as-pyobj arg)
+    (libpy/as-pyobj arg)
     (dtype/reader? arg)
     (->python arg)
     (instance? Map arg)
@@ -233,12 +233,9 @@
          interpreter# ~interpreter]
      (with-meta
        (reify
-         jna/PToPtr
-         (is-jna-ptr-convertible? [item#] true)
-         (->ptr-backing-store [item#] (jna/as-ptr pyobj#))
          libpy-base/PToPyObjectPtr
          (convertible-to-pyobject-ptr? [item#] true)
-         (->py-object-ptr [item#] (jna/as-ptr pyobj#))
+         (->py-object-ptr [item#] (libpy/as-pyobj pyobj#))
          py-proto/PPythonType
          (get-python-type [item]
            (with-interpreter interpreter#
@@ -826,7 +823,7 @@
 (defn jvm-map-as-python
   [^Map jvm-data]
   (with-gil
-    (py-proto/call (jna/as-ptr (deref mapping-type)) (make-jvm-object-handle jvm-data))))
+    (py-proto/call (libpy/as-pyobj (deref mapping-type)) (make-jvm-object-handle jvm-data))))
 
 
 (defmethod py-proto/pyobject->jvm :jvm-map-as-python
@@ -891,7 +888,7 @@
 (defn jvm-list-as-python
   [^List jvm-data]
   (with-gil
-    (py-proto/call (jna/as-ptr (deref sequence-type)) (make-jvm-object-handle jvm-data))))
+    (py-proto/call (libpy/as-pyobj (deref sequence-type)) (make-jvm-object-handle jvm-data))))
 
 
 (defmethod py-proto/pyobject->jvm :jvm-list-as-python
@@ -934,7 +931,7 @@
 (defn jvm-iterable-as-python
   [^Iterable jvm-data]
   (with-gil
-    (py-proto/call (jna/as-ptr (deref iterable-type)) (make-jvm-object-handle jvm-data))))
+    (py-proto/call (libpy/as-pyobj (deref iterable-type)) (make-jvm-object-handle jvm-data))))
 
 
 (defmethod py-proto/pyobject->jvm :jvm-iterable-as-python
@@ -989,7 +986,7 @@
 (defn jvm-iterator-as-python
   [^Iterator jvm-data]
   (with-gil
-    (py-proto/call (jna/as-ptr (deref iterator-type)) (make-jvm-object-handle jvm-data))))
+    (py-proto/call (libpy/as-pyobj (deref iterator-type)) (make-jvm-object-handle jvm-data))))
 
 
 (defmethod py-proto/pyobject->jvm :jvm-iterator-as-python

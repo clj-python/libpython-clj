@@ -2,6 +2,7 @@
   (:require [libpython-clj.jna.base
              :refer [def-pylib-fn
                      ensure-pyobj
+                     as-pyobj
                      ensure-pytuple
                      ensure-pydict
                      size-t-type
@@ -54,7 +55,7 @@
   "Create a new callable from an item."
   Pointer
   [method-def (partial jna/ensure-type PyMethodDef)]
-  [self jna/as-ptr])
+  [self as-pyobj])
 
 
 (def-pylib-fn PyInstanceMethod_New

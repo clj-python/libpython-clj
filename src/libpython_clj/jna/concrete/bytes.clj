@@ -1,6 +1,7 @@
 (ns libpython-clj.jna.concrete.bytes
   (:require [libpython-clj.jna.base
              :refer [def-pylib-fn
+                     as-pyobj
                      ensure-pyobj
                      ensure-pytuple
                      ensure-pydict
@@ -80,7 +81,7 @@
   Integer
   [obj ensure-pyobj]
   [ptr-to-buffer jna/ensure-ptr-ptr]
-  [length jna/as-ptr])
+  [length as-pyobj])
 
 
 
