@@ -360,7 +360,8 @@
   "Build a configuration map of a python library.  Current ns is option and used
   during testing but unnecessary during normal running events."
   [req & [current-ns]]
-  (let [supported-flags     #{:reload :no-arglists :alpha-load-ns-classes}
+  (let [supported-flags     #{:reload
+                              :no-arglists}
         [module-name & etc] req
         flags               (parse-flags supported-flags etc)
         etc                 (into {}
@@ -372,7 +373,6 @@
                                   etc)
         reload?             (:reload flags)
         no-arglists?        (:no-arglists flags)
-        load-ns-classes?    (:alpha-load-ns-classes flags)
         module-name-or-ns   (:as etc module-name)
         exclude             (into #{} (:exclude etc))
         refer               (cond
@@ -384,13 +384,14 @@
         current-ns          (or current-ns *ns*)
         current-ns-sym      (symbol (str current-ns))
         python-namespace    (find-ns module-name-or-ns)
-        [this-module cls]   (import-module-or-cls! module-name)]
+        [this-module cls]   (import-module-or-cls! module-name)
+        load-ns-classes?    (pyclass? cls)]
 
     {:supported-flags   supported-flags
      :etc               etc
      :reload?           reload?
      :no-arglists?      no-arglists?
-     :load-ns-classes?  true
+     :load-ns-classes?  load-ns-classes?
 
      ;; if something like 'builtins.list was requested,
      ;; the module name is 'builtins
@@ -555,7 +556,7 @@
           (pyclass-ns-config [[attr attr-val]]
             {:namespace      module-name-or-ns
              :attribute-type :class
-             :classname      attr             
+             :classname      attr
              :class-symbol   (symbol attr)
              :class-binding  (or class-name-or-ns
                                  class-name)
@@ -612,7 +613,7 @@
 
   ;; cls-binding percolates down to here in the situation where
   ;; '[builtins.list :as python.pylist] occurs
-  
+
   (let [cls-ns (symbol (str original-namespace
                             "."
                             (or
@@ -793,4 +794,3 @@
     (load-python-lib (vector reqs))
     (vector? reqs)
     (load-python-lib reqs)))
-

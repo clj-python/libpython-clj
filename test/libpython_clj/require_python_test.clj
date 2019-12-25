@@ -72,7 +72,7 @@
 
     ;; no exclusions
     (is (= #{} exclude))
-    (is (= #{:no-arglists :reload :alpha-load-ns-classes}
+    (is (= #{:no-arglists :reload}
            supported-flags))
     (is (= 'csv module-name module-name-or-ns))
     (is (nil? reload?))
@@ -130,7 +130,6 @@
     (is (= (vec l) [1 3]))
     (python.pylist/append l 5)
     (is (= (vec l) [1 3 5]))
-    (is (= python.pylist/append python.list/append))
     (python.pylist/clear l)
     (is (= (python/list) (vec l)))))
 
@@ -143,4 +142,3 @@
   (is csv.DictWriter/writeheader)
   (is csv.DictWriter/writerow)
   (is csv.DictWriter/writerows))
-
