@@ -3,11 +3,11 @@
 ## 1.30-SNAPSHOT
 
 This release is a big one.  With finalizing `require-python` we have a clear way
-to use python in daily use and make it look good in normal clojure usage.  There 
-is a demo of [facial recognition](https://github.com/cnuernber/facial-rec) using some 
-of the best open systems for doing this; this demo would absolutely not be possible 
-without this library due to the extensive use of numpy and cython to implement the 
-face detection.  We can now interact with even very complex python systems with 
+to use python in daily use and make it look good in normal clojure usage.  There
+is a demo of [facial recognition](https://github.com/cnuernber/facial-rec) using some
+of the best open systems for doing this; this demo would absolutely not be possible
+without this library due to the extensive use of numpy and cython to implement the
+face detection.  We can now interact with even very complex python systems with
 roughly the same performance as a pure-python system.
 
 #### Finalized `require-python`
@@ -20,6 +20,25 @@ classes and some serious refactoring overall.
 * Most of the datatype libraries math operators supported by numpy objects (+,-,etc).
 * Numpy objects can be used in datatype library functions (like copy, make-container)
   and work in optimized ways.
+
+```clojure
+libpython-clj.python.numpy-test> (def test-ary (py/$a np-mod array (->> (range 9)
+                                                                        (partition 3)
+                                                                        (mapv vec))))
+#'libpython-clj.python.numpy-test/test-ary
+libpython-clj.python.numpy-test> test-ary
+[[0 1 2]
+ [3 4 5]
+ [6 7 8]]
+libpython-clj.python.numpy-test> (dfn/+ test-ary 2)
+[[ 2  3  4]
+ [ 5  6  7]
+ [ 8  9 10]]
+libpython-clj.python.numpy-test> (dfn/> test-ary 4)
+[[False False False]
+ [False False  True]
+ [ True  True  True]]
+```
 
 
 #### Bugs Fixed
