@@ -328,7 +328,7 @@ print(json.dumps(
   "Get a keyword that corresponds to the current type.  Uses global type symbol
   table. Add the type to the symbol table if it does not exist already."
   [typeobj]
-  (let [type-addr (Pointer/nativeValue (jna/as-ptr typeobj))
+  (let [type-addr (Pointer/nativeValue (libpy/as-pyobj typeobj))
         interpreter (ensure-bound-interpreter)
         symbol-table (-> (swap! (:shared-state* interpreter)
                                 (fn [{:keys [type-symbol-table] :as shared-state}]

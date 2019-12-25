@@ -340,7 +340,7 @@
                    (pyinvoke [this self]
                      (if-let [attr (-> (pybridge->bridge self)
                                          (.getAttr "__iter__"))]
-                       (libpy/PyObject_CallObject (jna/as-ptr attr) nil)
+                       (libpy/PyObject_CallObject (libpy/as-pyobj attr) nil)
                        (do
                          (libpy/PyErr_SetNone (libpy/PyExc_Exception))
                          nil))))
@@ -348,7 +348,7 @@
                        (pyinvoke [this self]
                          (if-let [next (-> (pybridge->bridge self)
                                            (.getAttr "__next__"))]
-                           (libpy/PyObject_CallObject (jna/as-ptr next) nil)
+                           (libpy/PyObject_CallObject (libpy/as-pyobj next) nil)
                            (do
                              (libpy/PyErr_SetNone (libpy/PyExc_Exception))
                              nil))))}))))

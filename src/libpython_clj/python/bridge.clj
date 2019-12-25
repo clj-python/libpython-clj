@@ -209,14 +209,14 @@
 
 
 
-(defn- mostly-copy-arg
+(defn mostly-copy-arg
   "This is the dirty boundary between the languages.  Copying as often faster
   for simple things but we have to be careful not to attempt a copy of things that
   are only iterable (and not random access)."
   [arg]
   (cond
-    (jna/as-ptr arg)
-    (jna/as-ptr arg)
+    (libpy/as-pyobj arg)
+    (libpy/as-pyobj arg)
     (dtype/reader? arg)
     (->python arg)
     (instance? Map arg)
@@ -233,12 +233,9 @@
          interpreter# ~interpreter]
      (with-meta
        (reify
-         jna/PToPtr
-         (is-jna-ptr-convertible? [item#] true)
-         (->ptr-backing-store [item#] (jna/as-ptr pyobj#))
          libpy-base/PToPyObjectPtr
          (convertible-to-pyobject-ptr? [item#] true)
-         (->py-object-ptr [item#] (jna/as-ptr pyobj#))
+         (->py-object-ptr [item#] (libpy/as-pyobj pyobj#))
          py-proto/PPythonType
          (get-python-type [item]
            (with-interpreter interpreter#
@@ -513,6 +510,10 @@
 
 (defn obj-dtype->dtype
   [py-dtype]
+  (when-let [fields (get-attr py-dtype "fields")]
+    (throw (ex-info (format "Cannot convert numpy object with fields: %s"
+                            (call-attr fields "__str__"))
+                    {})))
   (if-let [retval (->> (py-proto/get-attr py-dtype "name")
                        (get py-dtype->dtype-map))]
     retval
@@ -524,18 +525,10 @@
 (defn numpy->desc
   [np-obj]
   (with-gil
-    (let [np-obj (as-jvm np-obj)
-          np (-> (pyinterop/import-module "numpy")
-                 (as-jvm))
-          ctypes (get-attr np-obj "ctypes")
-          ptr-dtype (-> (call-attr np "dtype" "p")
-                        obj-dtype->dtype)
-          obj-dtype (get-attr np-obj "dtype")
-          np-dtype  (obj-dtype->dtype obj-dtype)
-          _ (when-let [fields (get-attr obj-dtype "fields")]
-              (throw (ex-info (format "Cannot convert numpy object with fields: %s"
-                                      (call-attr fields "__str__"))
-                              {})))
+    (let [np (pyinterop/import-module "numpy")
+          ctypes (py-proto/as-jvm (get-attr np-obj "ctypes") {})
+          np-dtype (-> (py-proto/as-jvm (get-attr np-obj "dtype") {})
+                       (obj-dtype->dtype))
           shape (-> (get-attr ctypes "shape")
                     (as-list)
                     vec)
@@ -830,7 +823,7 @@
 (defn jvm-map-as-python
   [^Map jvm-data]
   (with-gil
-    (py-proto/call (jna/as-ptr (deref mapping-type)) (make-jvm-object-handle jvm-data))))
+    (py-proto/call (libpy/as-pyobj (deref mapping-type)) (make-jvm-object-handle jvm-data))))
 
 
 (defmethod py-proto/pyobject->jvm :jvm-map-as-python
@@ -895,7 +888,7 @@
 (defn jvm-list-as-python
   [^List jvm-data]
   (with-gil
-    (py-proto/call (jna/as-ptr (deref sequence-type)) (make-jvm-object-handle jvm-data))))
+    (py-proto/call (libpy/as-pyobj (deref sequence-type)) (make-jvm-object-handle jvm-data))))
 
 
 (defmethod py-proto/pyobject->jvm :jvm-list-as-python
@@ -938,7 +931,7 @@
 (defn jvm-iterable-as-python
   [^Iterable jvm-data]
   (with-gil
-    (py-proto/call (jna/as-ptr (deref iterable-type)) (make-jvm-object-handle jvm-data))))
+    (py-proto/call (libpy/as-pyobj (deref iterable-type)) (make-jvm-object-handle jvm-data))))
 
 
 (defmethod py-proto/pyobject->jvm :jvm-iterable-as-python
@@ -993,7 +986,7 @@
 (defn jvm-iterator-as-python
   [^Iterator jvm-data]
   (with-gil
-    (py-proto/call (jna/as-ptr (deref iterator-type)) (make-jvm-object-handle jvm-data))))
+    (py-proto/call (libpy/as-pyobj (deref iterator-type)) (make-jvm-object-handle jvm-data))))
 
 
 (defmethod py-proto/pyobject->jvm :jvm-iterator-as-python

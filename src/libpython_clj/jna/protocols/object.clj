@@ -2,6 +2,7 @@
   (:require [libpython-clj.jna.base
              :refer [def-pylib-fn
                      ensure-pyobj
+                     as-pyobj
                      ensure-pytuple
                      ensure-pydict
                      size-t-type
@@ -288,7 +289,7 @@
   Pointer
   [callable ensure-pyobj]
   [args ensure-pytuple]
-  [kwargs jna/as-ptr])
+  [kwargs as-pyobj])
 
 (def-pylib-fn PyObject_CallObject
   "Return value: New reference.
@@ -301,7 +302,7 @@
    This is the equivalent of the Python expression: callable(*args)."
   Pointer
   [callable ensure-pyobj]
-  [args jna/as-ptr])
+  [args as-pyobj])
 
 
 (def-pylib-fn PyObject_Hash

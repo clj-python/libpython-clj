@@ -5,7 +5,9 @@
              :refer [with-interpreter]]
             [libpython-clj.python.object :as pyobj]
             [libpython-clj.python.bridge :as pybridge]
-            [libpython-clj.jna :as pyjna]
+            [libpython-clj.jna :as libpy]
+            ;;Protocol implementations purely for nd-ness
+            [libpython-clj.python.np-array]
             [tech.jna :as jna])
   (:import [com.sun.jna Pointer]
            [com.sun.jna.ptr PointerByReference]
@@ -246,20 +248,9 @@
   :ok)
 
 
-(defn jvm-type-test
-  []
-  (initialize! :no-io-redirect? true)
-  (let [retval
-        (-> (add-module "libpython_clj")
-            (get-attr "jvm_bridge_type")
-            (jna/as-ptr))]
-    (println (.ob_refcnt (libpython_clj.jna.PyObject. retval)))
-    retval))
-
-
 (defn ptr-refcnt
   [item]
-  (-> (jna/as-ptr item)
+  (-> (libpy/as-pyobj item)
       (libpython_clj.jna.PyObject. )
       (.ob_refcnt)))
 
@@ -277,7 +268,7 @@
   (let [ptype# (PointerByReference.)
         pvalue# (PointerByReference.)
         ptraceback# (PointerByReference.)
-        _# (pyjna/PyErr_Fetch ptype# pvalue# ptraceback#)
+        _# (libpy/PyErr_Fetch ptype# pvalue# ptraceback#)
         ptype# (-> (jna/->ptr-backing-store ptype#)
                    (pyobj/wrap-pyobject true))
         pvalue# (-> (jna/->ptr-backing-store pvalue#)
@@ -308,10 +299,10 @@
           (do
             ;;Manual incref here because we cannot detach the object
             ;;from our gc decref hook added during earlier pyerr-fetch handler.
-            (pyjna/Py_IncRef ptype)
-            (pyjna/Py_IncRef pvalue)
-            (pyjna/Py_IncRef ptraceback)
-            (pyjna/PyErr_Restore ptype pvalue ptraceback)
+            (libpy/Py_IncRef ptype)
+            (libpy/Py_IncRef pvalue)
+            (libpy/Py_IncRef ptraceback)
+            (libpy/PyErr_Restore ptype pvalue ptraceback)
             (pyinterp/check-error-throw))))
       (do
         (call-attr with-var "__exit__" nil nil nil)

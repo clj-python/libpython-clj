@@ -5,10 +5,7 @@
             [tech.v2.datatype.typecast :as typecast]
             [camel-snake-kebab.core :refer [->kebab-case]]
             [tech.parallel.utils :refer [export-symbols]]
-            [libpython-clj.jna.base
-             :refer [def-pylib-fn
-                     ensure-pyobj]
-             :as libpy-base]
+            [libpython-clj.jna.base :as libpy-base]
             [libpython-clj.jna.base]
             [libpython-clj.jna.interpreter :as jnainterp]
             [libpython-clj.jna.protocols.object]
@@ -34,7 +31,9 @@
 
 
 (export-symbols libpython-clj.jna.base
-                find-pylib-symbol)
+                find-pylib-symbol
+                as-pyobj
+                ensure-pyobj)
 
 
 (export-symbols libpython-clj.jna.interpreter
