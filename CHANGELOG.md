@@ -2,6 +2,27 @@
 
 ## 1.30-SNAPSHOT
 
+This release is a big one.  With finalizing `require-python` we have a clear way
+to use python in daily use and make it look good in normal clojure usage.  There 
+is a demo of [facial recognition](https://github.com/cnuernber/facial-rec) using some 
+of the best open systems for doing this; this demo would absolutely not be possible 
+without this library due to the extensive use of numpy and cython to implement the 
+face detection.  We can now interact with even very complex python systems with 
+roughly the same performance as a pure-python system.
+
+#### Finalized `require-python`
+
+Lots of work put in to make the require-python pathway work with
+classes and some serious refactoring overall.
+
+#### Better Numpy Support
+
+* Most of the datatype libraries math operators supported by numpy objects (+,-,etc).
+* Numpy objects can be used in datatype library functions (like copy, make-container)
+  and work in optimized ways.
+
+
+#### Bugs Fixed
 
 * Fixed potential crash related to use of delay mechanism and stack based gc.
 * Added logging to complain loudly if refcounts appear to be bad.
