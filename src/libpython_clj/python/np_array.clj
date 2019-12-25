@@ -107,68 +107,74 @@
        (py-proto/as-jvm {}))))
 
 
-(def default-provider
-  (reify
-    op-provider/POperationProvider
-    (argtype [provider lhs] (argtypes/arg->arg-type lhs))
-    (cast [provider lhs options]
-      (when-not (keyword? (:datatype options))
-        (throw (Exception. "Can only case to base datatypes")))
-      (let [pytype (py-proto/get-attr @np-mod (name (:datatype options)))]
-        (py-proto/call-attr lhs "astype" pytype)))
-
-    (unary-op [provider lhs op options]
-      (if (= op :-)
-        (py-proto/call-attr lhs "__neg__")
-        (py-proto/call-attr @np-mod (name op) lhs)))
-
-    (binary-op [provider lhs rhs op options]
-      (case op
-        :max (py-proto/call-attr @np-mod "max" lhs rhs)
-        :min (py-proto/call-attr @np-mod "min" lhs rhs)
-        :+ (py-proto/call-attr @np-mod "add" lhs rhs)
-        :- (py-proto/call-attr @np-mod "subtract" lhs rhs)
-        :div (py-proto/call-attr @np-mod "divide" lhs rhs)
-        :* (py-proto/call-attr @np-mod "multiply" lhs rhs)
-        :pow (py-proto/call-attr @np-mod "power" lhs rhs)
-        :quot (py-proto/call-attr @np-mod "floor_divide" lhs rhs)
-        :rem (py-proto/call-attr @np-mod "mod" lhs rhs)
-        :bit-and (py-proto/call-attr @np-mod "bitwise_and" lhs rhs)
-        :bit-flip (py-proto/call-attr @np-mod "bitwise_not" lhs rhs)
-        :bit-or (py-proto/call-attr @np-mod "bitwise_or" lhs rhs)
-        :bit-xor (py-proto/call-attr @np-mod "bitwise_xor" lhs rhs)
-        :bit-shift-left (py-proto/call-attr @np-mod "left_shift" lhs rhs)
-        :bit-shift-right (py-proto/call-attr @np-mod "right_shift" lhs rhs)
-        :and (py-proto/call-attr @np-mod "logical_and" lhs rhs)
-        :or (py-proto/call-attr @np-mod "logical_or" lhs rhs)
-        :not (py-proto/call-attr @np-mod "logical_not" lhs rhs)
-        :xor (py-proto/call-attr @np-mod "logical_xor" lhs rhs)
-        :< (py-proto/call-attr @np-mod "less" lhs rhs)
-        :<= (py-proto/call-attr @np-mod "less_equal" lhs rhs)
-        :eq (py-proto/call-attr @np-mod "equal" lhs rhs)
-        :> (py-proto/call-attr @np-mod "greater" lhs rhs)
-        :>= (py-proto/call-attr @np-mod "greater_equal" lhs rhs)))
-
-    (reduce-op [provider lhs op options]
-      (case op
-        :+ (py-proto/call-attr lhs "sum")))))
+(defn- dispatch-unary-op
+  [op lhs options]
+  (if (keyword? op)
+    (if (= op :-)
+      (py-proto/call-attr lhs "__neg__")
+      (py-proto/call-attr @np-mod (name op) lhs))
+    (throw (Exception. "Unimplemented"))))
 
 
-(defmethod op-provider/unary-provider :numpy-array
-  [lhs]
-  default-provider)
+(defmethod op-provider/half-dispatch-unary-op :numpy-array
+  [op lhs options]
+  (dispatch-unary-op op lhs options))
 
 
-(defmethod op-provider/binary-provider [:scalar :numpy-array]
-  [lhs rhs]
-  default-provider)
+(defmethod op-provider/half-dispatch-boolean-unary-op :numpy-array
+  [op lhs options]
+  (dispatch-unary-op op lhs options))
 
 
-(defmethod op-provider/binary-provider [:numpy-array :scalar]
-  [lhs rhs]
-  default-provider)
+(defn- dispatch-binary-op
+  [op lhs rhs options]
+  (case op
+    :max (py-proto/call-attr @np-mod "max" lhs rhs)
+    :min (py-proto/call-attr @np-mod "min" lhs rhs)
+    :+ (py-proto/call-attr @np-mod "add" lhs rhs)
+    :- (py-proto/call-attr @np-mod "subtract" lhs rhs)
+    :div (py-proto/call-attr @np-mod "divide" lhs rhs)
+    :* (py-proto/call-attr @np-mod "multiply" lhs rhs)
+    :pow (py-proto/call-attr @np-mod "power" lhs rhs)
+    :quot (py-proto/call-attr @np-mod "floor_divide" lhs rhs)
+    :rem (py-proto/call-attr @np-mod "mod" lhs rhs)
+    :bit-and (py-proto/call-attr @np-mod "bitwise_and" lhs rhs)
+    :bit-flip (py-proto/call-attr @np-mod "bitwise_not" lhs rhs)
+    :bit-or (py-proto/call-attr @np-mod "bitwise_or" lhs rhs)
+    :bit-xor (py-proto/call-attr @np-mod "bitwise_xor" lhs rhs)
+    :bit-shift-left (py-proto/call-attr @np-mod "left_shift" lhs rhs)
+    :bit-shift-right (py-proto/call-attr @np-mod "right_shift" lhs rhs)
+    :and (py-proto/call-attr @np-mod "logical_and" lhs rhs)
+    :or (py-proto/call-attr @np-mod "logical_or" lhs rhs)
+    :not (py-proto/call-attr @np-mod "logical_not" lhs rhs)
+    :xor (py-proto/call-attr @np-mod "logical_xor" lhs rhs)
+    :< (py-proto/call-attr @np-mod "less" lhs rhs)
+    :<= (py-proto/call-attr @np-mod "less_equal" lhs rhs)
+    :eq (py-proto/call-attr @np-mod "equal" lhs rhs)
+    :> (py-proto/call-attr @np-mod "greater" lhs rhs)
+    :>= (py-proto/call-attr @np-mod "greater_equal" lhs rhs)))
 
 
-(defmethod op-provider/binary-provider [:numpy-array :numpy-array]
-  [lhs rhs]
-  default-provider)
+(def binary-op-dispatch-table
+  [[:numpy-array :scalar]
+   [:scalar :numpy-array]
+   [:numpy-array :numpy-array]])
+
+
+(defmacro implement-binary-ops
+  []
+  `(do
+     ~@(for [targets binary-op-dispatch-table]
+         `(do
+            (defmethod op-provider/half-dispatch-binary-op
+              ~targets
+              [op# lhs# rhs# options#]
+              (dispatch-binary-op op# lhs# rhs# options#))
+            (defmethod op-provider/half-dispatch-boolean-binary-op
+              ~targets
+              [op# lhs# rhs# options#]
+              (dispatch-binary-op op# lhs# rhs# options#))
+            ))))
+
+
+(implement-binary-ops)
