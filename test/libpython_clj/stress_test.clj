@@ -67,9 +67,8 @@ def getmultidata():
 (alter-var-root #'tech.resource.stack/*resource-context*
                 (constantly nil))
 
-(defn forever-test
-  []
-  (doseq [items (partition 999 (get-data))]
+(deftest forever-test
+  (doseq [items (take 10 (partition 999 (get-data)))]
     ;;One way is to use the GC
     (time
      (do
@@ -90,60 +89,57 @@ def getmultidata():
          items))))))
 
 
-(defn multidata-test
-  []
-  (doseq [items (partition 1000 (get-multi-data))]
+(deftest multidata-test
+  (doseq [items (take 5 (partition 1000 (get-multi-data)))]
     (time (do (py/with-gil-stack-rc-context
                 (mapv py/->jvm items))
               :ok))))
 
 
-(defn str-marshal-test
-  []
+(deftest str-marshal-test
   (let [test-str (py/->python "a nice string to work with")]
     (time
      (py/with-gil-stack-rc-context
-       (dotimes [iter 100000]
+       (dotimes [iter 1000]
          (py/->jvm test-str))))))
 
 
-(defn dict-marshal-test
-  []
+(deftest dict-marshal-test
   (let [test-item (py/->python {:a 1 :b 2})]
     (time
      (py/with-gil-stack-rc-context
-       (dotimes [iter 10000]
+       (dotimes [iter 100]
          (py/->jvm test-item))))))
 
 
-(defn print-stress-test
-  []
-  (dotimes [iter 10000]
+(deftest print-stress-test
+  (dotimes [iter 100]
     (with-out-str
       (print-data))))
 
 
-(defn new-cls-stress-test
-  []
-  (dotimes [iter 1000]
+(deftest new-cls-stress-test
+  (dotimes [iter 100]
     (py/with-gil-stack-rc-context
       (let [test-cls (py/create-class "testcls" nil
-                                      {"__init__" (py/make-tuple-fn
+                                      {"__init__" (py/make-tuple-instance-fn
                                                    (fn [self name shares price]
                                                      (py/set-attr! self "name" name)
                                                      (py/set-attr! self "shares" shares)
                                                      (py/set-attr! self "price" price)
                                                      nil))
-                                       "cost" (py/make-tuple-fn
+                                       "cost" (py/make-tuple-instance-fn
                                                (fn [self]
-                                                 (* (py/$. self shares)
-                                                    (py/$. self price))))
-                                       "__str__" (py/make-tuple-fn
+                                                 (let [self (py/as-jvm self)]
+                                                   (* (py/$. self shares)
+                                                      (py/$. self price)))))
+                                       "__str__" (py/make-tuple-instance-fn
                                                   (fn [self]
-                                                    ;;Self is just a dict so it converts to a hashmap
-                                                    (pr-str {"name" (py/$. self name)
-                                                             "shares" (py/$. self shares)
-                                                             "price" (py/$. self price)})))
+                                                    (let [self (py/as-jvm self)]
+                                                      ;;Self is just a dict so it converts to a hashmap
+                                                      (pr-str {"name" (py/$. self name)
+                                                               "shares" (py/$. self shares)
+                                                               "price" (py/$. self price)}))))
                                        "testvar" 55}
                                       )
             new-inst (test-cls "ACME" 50 90)]
@@ -152,6 +148,4 @@ def getmultidata():
         (is (= 55 (py/$. new-inst testvar)))
 
         (is (= {"name" "ACME", "shares" 50, "price" 90}
-               (edn/read-string (.toString new-inst))))
-
-        ))))
+               (edn/read-string (.toString new-inst))))))))
