@@ -10,350 +10,109 @@ JNA libpython bindings to the tech ecosystem.
 * Python objects are linked to the JVM GC such that when they are no longer reachable
   from the JVM their references are released.  Scope based resource contexts are
   [also available](https://github.com/cnuernber/libpython-clj/blob/master/docs/scopes-and-gc.md).
-* The exact same binary can run top of on multiple version of python reducing version
-  dependency chain management issues.
-* Development of new functionality is faster because it can be done from purely from the
-  REPL.
+* Finding the python libraries is done dynamically allowing one system to run on multiple versions
+  of python.
+* REPL oriented design means fast, smooth, iterative development.
 
 
-#### Clojure Conj 2019
+## Vision
 
-* [video](https://www.youtube.com/watch?v=vQPW16_jixs)
-* [slides](https://docs.google.com/presentation/d/1uegYhpS6P2AtEfhpg6PlgBmTSIPqCXvFTWcGYG_Qk2o/edit?usp=sharing)
+We aim to integrate Python into Clojure at a deep level.  This means that we want to
+be able to load/use python modules almost as if they were Clojure namespaces.  We
+also want to be able to use Clojure to extend Python objects.  I gave a
+[talk at Clojure Conj 2019](https://www.youtube.com/watch?v=vQPW16_jixs) that
+outlines more of what is going on.
 
+This code is a concrete example that generates an
+[embedding for faces](https://github.com/cnuernber/facial-rec):
 
-We have a [video](https://www.youtube.com/watch?v=ajDiGS73i2o) up of a scicloj community
-discussion with demos.
-
-
-TechAscent has a [blog post](http://www.techascent.com/blog/functions-across-languages.html)
-up about how the inter-language bindings actually work at a very low level.
-
-
-A walkthough using libpython-clj to render some graphs via matplotlib is on
-[nextjournal](https://nextjournal.com/chrisn/fun-with-matplotlib).
-
-
-If you want to quickly start using python from clojure your fastest path is probably
-the [panthera](https://github.com/alanmarazzi/panthera) library in addition to
-learning how the primitives in this library work.
+```clojure
+(ns facial-rec.face-feature
+  (:require [libpython-clj.require :refer [require-python]]
+            [libpython-clj.python :as py]
+            [tech.v2.datatype :as dtype]))
 
 
-New to Clojure or the JVM?  Try remixing the nextjournal entry and playing around
-there.  For more resources on learning and getting more comfortable with Clojure,
-we have an [introductory document](docs/new-to-clojure.md).
+(require-python '(mxnet mxnet.ndarray mxnet.module mxnet.io mxnet.model))
+(require-python 'cv2)
+(require-python '[numpy :as np])
+
+(defn load-model
+  [& {:keys [model-path checkpoint]
+      :or {model-path "models/recognition/model"
+           checkpoint 0}}]
+  (let [[sym arg-params aux-params] (mxnet.model/load_checkpoint model-path checkpoint)
+        all-layers (py/$a sym get_internals)
+        target-layer (py/get-item all-layers "fc1_output")
+        ;;TODO - We haven't overloaded enough of the IFn invoke methods for
+		;;this to work without using call-kw
+        model (py/call-kw mxnet.module/Module [] {:symbol target-layer :context (mxnet/cpu) :label_names nil})]
+    (py/$a model bind :data_shapes [["data" [1 3 112 112]]])
+    (py/$a model set_params arg-params aux-params)
+    model))
+
+(defonce model (load-model))
+
+(defn face->feature
+  [img-path]
+  (py/with-gil-stack-rc-context
+    (if-let [new-img (cv2/imread img-path)]
+      (let [new-img (cv2/cvtColor new-img cv2/COLOR_BGR2RGB)
+            new-img (np/transpose new-img [2 0 1])
+            input-blob (np/expand_dims new-img :axis 0)
+            data (mxnet.ndarray/array input-blob)
+            batch (mxnet.io/DataBatch :data [data])]
+        (py/$a model forward batch :is_train false)
+        (-> (py/$a model get_outputs)
+            first
+            (py/$a asnumpy)
+            (#(dtype/make-container :java-array :float32 %))))
+      (throw (Exception. (format "Failed to load img: %s" img-path))))))
+```
 
 
 ## Usage
 
-
-Python objects are essentially two dictionaries, one for 'attributes' and one for
-'items'.  When you use python and use the '.' operator, you are referencing attributes.
-If you use the '[]' operator, then you are referencing items.  Attributes are built in,
-item access is optional and happens via the `__getitem__` and `__setitem__` attributes.
-This is important to realize in that the code below doesn't look like python because we are
-referencing the item and attribute systems by name and not via '.' or '[]'.
-
-
-### Installation
-
-#### Ubuntu
-
-```console
-sudo apt install libpython3.6
-# numpy and pandas are required for unit tests.  Numpy is required for
-# zero copy support.
-python3.6 -m pip install numpy pandas --user
-```
-
-#### MacOSX
-
-Python installation instructions [here](https://docs.python-guide.org/starting/install3/osx/).
-
-
-
-### Initialize python
-
 ```clojure
-user>
-
-user> (require '[libpython-clj.python
-                 :refer [as-python as-jvm
-                         ->python ->jvm
-                         get-attr call-attr call-attr-kw
-                         get-item att-type-map
-                         call call-kw initialize!
-                         as-numpy as-tensor ->numpy
-                         run-simple-string
-                         add-module module-dict
-                         import-module
-                         python-type]])
+user> (require '[libpython-clj.require :refer [require-python]])
+...logging info....
 nil
-
-
-user> (initialize!)
-Jun 30, 2019 4:47:39 PM clojure.tools.logging$eval7369$fn__7372 invoke
-INFO: executing python initialize!
-Jun 30, 2019 4:47:39 PM clojure.tools.logging$eval7369$fn__7372 invoke
-INFO: Library python3.6m found at [:system "python3.6m"]
-Jun 30, 2019 4:47:39 PM clojure.tools.logging$eval7369$fn__7372 invoke
-INFO: Reference thread starting
-:ok
-```
-
-This dynamically finds the python shared library and loads it.  If you desire a
-different shared library you can override
-[here](https://github.com/cnuernber/libpython-clj/blob/master/src/libpython_clj/jna/base.clj#L12).
-
-
-### Execute Some Python
-
-`*out*` and `*err*` capture python stdout and stderr respectively.
-
-```clojure
-
-user> (run-simple-string "print('hey')")
-hey
-{:globals
- {'__name__': '__main__', '__doc__': None, '__package__': None, '__loader__': <class '_frozen_importlib.BuiltinImporter'>, '__spec__': None, '__annotations__': {}, '__builtins__': <module 'builtins' (built-in)>},
- :locals
- {'__name__': '__main__', '__doc__': None, '__package__': None, '__loader__': <class '_frozen_importlib.BuiltinImporter'>, '__spec__': None, '__annotations__': {}, '__builtins__': <module 'builtins' (built-in)>}}
-```
-
-The results have been 'bridged' into java meaning they are still python objects but
-there are java wrappers over the top of them.  For instance, `Object.toString` forwards
-its implementation to the python function `__str__`.
-
-```clojure
-(def bridged (run-simple-string "print('hey')"))
-(instance? java.util.Map (:globals bridged))
-true
-user> (:globals bridged)
-{'__name__': '__main__', '__doc__': None, '__package__': None, '__loader__': <class '_frozen_importlib.BuiltinImporter'>, '__spec__': None, '__annotations__': {}, '__builtins__': <module 'builtins' (built-in)>}
-```
-
-We can get and set global variables here.  If we run another string, these are in the
-environment.  The globals map itself is the global dict of the main module:
-
-```clojure
-(def main-globals (-> (add-module "__main__")
-                            (module-dict)))
-#'user/main-globals
-
-user> main-globals
-{'__name__': '__main__', '__doc__': None, '__package__': None, '__loader__': <class '_frozen_importlib.BuiltinImporter'>, '__spec__': None, '__annotations__': {}, '__builtins__': <module 'builtins' (built-in)>}
-user> (keys main-globals)
-("__name__"
- "__doc__"
- "__package__"
- "__loader__"
- "__spec__"
- "__annotations__"
- "__builtins__")
-user> (get main-globals "__name__")
-"__main__"
-user> (.put main-globals "my_var" 200)
+user> (require-python '[numpy :as np])
 nil
-
-user> (run-simple-string "print('your variable is:' + str(my_var))")
-your variable is:200
-{:globals
- {'__name__': '__main__', '__doc__': None, '__package__': None, '__loader__': <class '_frozen_importlib.BuiltinImporter'>, '__spec__': None, '__annotations__': {}, '__builtins__': <module 'builtins' (built-in)>, 'my_var': 200},
- :locals
- {'__name__': '__main__', '__doc__': None, '__package__': None, '__loader__': <class '_frozen_importlib.BuiltinImporter'>, '__spec__': None, '__annotations__': {}, '__builtins__': <module 'builtins' (built-in)>, 'my_var': 200}}
+user> (def test-ary (np/array [[1 2][3 4]]))
+#'user/test-ary
+user> test-ary
+[[1 2]
+ [3 4]]
 ```
 
-Running python isn't ever really necessary, however, although it may at times be
-convenient.  You can call attributes from clojure easily:
-
-```clojure
-user> (def np (import-module "numpy"))
-#'user/np
-user> (def ones-ary (call-attr np "ones" [2 3]))
-#'user/ones-ary
-user> ones-ary
-[[1. 1. 1.]
- [1. 1. 1.]]
-user> (call-attr ones-ary "__len__")
-2
-user> (vec ones-ary)
-[[1. 1. 1.] [1. 1. 1.]]
-user> (type (first *1))
-:pyobject
-user> (get-attr ones-ary "shape")
-(2, 3)
-user> (vec (get-attr ones-ary "shape"))
-[2 3]
-
-user> (att-type-map ones-ary)
-{"T" :ndarray,
- "__abs__" :method-wrapper,
- "__add__" :method-wrapper,
- "__and__" :method-wrapper,
- "__array__" :builtin-function-or-method,
- "__array_finalize__" :none-type,
- "__array_function__" :builtin-function-or-method,
- "__array_interface__" :dict,
- "__array_prepare__" :builtin-function-or-method,
- "__array_priority__" :float,
- "__array_struct__" :py-capsule,
- "__array_ufunc__" :builtin-function-or-method,
- "__array_wrap__" :builtin-function-or-method,
- "__bool__" :method-wrapper,
- "__class__" :type,
- "__complex__" :builtin-function-or-method,
- "__contains__" :method-wrapper,
- ...
- "std" :builtin-function-or-method,
- "strides" :tuple,
- "sum" :builtin-function-or-method,
- "swapaxes" :builtin-function-or-method,
- "take" :builtin-function-or-method,
- "tobytes" :builtin-function-or-method,
- "tofile" :builtin-function-or-method,
- "tolist" :builtin-function-or-method,
- "tostring" :builtin-function-or-method,
- "trace" :builtin-function-or-method,
- "transpose" :builtin-function-or-method,
- "var" :builtin-function-or-method,
- "view" :builtin-function-or-method}
-```
+We have a [document](docs/Usage.md) on all the features but beginning usage is
+pretty simple.  Import your modules, use the things from Clojure.  We have put
+effort into making sure things like sequences and ranges transfer between the two
+languages.
 
 
-### att-type-map
-
-It can be extremely helpful to print out the attribute name->attribute type map:
-
-```clojure
-user> (att-type-map ones-ary)
-{"T" :ndarray,
- "__abs__" :method-wrapper,
- "__add__" :method-wrapper,
- "__and__" :method-wrapper,
- "__array__" :builtin-function-or-method,
- "__array_finalize__" :none-type,
- "__array_function__" :builtin-function-or-method,
- "__array_interface__" :dict,
- ...
-  "real" :ndarray,
- "repeat" :builtin-function-or-method,
- "reshape" :builtin-function-or-method,
- "resize" :builtin-function-or-method,
- "round" :builtin-function-or-method,
- "searchsorted" :builtin-function-or-method,
- "setfield" :builtin-function-or-method,
- "setflags" :builtin-function-or-method,
- "shape" :tuple,
- "size" :int,
- "sort" :builtin-function-or-method,
- ...
-}
-```
+#### Environments
 
 
-### Errors
+One very complimentary aspect of Python with respect to Clojure is it's integration
+with cutting edge native libraries.  Our support isn't perfect so some understanding
+of the mechanism is important to diagnose errors and issues.
 
+Current, we launch the python3 executable and print out various different bits of
+configuration as json.  We parse the json and use the output to attempt to find
+the `libpython3.Xm.so` shared library so for example if we are loading python
+3.6 we look for `libpython3.6m.so` on Linux or `libpython3.6m.dylib` on the Mac.
 
-Errors are caught and an exception is thrown.  The error text is saved verbatim
-in the exception:
-
-
-```clojure
-user> (run-simple-string "print('syntax errrr")
-Execution error (ExceptionInfo) at libpython-clj.python.interpreter/check-error-throw (interpreter.clj:260).
-  File "<string>", line 1
-    print('syntax errrr
-                      ^
-SyntaxError: EOL while scanning string literal
-```
-
-### Some Syntax Sugar
-
-```clojure
-user> (py/from-import numpy linspace)
-#'user/linspace
-user> (linspace 2 3 :num 10)
-[2.         2.11111111 2.22222222 2.33333333 2.44444444 2.55555556
- 2.66666667 2.77777778 2.88888889 3.        ]
-user> (doc linspace)
--------------------------
-user/linspace
-
-    Return evenly spaced numbers over a specified interval.
-
-    Returns `num` evenly spaced samples, calculated over the
-    interval [`start`, `stop`].
-
-```
-
-* `from-import` - sugar around python `from a import b`.  Takes multiple b's.
-* `import-as` - surgar around python `import a as b`.
-* `$a` - call an attribute using symbol att name.  Keywords map to kwargs
-* `$c` - call an object mapping keywords to kwargs
-
-
-#### Experimental Sugar
-
-We are trying to find the best way to handle attributes in order to shorten
-generic python notebook-type usage.  The currently implemented direction is:
-
-* `$.` - get an attribute.  Can pass in symbol, string, or keyword
-* `$..` - get an attribute.  If more args are present, get the attribute on that
-result.
-
-```clojure
-user> (py/$. numpy linspace)
-<function linspace at 0x7fa6642766a8>
-user> (py/$.. numpy random shuffle)
-<built-in method shuffle of numpy.random.mtrand.RandomState object at 0x7fa66410cca8>
-```
-
-
-### Numpy
-
-Speaking of numpy, you can move data between numpy and java easily.
-
-```clojure
-user> (def tens-data (as-tensor ones-ary))
-#'user/tens-data
-user> (println tens-data)
-#tech.v2.tensor<float64>[2 3]
-[[1.000 1.000 1.000]
- [1.000 1.000 1.000]]
-nil
-
-
-user> (require '[tech.v2.datatype :as dtype])
-nil
-user> (def ignored (dtype/copy! (repeat 6 5) tens-data))
-#'user/ignored
-user> (.put main-globals "ones_ary" ones_ary)
-Syntax error compiling at (*cider-repl cnuernber/libpython-clj:localhost:39019(clj)*:191:7).
-Unable to resolve symbol: ones_ary in this context
-user> (.put main-globals "ones_ary" ones-ary)
-nil
-
-user> (run-simple-string "print(ones_ary)")
-[[5. 5. 5.]
- [5. 5. 5.]]
-{:globals
- {'__name__': '__main__', '__doc__': None, '__package__': None, '__loader__': <class '_frozen_importlib.BuiltinImporter'>, '__spec__': None, '__annotations__': {}, '__builtins__': <module 'builtins' (built-in)>, 'my_var': 200, 'ones_ary': array([[5., 5., 5.],
-       [5., 5., 5.]])},
- :locals
- {'__name__': '__main__', '__doc__': None, '__package__': None, '__loader__': <class '_frozen_importlib.BuiltinImporter'>, '__spec__': None, '__annotations__': {}, '__builtins__': <module 'builtins' (built-in)>, 'my_var': 200, 'ones_ary': array([[5., 5., 5.],
-       [5., 5., 5.]])}}
-```
-
-So heavy data has a zero-copy route.  Anything backed by a `:native-buffer` has a
-zero copy pathway to and from numpy.  For more information on how this happens,
-please refer to the datatype library [documentation](https://github.com/techascent/tech.datatype/tree/master/docs).
-
-Just keep in mind, careless usage of zero copy is going to cause spooky action at a
-distance.
+This pathway has allowed us support Conda albeit with some work.  For examples
+using Conda, check out the facial rec repository above or look into how we build
+our test docker containers in [this project](scripts/run-conda-docker).
 
 
 ## Further Information
 
+* Clojure Conj 2019 [video](https://www.youtube.com/watch?v=vQPW16_jixs) and
+  [slides](https://docs.google.com/presentation/d/1uegYhpS6P2AtEfhpg6PlgBmTSIPqCXvFTWcGYG_Qk2o/edit?usp=sharing).
 * [development discussion forum](https://clojurians.zulipchat.com/#narrow/stream/215609-libpython-clj-dev)
 * [design documentation](docs/design.md)
 * [scope and garbage collection docs](https://github.com/cnuernber/libpython-clj/blob/master/docs/scopes-and-gc.md)
@@ -364,6 +123,14 @@ distance.
 * [scicloj video](https://www.youtube.com/watch?v=ajDiGS73i2o)
 * [Clojure/Python interop technical blog post](www.techascent.com/blogs/functions-across-languages.html)
 * [persistent datastructures in python](https://github.com/tobgu/pyrsistent)
+
+
+## New To Clojure
+
+New to Clojure or the JVM?  Try remixing the nextjournal entry and playing around
+there.  For more resources on learning and getting more comfortable with Clojure,
+we have an [introductory document](docs/new-to-clojure.md).
+
 
 ## Resources
 
