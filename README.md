@@ -105,8 +105,9 @@ the `libpython3.Xm.so` shared library so for example if we are loading python
 3.6 we look for `libpython3.6m.so` on Linux or `libpython3.6m.dylib` on the Mac.
 
 This pathway has allowed us support Conda albeit with some work.  For examples
-using Conda, check out the facial rec repository above or look into how we build
-our test docker containers in [this project](scripts/run-conda-docker).
+using Conda, check out the facial rec repository above or look into how we 
+[build](scripts/build-conda-docker)
+our test [docker containers](dockerfiles/CondaDockerfile).
 
 
 ## Further Information
