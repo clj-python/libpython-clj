@@ -55,9 +55,10 @@ INFO: Reference thread starting
 :ok
 ```
 
-This dynamically finds the python shared library and loads it.  If you desire a
-different shared library you can override
-[here](https://github.com/cnuernber/libpython-clj/blob/master/src/libpython_clj/jna/base.clj#L12).
+This dynamically finds the python shared library and loads it using output from
+the python3 executable on your system.  For information about how that works,
+please checkout the code 
+[here](https://github.com/cnuernber/libpython-clj/blob/master/src/libpython_clj/python/interpreter.clj#L30).
 
 
 ### Execute Some Python
