@@ -1003,6 +1003,8 @@
   (as-python [item options] (->python item))
   String
   (as-python [item options] (->python item))
+  Character
+  (as-python [item options] (->python item))
   Symbol
   (as-python [item options] (->python item))
   Keyword

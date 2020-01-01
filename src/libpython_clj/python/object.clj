@@ -358,6 +358,11 @@ Object's refcount is bad.  Crash is imminent" pyobj-value refcount py-type-name)
   (->py-object-ptr [item]
     (with-gil
       (->python item)))
+  Character
+  (convertible-to-pyobject-ptr? [item] true)
+  (->py-object-ptr [item]
+    (with-gil
+      (->python (str item))))
   String
   (convertible-to-pyobject-ptr? [item] true)
   (->py-object-ptr [item]
@@ -597,6 +602,9 @@ Object's refcount is bad.  Crash is imminent" pyobj-value refcount py-type-name)
   String
   (->python [item options]
     (->py-string item))
+  Character
+  (->python [item options]
+    (->py-string (str item)))
   Symbol
   (->python [item options]
     (->py-string (name item)))

@@ -342,3 +342,8 @@
         jvm-dict (py/->jvm py-dict)]
     (is (= (get jvm-dict "ratings")
            (py/->jvm (py/get-item py-dict "ratings"))))))
+
+
+(deftest characters
+  (is (= (py/->jvm (py/->python "c"))
+         (py/->jvm (py/->python \c)))))
