@@ -53,7 +53,7 @@ libpython-clj.python.numpy-test> (dfn/> test-ary 4)
 
 ## 1.29
 
-* Found/fixed issue with ->jvm and large Python dictionaries.
+* Found/fixed issue with `->jvm` and large Python dictionaries.
 
 
 ## 1.28
