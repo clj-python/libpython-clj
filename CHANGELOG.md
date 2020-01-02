@@ -20,6 +20,9 @@ classes and some serious refactoring overall.
 * Most of the datatype libraries math operators supported by numpy objects (+,-,etc).
 * Numpy objects can be used in datatype library functions (like copy, make-container)
   and work in optimized ways.
+  
+#### Bugs
+* Support for java character <-> py string
 
 ```clojure
 libpython-clj.python.numpy-test> (def test-ary (py/$a np-mod array (->> (range 9)
