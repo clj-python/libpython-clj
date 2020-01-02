@@ -18,7 +18,7 @@ classes and some serious refactoring overall.
 #### Better Numpy Support
 
 * Most of the datatype libraries math operators supported by numpy objects (+,-,etc).
-* Numpy objects can be used in datatype library functions (like copy, make-container)
+* Numpy objects can be used in datatype library functions (like `copy`, `make-container`)
   and work in optimized ways.
   
 ```clojure
@@ -199,9 +199,9 @@ Fixed a bug where the system would load multiple Python libraries, not stopping
 after the first valid library loaded.  There are two ways to control the system's
 Python library loading mechanism:
 
-1. Pass in a library name in initialize!
-2. alter-var-root the list of libraries in libpython-clj.jna.base before
-   calling initialize!.
+1. Pass in a library name in `initialize!`
+2. `alter-var-root` the list of libraries in `libpython-clj.jna.base` before
+   calling `initialize!`.
 
 
 ## 1.15
@@ -226,5 +226,5 @@ libpython-clj.jna.base/*python-library-names*
 
 This is a sequence of library names that will be tried in order.
 
-You can also pass in the desired library name as part of the initialize! call and
+You can also pass in the desired library name as part of the `initialize!` call and
 only this name will be tried.
