@@ -155,7 +155,7 @@ Python iterated through a bridged object.  And that was my life for a day.
 
 ## 1.20
 
-With two many huge things we had to skip a few versions!
+With too many huge things we had to skip a few versions!
 
 #### require-python
 
