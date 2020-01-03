@@ -39,14 +39,9 @@ libpython-clj.python.numpy-test> (dfn/> test-ary 4)
  [False False  True]
  [ True  True  True]]
 ```
-
   
-#### Bugs
-* Support for java character <-> py string
-
-
 #### Bugs Fixed
-
+* Support for java character <-> py string
 * Fixed potential crash related to use of delay mechanism and stack based gc.
 * Added logging to complain loudly if refcounts appear to be bad.
 
