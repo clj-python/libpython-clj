@@ -6,6 +6,6 @@
   :dependencies [[org.clojure/clojure "1.10.1"]
                  [camel-snake-kebab "0.4.0"]
                  [techascent/tech.datatype "4.69"]
-                 [cheshire "5.9.0"]]
+                 [org.clojure/data.json "0.2.7"]]
   :repl-options {:init-ns user}
   :java-source-paths ["java"])

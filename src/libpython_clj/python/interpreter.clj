@@ -9,7 +9,7 @@
             [clojure.java.io :as io]
             [clojure.string :as s]
             [clojure.tools.logging :as log]
-            [cheshire.core :as json])
+            [clojure.data.json :as json])
   (:import [libpython_clj.jna
             JVMBridge
             PyObject]
@@ -39,7 +39,7 @@ print(json.dumps(
   \"exec_prefix\":      sys.exec_prefix,
   \"version\":          list(sys.version_info)[:3]}))")]
     (when (= 0 exit)
-      (json/parse-string out true))))
+      (json/read-str out :key-fn keyword))))
 
 (defn python-system-info
   "An information map about the Python system information provided
