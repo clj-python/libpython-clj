@@ -418,7 +418,9 @@
                 (let [arglist (vec arglist)]
                   (case (count arglist)
                     1 (.get this (first arglist))
-                    2 (.put this (first arglist) (second arglist)))))))))
+                    2 (.put this (first arglist) (second arglist)))))
+       py-proto/PPyObjectBridgeToMap
+       (as-map [item] item)))))
 
 
 (defn generic-python-as-list

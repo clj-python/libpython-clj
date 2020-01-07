@@ -1,8 +1,7 @@
 (ns libpython-clj.require
   (:refer-clojure :exclude [fn? doc])
   (:require [libpython-clj.python :as py]
-            [clojure.tools.logging :as log]
-            [clojure.java.io :as io]))
+            [clojure.tools.logging :as log]))
 
 (py/initialize!)
 
