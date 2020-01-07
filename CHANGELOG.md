@@ -1,6 +1,6 @@
 # Time for a ChangeLog!
 
-## 1.30-SNAPSHOT
+## 1.30
 
 This release is a big one.  With finalizing `require-python` we have a clear way
 to use Python in daily use and make it look good in normal Clojure usage.  There
