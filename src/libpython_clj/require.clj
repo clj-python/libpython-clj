@@ -1,6 +1,9 @@
 (ns libpython-clj.require
   (:refer-clojure :exclude [fn? doc])
   (:require [libpython-clj.python :as py]
+            [clojure.datafy :refer [datafy nav]]
+            ;;Binds datafy/nav to python objects
+            [libpython-clj.metadata]
             [clojure.tools.logging :as log]))
 
 (py/initialize!)
@@ -252,63 +255,32 @@
                                   seq)]
       (throw (Exception. (format "Unsupported flags: %s"
                                  (set missing-flags))))))
-  (letfn [(supported-flag-item
-            ;; scanned a supported tag token
-            [supported-flags flag results item items]
-            (cond
-              ;; add flag, continue scanning
-              (true? item) (next-flag-item
-                            supported-flags
-                            (conj results flag)
-                            (first items)
-                            (rest items))
-
-              ;; don't add flag, continue scanning
-              (false? item) (next-flag-item
-                             supported-flags
-                             results
-                             (first items)
-                             (rest items))
-              :else
-              ;; unary flag -- add flag but scan current item/s
-              (next-flag-item
-               supported-flags
-               (conj  results flag)
-               item
-               items)))
-
-          ;; scan flags
-          (next-flag-item [supported-flags results item items]
-            (cond
-              ;; supported flag scanned, begin FSM parse
-              (get supported-flags item)
-              (let [flag            (get supported-flags item)
-                    remaining-flags (clojure.set/difference
-                                     supported-flags #{flag})]
-                (supported-flag-item
-                 remaining-flags
-                 flag
-                 results
-                 (first items)
-                 (rest items)))
-
-              ;; FSM complete
-              (nil? item) (into #{} results)
-
-              ;; no flag scanned, continue scanning
-              :else (recur
-                     supported-flags
-                     results
-                     (first items)
-                     (rest items))))
-
-          ;; entrypoint
-          (get-flags [supported-flags reqs]
-            (next-flag-item supported-flags
-                            []
-                            (first reqs)
-                            (rest reqs)))]
-    (trampoline get-flags supported-flags reqs)))
+  ;;Loop through reqs.  If a keyword is found and it is a supported flag,
+  ;;see if the next thing is a boolean with a default to true.
+  ;;If the flag is enabled (as false could be passed in), conj (or disj) to flag set
+  ;;Return reqs minus flags and booleans.
+  (loop [reqs reqs
+         retval-reqs []
+         retval-flags #{}]
+    (if (seq reqs)
+      (let [next-item (first reqs)
+            reqs (rest reqs)
+            [bool-flag reqs]
+            (if (and (supported-flags next-item)
+                     (boolean? (first reqs)))
+              [(first reqs) (rest reqs)]
+              [true reqs])
+            retval-flags (if (supported-flags next-item)
+                           (if bool-flag
+                             (conj retval-flags next-item)
+                             (disj retval-flags next-item))
+                           retval-flags)
+            retval-reqs (if (not (supported-flags next-item))
+                          (conj retval-reqs next-item)
+                          retval-reqs)]
+        (recur reqs retval-reqs retval-flags))
+      {:reqs retval-reqs
+       :flags retval-flags})))
 
 (defn- extract-refer-symbols
   [{:keys [refer this-module]} public-data]
@@ -362,14 +334,14 @@
   (let [supported-flags     #{:reload
                               :no-arglists}
         [module-name & etc] req
-        flags               (parse-flags supported-flags etc)
-        etc                 (into {}
-                                  (comp
-                                   (remove supported-flags)
-                                   (remove boolean?)
-                                   (partition-all 2)
-                                   (map vec))
-                                  etc)
+        {flags :flags
+         etc :reqs}     (parse-flags supported-flags etc)
+        etc             (->> etc
+                             (remove supported-flags)
+                             (remove boolean?)
+                             (partition-all 2)
+                             (map vec)
+                             (into {}))
         reload?             (:reload flags)
         no-arglists?        (:no-arglists flags)
         module-name-or-ns   (:as etc module-name)

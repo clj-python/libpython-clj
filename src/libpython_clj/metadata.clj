@@ -1,4 +1,4 @@
-(ns libpython-clj.python.metadata
+(ns libpython-clj.metadata
   (:refer-clojure :exclude [fn? doc])
   (:require [libpython-clj.python
              :refer [import-module as-jvm get-attr call-attr callable? has-attr?
@@ -101,43 +101,30 @@
    (let [n-args          (count args)
          n-defaults      (count defaults)
          n-pos-args      (- n-args n-defaults)
-         pos-args        (transduce
-                          (comp
-                           (take n-pos-args)
-                           (map symbol))
-                          (completing conj)
-                          []
-                          args)
-         kw-default-args (transduce
-                          (comp
-                           (drop n-pos-args)
-                           (map symbol))
-                          (completing conj)
-                          []
-                          args)
-         or-map          (transduce
-                          (comp
-                           (partition-all 2)
-                           (map vec)
-                           (map (fn [[k v]] [(symbol k) v])))
-                          (completing (partial apply assoc))
-                          {}
-                          (concat
-                           (interleave kw-default-args defaults)
-                           (flatten (seq kwonlydefaults))))
-
+         pos-args        (->> args
+                              (take n-pos-args)
+                              (map symbol)
+                              (into []))
+         kw-default-args (->> args
+                              (drop n-pos-args)
+                              (map symbol)
+                              (into []))
+         or-map          (->> (concat
+                               (interleave kw-default-args defaults)
+                               (flatten (seq kwonlydefaults)))
+                              (partition-all 2)
+                              (map vec)
+                              (map (fn [[k v]] [(symbol k) v]))
+                              (into {}))
          as-varkw    (when (not (nil? varkw))
                        {:as (symbol varkw)})
-         default-map (transduce
-                      (comp
-                       (partition-all 2)
-                       (map vec)
-                       (map (fn [[k v]] [(symbol k) (keyword k)])))
-                      (completing (partial apply assoc))
-                      {}
-                      (concat
-                       (interleave kw-default-args defaults)
-                       (flatten (seq kwonlydefaults))))
+         default-map (->> (concat
+                           (interleave kw-default-args defaults)
+                           (flatten (seq kwonlydefaults)))
+                          (partition-all 2)
+                          (map vec)
+                          (map (fn [[k v]] [(symbol k) (keyword k)]))
+                          (into {}))
 
          kwargs-map (merge default-map
                            (when (not-empty or-map)
@@ -223,12 +210,14 @@
       {`clj-proto/nav
        (fn nav-pyval
          [coll f val]
-         (cond
-           (= :module (:type val))
-           (as-jvm (import-module (:name val)) {})
-           (= :type (:type val))
-           (let [mod (as-jvm (import-module (:module val)) {})
-                 cls-obj (get-attr mod (:name val))]
-             cls-obj)
-           :else
+         (if (map? val)
+           (cond
+             (= :module (:type val))
+             (as-jvm (import-module (:name val)) {})
+             (= :type (:type val))
+             (let [mod (as-jvm (import-module (:module val)) {})
+                   cls-obj (get-attr mod (:name val))]
+               cls-obj)
+             :else
+             val)
            val))})))
