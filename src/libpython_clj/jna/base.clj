@@ -47,7 +47,7 @@
 
 (defn ensure-pyobj
   [item]
-  (if-let [retval (->py-object-ptr item)]
+  (if-let [retval (as-pyobj item)]
     retval
     (throw (ex-info "Failed to get a pyobject pointer from object." {}))))
 

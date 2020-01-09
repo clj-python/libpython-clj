@@ -279,8 +279,7 @@
                           (conj retval-reqs next-item)
                           retval-reqs)]
         (recur reqs retval-reqs retval-flags))
-      {:reqs retval-reqs
-       :flags retval-flags})))
+      retval-flags)))
 
 (defn- extract-refer-symbols
   [{:keys [refer this-module]} public-data]
@@ -334,8 +333,7 @@
   (let [supported-flags     #{:reload
                               :no-arglists}
         [module-name & etc] req
-        {flags :flags
-         etc :reqs}     (parse-flags supported-flags etc)
+        flags           (parse-flags supported-flags etc)
         etc             (->> etc
                              (remove supported-flags)
                              (remove boolean?)

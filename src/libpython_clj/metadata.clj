@@ -167,46 +167,65 @@
          (catch Throwable e
            nil))))))
 
+(defn pyobj-flags
+  [item]
+  (->> {:pyclass? pyclass?
+        :callable? callable?
+        :fn? fn?
+        :method? method?
+        :pymodule? pymodule?}
+       (map (fn [[kwd f]]
+              (when (f item)
+                kwd)))
+       (remove nil?)
+       set))
+
+
+(defn base-pyobj-map
+  [item]
+  (merge {:type (py/python-type item)
+          :doc (doc item)
+          :str (.toString item)
+          :flags (pyobj-flags item)}
+         (when (has-attr? item "__module__")
+           {:module (get-attr item "__module__")})
+         (when (has-attr? item "__name__")
+           {:name (get-attr item "__name__")})))
+
+
+(defn scalar?
+  [att-val]
+  (or (string? att-val)
+      (number? att-val)))
+
 
 (extend-type PPyObject
   clj-proto/Datafiable
   (datafy [item]
     (with-meta
       (with-gil
-        (->> (vars item)
-             (py-proto/as-map)
+        (->> (if (or (pyclass? item)
+                     (pymodule? item))
+               (-> (vars item)
+                   (py-proto/as-map))
+               (->> (py/dir item)
+                    (map (juxt identity #(get-attr item %)))))
              (map (fn [[att-name att-val]]
                     (when att-val
                       (try
-                        (let [att-type (py-proto/python-type att-val)]
-                          [att-name
-                           (merge {:type att-type
-                                   :doc (doc att-val)
-                                   :str (.toString att-val)
-                                   :flags (->> {:pyclass? pyclass?
-                                                :callable? callable?
-                                                :fn? fn?
-                                                :method? method?
-                                                :pymodule? pymodule?}
-                                               (map (fn [[kwd f]]
-                                                      (when (f att-val)
-                                                        kwd)))
-                                               (remove nil?)
-                                               set)}
-
-                                  (when (callable? att-val)
-                                    (py-fn-metadata att-name att-val {}))
-                                  (when (has-attr? att-val "__module__")
-                                    {:module (get-attr att-val "__module__")})
-                                  (when (has-attr? att-val "__name__")
-                                    {:name (get-attr att-val "__name__")}))])
+                        [att-name
+                         (merge (base-pyobj-map att-val)
+                                (when (callable? att-val)
+                                  (py-fn-metadata att-name att-val {}))
+                                (when (scalar? att-val)
+                                  {:value att-val}))]
                         (catch Throwable e
                           (log/warnf "Metadata generation failed for %s:%s"
                                      (.toString item)
                                      att-name)
                           nil)))))
              (remove nil?)
-             (into {})))
+             (into (base-pyobj-map item))))
       {`clj-proto/nav
        (fn nav-pyval
          [coll f val]
@@ -221,3 +240,56 @@
              :else
              val)
            val))})))
+
+
+(defn metadata-map->py-obj
+  [metadata-map]
+  (case (:type metadata-map)
+    :module (import-module (:name metadata-map))
+    :type (-> (import-module (:module metadata-map))
+              (get-attr (:name metadata-map)))))
+
+
+(defn get-or-create-namespace!
+  [ns-symbol ns-doc]
+  (if-let [ns-obj (find-ns ns-symbol)]
+    ns-obj
+    (create-ns (with-meta ns-symbol
+                 (merge (meta ns-symbol)
+                        {:doc ns-doc})))))
+
+
+(defn apply-static-metadata-to-namespace!
+  "Given a metadata map, find the item associated with the map and for each
+  string keyword apply it to the namespace.  Namespace is created if it does not
+  already exist.  Returns the namespace symbol."
+  [ns-symbol metadata-map]
+  (let [target-item (metadata-map->py-obj metadata-map)]
+    (get-or-create-namespace! ns-symbol (:doc metadata-map))
+    (doseq [[k v] metadata-map]
+      (when (has-attr? target-item k)
+        (let [att-val (get-attr target-item k)]
+          (intern ns-symbol (with-meta (symbol k) v) att-val))))
+    ns-symbol))
+
+
+(defn apply-instance-metadata-to-namespace!
+  "In this case we have at some point in the past generated metadata from an instance
+  and we want to create an namespace to get intellisense on objects of that type.
+  The use case for this is you get a generic 'thing' back and you export its metadata
+  to a resource edn file.  You can then always create a namespace from this metadata
+  and use that namespace to explore/use the instance and this will work regardless
+  of if a factory returns a derived object.
+  Returns the namespace symbol."
+  [ns-symbol metadata-map]
+  (get-or-create-namespace! ns-symbol (:doc metadata-map))
+  (doseq [[k v] metadata-map]
+    (when (map? v)
+      (cond
+        (contains? (:flags v) :callable?)
+        (intern ns-symbol (with-meta (symbol k) v)
+                (fn [inst & args]
+                  (apply (get-attr inst k) args)))
+        (contains? v :value)
+        (intern ns-symbol (with-meta (symbol k) v) (:value v)))))
+  ns-symbol)
