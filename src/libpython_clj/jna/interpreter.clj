@@ -13,7 +13,8 @@
             [tech.jna :as jna]
             [libpython-clj.jna.protocols.object :as pyobj]
             [libpython-clj.jna.concrete.unicode :as pyuni]
-            [camel-snake-kebab.core :refer [->kebab-case]])
+            [camel-snake-kebab.core :refer [->kebab-case]]
+            [clojure.tools.logging :as log])
   (:import [com.sun.jna Pointer Native NativeLibrary]
            [com.sun.jna.ptr PointerByReference]
            [libpython_clj.jna PyObject]))
@@ -215,11 +216,14 @@
 
 (defn get-type-name
   [type-pyobj]
-  (-> (pyobj/PyObject_GetAttrString type-pyobj "__name__")
-      (pyuni/PyUnicode_AsUTF8)
-      (jna/variable-byte-ptr->string)
-      ->kebab-case
-      keyword))
+  (if-let [obj-name (pyobj/PyObject_GetAttrString type-pyobj "__name__")]
+    (-> (pyuni/PyUnicode_AsUTF8 obj-name)
+        (jna/variable-byte-ptr->string)
+        ->kebab-case
+        keyword)
+    (do
+      (log/warn "Failed to get typename for object")
+      :typename-lookup-failure)))
 
 
 (defn lookup-type-symbols

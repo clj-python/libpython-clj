@@ -13,40 +13,41 @@
 (py/initialize!)
 
 
-(def ^:private builtins (as-jvm (import-module "builtins") {}))
-(def ^:private inspect (as-jvm (import-module "inspect") {}))
-(def ^:private argspec (get-attr inspect "getfullargspec"))
-(def ^:private py-source (get-attr inspect "getsource"))
-(def ^:private types (import-module "types"))
-(def ^:private fn-type
+(def builtins (as-jvm (import-module "builtins") {}))
+(def inspect (as-jvm (import-module "inspect") {}))
+(def argspec (get-attr inspect "getfullargspec"))
+(def py-source (get-attr inspect "getsource"))
+(def types (import-module "types"))
+(def fn-type
   (call-attr builtins "tuple"
              [(get-attr types "FunctionType")
               (get-attr types "BuiltinFunctionType")]))
 
-(def ^:private method-type
+(def method-type
   (call-attr builtins "tuple"
              [(get-attr types "MethodType")
               (get-attr types "BuiltinMethodType")]))
 
-(def ^:private isinstance? (get-attr builtins "isinstance"))
-(def ^:private fn? #(isinstance? % fn-type))
-(def ^:private method? #(isinstance? % method-type))
-(def ^:private doc #(try
-                      (get-attr % "__doc__")
-                      (catch Exception e
-                        "")))
-(def ^{:private false :public true}
-  get-pydoc doc)
-(def ^:private vars (get-attr builtins "vars"))
-(def ^:private pyclass? (get-attr inspect "isclass"))
-(def ^:private pymodule? (get-attr inspect "ismodule"))
-(def ^:private importlib_util (import-module "importlib.util"))
-(defn ^:private findspec [x]
+(def isinstance? (get-attr builtins "isinstance"))
+(def fn? #(isinstance? % fn-type))
+(def method? #(isinstance? % method-type))
+(def doc #(try
+             (get-attr % "__doc__")
+             (catch Exception e
+               "")))
+(def get-pydoc doc)
+(def vars (get-attr builtins "vars"))
+(def pyclass? (get-attr inspect "isclass"))
+(def pymodule? (get-attr inspect "ismodule"))
+(def importlib (py/import-module "importlib"))
+(def importlib_util (import-module "importlib.util"))
+(def reload-module (py/get-attr importlib "reload"))
+(defn findspec [x]
   (let [-findspec
         (-> importlib_util (get-attr "find_spec"))]
     (-findspec x)))
 
-(defn ^:private py-fn-argspec [f]
+(defn py-fn-argspec [f]
   (if-let [spec (try (when-not (pyclass? f)
                        (argspec f))
                      (catch Throwable e nil))]
@@ -59,7 +60,7 @@
      :annotations    (->jvm (get-attr spec "annotations") {})}
     (py-fn-argspec (get-attr f "__init__"))))
 
-(defn ^:private py-class-argspec [class]
+(defn py-class-argspec [class]
   (let [constructor (get-attr class "__init__")]
     (py-fn-argspec constructor)))
 
@@ -153,6 +154,12 @@
          arglists
          (recur argspec' defaults' arglists))))))
 
+
+(defn py-class-argspec [class]
+  (let [constructor (py/get-attr class "__init__")]
+    (py-fn-argspec constructor)))
+
+
 (defn py-fn-metadata [fn-name x {:keys [no-arglists?]}]
   (let [fn-argspec (pyargspec x)
         fn-docstr  (get-pydoc x)]
@@ -242,6 +249,38 @@
            val))})))
 
 
+(defn module-path-string
+  "Given a.b, return a
+   Given a.b.c, return a.b
+   Given a.b.c.d, return a.b.c  etc."
+  [x]
+  (clojure.string/join
+   "."
+   (pop (clojure.string/split (str x) #"[.]"))))
+
+
+(defn module-path-last-string
+  "Given a.b.c.d, return d"
+  [x]
+  (last (clojure.string/split (str x) #"[.]")))
+
+
+(defn path->py-obj
+  [item-path & {:keys [reload?]}]
+  (when (seq item-path)
+    (if-let [module-retval (try
+                             (import-module item-path)
+                             (catch Throwable e nil))]
+      (if reload?
+        (reload-module module-retval)
+        module-retval)
+      (let [butlast (module-path-string item-path)]
+        (if-let [parent-mod (path->py-obj butlast :reload? reload?)]
+          (get-attr parent-mod (module-path-last-string item-path))
+          (throw (Exception. (format "Failed to find module or class %s"
+                                     item-path))))))))
+
+
 (defn metadata-map->py-obj
   [metadata-map]
   (case (:type metadata-map)
@@ -263,13 +302,18 @@
   "Given a metadata map, find the item associated with the map and for each
   string keyword apply it to the namespace.  Namespace is created if it does not
   already exist.  Returns the namespace symbol."
-  [ns-symbol metadata-map]
+  [ns-symbol metadata-map & {:keys [no-arglists?]}]
   (let [target-item (metadata-map->py-obj metadata-map)]
     (get-or-create-namespace! ns-symbol (:doc metadata-map))
     (doseq [[k v] metadata-map]
       (when (has-attr? target-item k)
         (let [att-val (get-attr target-item k)]
-          (intern ns-symbol (with-meta (symbol k) v) att-val))))
+          (intern ns-symbol
+                  (with-meta (symbol k)
+                    (if no-arglists?
+                      (dissoc v :arglists)
+                      v))
+                  att-val))))
     ns-symbol))
 
 
