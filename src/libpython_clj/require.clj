@@ -100,27 +100,26 @@
                              (into {}))
         reload?             (:reload flags)
         no-arglists?        (:no-arglists flags)
-        module-name-or-ns   (:as etc module-name)
+        alias-name          (:as etc)
         exclude             (into #{} (:exclude etc))
-        refer               (cond
-                                (= :all (:refer etc)) #{:all}
-                                (= :* (:refer etc))   #{:*}
-                                :else (into #{} (:refer etc)))
+        refer-data          (cond
+                              (= :all (:refer etc)) #{:all}
+                              (= :* (:refer etc))   #{:*}
+                              :else (into #{} (:refer etc)))
         pyobj (pymeta/path->py-obj (str module-name) :reload? reload?)
         existing-py-ns? (find-ns module-name)]
-    (when (and reload? existing-py-ns?)
-      (remove-ns module-name))
     (create-ns module-name)
-    (when (or (not existing-py-ns?)
-              reload?)
+    (when (or (not existing-py-ns?) reload?)
       (pymeta/apply-static-metadata-to-namespace! module-name (datafy pyobj)
                                                   :no-arglists? no-arglists?))
-    (refer module-name
-           :exclude exclude
-           :only (extract-refer-symbols {:refer refer
-                                         :this-module pyobj}
-                                        (ns-publics (find-ns module-name))))
-    (alias module-name-or-ns module-name)))
+    (when-let [refer-symbols (->> (extract-refer-symbols {:refer refer-data
+                                                          :this-module pyobj}
+                                                         (ns-publics
+                                                          (find-ns module-name)))
+                                  seq)]
+      (refer module-name :exclude exclude :only refer-symbols))
+    (when alias-name
+      (alias alias-name module-name))))
 
 
 (defn require-python

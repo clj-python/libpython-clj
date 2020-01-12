@@ -10,17 +10,13 @@
 (require-python '[math
                   :refer :*
                   :exclude [sin cos]
-                  :as pymath
-                  :reload true])
+                  :as pymath])
 
 
 (deftest base-require-test
   (let [publics (ns-publics (find-ns 'libpython-clj.require-python-test))]
-    (is (contains? publics 'acos))
-    (is (contains? publics 'floor))
     (is (not (contains? publics 'sin)))
     (is (= 10.0 (double (floor 10.1))))
-    (is (= pymath (py/import-module "math")))
     (is (thrown? Throwable (require-python '[math :refer [blah]])))))
 
 (deftest parse-flags-test
@@ -49,69 +45,6 @@
     (is (= #{:b} (parse-flags #{:a :b} '[:b true :a false])))
     (is (= #{:b} (parse-flags #{:a :b} '[:b :a false])))
     (is (= #{:b :a} (parse-flags #{:a :b} '[:b :a false :a true])))))
-
-(deftest python-lib-configuration-test
-  (let [python-lib-configuration #'req/python-lib-configuration
-        simple-req               '[csv]
-        simple-spec              (python-lib-configuration
-                                  simple-req
-                                  (find-ns 'libpython-clj.require-python-test))
-        {:keys [exclude
-                supported-flags
-                current-ns-sym
-                module-name
-                module-name-or-ns
-                reload?
-                no-arglists?
-                etc
-                current-ns
-                this-module
-                python-namespace
-                refer]}          simple-spec
-        csv-module               (py/import-module "csv")]
-
-    ;; no exclusions
-    (is (= #{} exclude))
-    (is (= #{:no-arglists :reload}
-           supported-flags))
-    (is (= 'csv module-name module-name-or-ns))
-    (is (nil? reload?))
-    (is (nil? no-arglists?))
-    (is (= {} etc))
-    (is (= csv-module this-module)))
-
-
-  (let [python-lib-configuration #'req/python-lib-configuration
-        simple-req               '[requests
-                                   :reload true
-                                   :refer [get]
-                                   :no-arglists]
-        simple-spec              (python-lib-configuration
-                                  simple-req
-                                  (find-ns 'libpython-clj.require-python-test))
-        {:keys [exclude
-                supported-flags
-                current-ns-sym
-                module-name
-                module-name-or-ns
-                reload?
-                no-arglists?
-                etc
-                current-ns
-                this-module
-                python-namespace
-                refer]}          simple-spec
-        requests-module          (py/import-module "requests")]
-
-    ;; no exclusions
-    (is (= #{} exclude))
-    (is (= 'requests module-name module-name-or-ns))
-    (is (= reload? :reload))
-    (is (= no-arglists? :no-arglists))
-    (is (= {:refer '[get]} etc))
-    (is (= requests-module this-module))
-    (is (= #{'get} refer))
-    (is (nil? python-namespace))))
 
 
 (require-python '([builtins :as python]

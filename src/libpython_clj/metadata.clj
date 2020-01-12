@@ -306,7 +306,9 @@
   (let [target-item (metadata-map->py-obj metadata-map)]
     (get-or-create-namespace! ns-symbol (:doc metadata-map))
     (doseq [[k v] metadata-map]
-      (when (has-attr? target-item k)
+      (when (and (string? k)
+                 (map? v)
+                 (has-attr? target-item k))
         (let [att-val (get-attr target-item k)]
           (intern ns-symbol
                   (with-meta (symbol k)
