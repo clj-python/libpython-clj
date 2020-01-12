@@ -1,5 +1,11 @@
 # Time for a ChangeLog!
 
+## 1.31-SNAPSHOT
+
+* Python objects are now datafy-able and nav-igable.  `require-python`
+  is now rebuilt using datafy.
+  
+
 ## 1.30
 
 This release is a big one.  With finalizing `require-python` we have a clear way
