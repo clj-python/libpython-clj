@@ -262,7 +262,55 @@
     (is (= ((py/py.- l __len__)) 4)))
 
   (let [sys (py/import-module "sys")]
-    (is (int? (py/py.. sys -path __len__)))))
+    (is (int? (py/py.. sys -path __len__))))
+
+
+  (let [{{Foo :Foo} :globals}
+        (py/run-simple-string "
+class Foo:
+
+    def __init__(self, a, b):
+        self.a = a
+        self.b = b
+        self._res = []
+
+    def res(self):
+        return self._res
+
+    def extend(self, arg):
+        self._res.extend(arg)
+        return self
+
+    def count(self):
+        return len(self._res)
+
+    def append(self, *args):
+        return self.extend(args)
+
+
+    def math(self, c):
+        return self.append(self.a + self.b + c)
+
+")
+        f (Foo 1 2)]
+    (is (= [] ((py/py.- f res)) (py/py. f res)))
+    (is (= 6 (py/py.. f (append 1)
+                      (append 2)
+                      (math 3)
+                      (extend [4 5 6]) count)))
+    (is (= [1 2 6 4 5 6] ((py/py.- f res)) (py/py. f res)))
+    (is (= 6
+           (py/py.. f res __len__)
+           ((py/py.. f res -__len__))
+           (py/py.. f count)
+           ((py/py.. f -count))))
+    
+    
+    
+
+
+    )
+  )
 
 (deftest infinite-seq
   (let [islice (-> (py/import-module "itertools")
