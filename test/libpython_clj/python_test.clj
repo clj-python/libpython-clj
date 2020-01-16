@@ -303,14 +303,7 @@ class Foo:
            (py/py.. f res __len__)
            ((py/py.. f res -__len__))
            (py/py.. f count)
-           ((py/py.. f -count))))
-    
-    
-    
-
-
-    )
-  )
+           ((py/py.. f -count))))))
 
 (deftest infinite-seq
   (let [islice (-> (py/import-module "itertools")
