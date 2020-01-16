@@ -252,37 +252,17 @@
            (str (-> (py/get-attr np "random")
                     (py/get-attr "shuffle"))))))
 
-  (let [handle-pydotdot #'handle-pydotdot
-        builtins (py/import-module "builtins")]
+  
+  (let [builtins (py/import-module "builtins")
+        l        (py/call-attr builtins "list")]
+    (is (= (py/py. l __len__) 0))
+    (py/py. l append 1)
+    (is (= (py/py. l __len__) 1))
+    (py/py.. l (extend [1 2 3]))
+    (is (= ((py/py.- l __len__)) 4)))
 
-    (is (= '(#'libpython-clj.python/py.- l __len__)
-           (handle-pydotdot 'l '(-__len__))))
-    (is (= '(#'libpython-clj.python/py. l __len__)
-           (handle-pydotdot 'l '(__len__))))
-    (is (= '(#'libpython-clj.python/py. l __len__)
-           (handle-pydotdot 'l '__len__)))
-    (is (= '(#'libpython-clj.python/py.- l __len__)
-           (handle-pydotdot 'l '-__len__)))
-    (is (= '(#'libpython-clj.python/py.
-             (#'libpython-clj.python/py.
-              (#'libpython-clj.python/py. l a) b) c)
-           (handle-pydotdot 'l 'a 'b 'c)))
-    (is (= '(#'libpython-clj.python/py.
-             (#'libpython-clj.python/py.-
-              (#'libpython-clj.python/py.
-               (#'libpython-clj.python/py.-
-                (#'libpython-clj.python/py.- l a) b) c) d) e arg1 arg2)
-           (handle-pydotdot 'l '-a '(-b) 'c '(-d) '(e arg1 arg2))))
-
-    (let [l (py/call-attr builtins "list")]
-      (is (= (py. l __len__) 0))
-      (py. l append 1)
-      (is (= (py. l __len__) 1))
-      (py.. l (extend [1 2 3]))
-      (is (= ((py.- l __len__)) 4)))
-
-    (let [sys (py/import-module "sys")]
-      (is (int? (py.. sys -path __len__))))))
+  (let [sys (py/import-module "sys")]
+    (is (int? (py/py.. sys -path __len__)))))
 
 (deftest infinite-seq
   (let [islice (-> (py/import-module "itertools")

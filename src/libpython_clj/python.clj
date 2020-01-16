@@ -422,14 +422,14 @@
   "Class/object getter syntax.  (py.- obj attr) is equivalent to
   Python's obj.attr syntax."
   [x arg]
-  (list #'py/$. x arg))
+  (list #'$. x arg))
 
 
 (defmacro py.
   "Class/object method syntax.  (py. obj method arg1 arg2 ... argN)
   is equivalent to Python's obj.method(arg1, arg2, ..., argN) syntax."
   [x & args]
-  (list* (into (vector #'py/$a x) args)))
+  (list* (into (vector #'$a x) args)))
 
 
 (defn ^:private handle-pydotdot
