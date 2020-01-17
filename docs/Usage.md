@@ -118,7 +118,7 @@ your variable is:200
  {'__name__': '__main__', '__doc__': None, '__package__': None, '__loader__': <class '_frozen_importlib.BuiltinImporter'>, '__spec__': None, '__annotations__': {}, '__builtins__': <module 'builtins' (built-in)>, 'my_var': 200}}
 ```
 
-Running ython isn't ever really necessary, however, although it may at times be
+Running Python isn't ever really necessary, however, although it may at times be
 convenient.  You can call attributes from clojure easily:
 
 ```clojure
