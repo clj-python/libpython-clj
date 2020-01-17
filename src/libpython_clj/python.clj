@@ -416,3 +416,45 @@
                    (alter-meta! #'~varname assoc :doc (get-attr ~'var-data "__doc__"))
                    #'~varname))
               (concat [item] args)))))
+
+
+(defmacro py.-
+  "Class/object getter syntax.  (py.- obj attr) is equivalent to
+  Python's obj.attr syntax."
+  [x arg]
+  (list #'$. x arg))
+
+
+(defmacro py.
+  "Class/object method syntax.  (py. obj method arg1 arg2 ... argN)
+  is equivalent to Python's obj.method(arg1, arg2, ..., argN) syntax."
+  [x & args]
+  (list* (into (vector #'$a x) args)))
+
+
+(defn ^:private handle-pydotdot
+  ([x form]
+   (if (list? form)
+     (let [form-data (vec form)
+           [instance-member & args] form-data
+           symbol-str (str instance-member)]
+       (if (clojure.string/starts-with? symbol-str "-")
+         (list #'py.- x (symbol (subs symbol-str 1 (count symbol-str))))
+         (list* (into (vector #'py. x instance-member) args))))
+     (handle-pydotdot x (list form))))
+  ([x form & more]
+   (apply handle-pydotdot (handle-pydotdot x form) more)))
+
+
+(defmacro py..
+  "Extended accessor notation, similar to the `..` macro in Clojure.
+
+  (require-python 'sys)
+  (py.. sys -path (append \"/home/user/bin\"))
+
+  is equivalent to Python's
+
+  import sys
+  sys.path.append('/home/user/bin')"
+  [x & args]
+  (apply handle-pydotdot x args))

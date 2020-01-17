@@ -118,7 +118,7 @@ your variable is:200
  {'__name__': '__main__', '__doc__': None, '__package__': None, '__loader__': <class '_frozen_importlib.BuiltinImporter'>, '__spec__': None, '__annotations__': {}, '__builtins__': <module 'builtins' (built-in)>, 'my_var': 200}}
 ```
 
-Running python isn't ever really necessary, however, although it may at times be
+Running Python isn't ever really necessary, however, although it may at times be
 convenient.  You can call attributes from clojure easily:
 
 ```clojure
@@ -263,6 +263,76 @@ user> (py/$.. numpy random shuffle)
 <built-in method shuffle of numpy.random.mtrand.RandomState object at 0x7fa66410cca8>
 ```
 
+##### New sugar (fixme)
+
+`libpython-clj` offers syntactic forms similar to those offered by 
+Clojure for interacting with Python classes and objects. 
+
+**Class/object methods**
+Where in Clojure you would use `(. obj method arg1 arg2 ... argN)`,
+you can use `(py. pyobj method arg1 arg2 ... argN)`.  
+
+In Python, this is equivalent to `pyobj.method(arg1, arg2, ..., argN)`.
+Concrete examples are shown below.
+
+**Class/object attributes**
+Where in Clojure you would use `(.- obj attr)`, you can use 
+`(py.- pyobj attr)`.
+
+In Python, this is equivalent to `pyobj.attr`. 
+Concrete examples shown below.
+
+**Nested attribute access**
+To achieve a chain of method/attribute access, use the `py..` for.
+
+```clojure 
+(py.. (requests/get "http://www.google.com") 
+      -content
+      (decode "latin-1"))
+```
+(**Note**: requires Python `requests` module installled)
+
+**Examples**
+
+```clojure 
+user=> (require '[libpython-clj.python :as py :refer [py. py.. py.-]])
+nil
+user=> (require '[libpython-clj.require :refer [require-python]])
+
+... debug info ...
+
+user=> (require-python '[builtins :as python])
+WARNING: AssertionError already refers to: class java.lang.AssertionError in namespace: builtins, being replaced by: #'builtins/AssertionError
+WARNING: Exception already refers to: class java.lang.Exception in namespace: builtins, being replaced by: #'builtins/Exception
+nil
+user=> (def xs (python/list))
+#'user/xs
+user=> (py. xs append 1)
+nil
+user=> xs
+[1]
+user=> (py. xs extend [1 2 3])
+nil
+user=> xs
+[1, 1, 2, 3]
+user=> (py. xs __len__)
+4
+user=> ((py.- xs __len__)) ;; attribute syntax to get then call method
+4
+user=> (py. xs pop)
+3
+user=> (py. xs clear)
+nil
+;; requires Python requests module installed
+user=> (require-python 'requests)
+nil
+user=> (def requests (py/import-module "requests"))
+#'user/requests
+user=> (py.. requests (get "http://www.google.com") -content (decode "latin-1"))
+"<!doctype html><html itemscope=\"\" ... snip ... "
+```
+
+
 
 ### Numpy
 
@@ -304,4 +374,4 @@ zero copy pathway to and from numpy.  For more information on how this happens,
 please refer to the datatype library [documentation](https://github.com/techascent/tech.datatype/tree/master/docs).
 
 Just keep in mind, careless usage of zero copy is going to cause spooky action at a
-distance.
+    distance.

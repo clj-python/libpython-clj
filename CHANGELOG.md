@@ -5,6 +5,10 @@
 * Python objects are now datafy-able and nav-igable.  `require-python`
   is now rebuilt using datafy.
   
+* `py.`, `py.-`, and `py..` added to the `libpython-clj` APIs
+  to allow method/attribute access more consistent with idiomatic
+  Clojure forms.
+  
 
 ## 1.30
 
