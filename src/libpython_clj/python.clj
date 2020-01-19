@@ -1,8 +1,7 @@
 (ns libpython-clj.python
   (:require [tech.parallel.utils :refer [export-symbols]]
             [libpython-clj.python.interop :as pyinterop]
-            [libpython-clj.python.interpreter :as pyinterp
-             :refer [with-interpreter]]
+            [libpython-clj.python.interpreter :as pyinterp]
             [libpython-clj.python.object :as pyobj]
             [libpython-clj.python.bridge :as pybridge]
             [libpython-clj.jna :as libpy]
@@ -236,7 +235,7 @@
              library-path
              python-home
              no-io-redirect?]}]
-  (when-not @pyinterp/*main-interpreter*
+  (when-not @pyinterp/main-interpreter*
     (pyinterp/initialize! :program-name program-name
                           :library-path library-path
                           :python-home python-home)
