@@ -3,9 +3,10 @@
             [tech.jna.base :as jna-base]
             [camel-snake-kebab.core :refer [->kebab-case]])
   (:import [com.sun.jna Pointer NativeLibrary]
-           [libpython_clj.jna PyObject]))
+           [libpython_clj.jna PyObject]
+           [java.util.concurrent.atomic AtomicLong]))
 
-
+(set! *warn-on-reflection* true)
 
 (def ^:dynamic *python-library* "python3.6m")
 
@@ -64,7 +65,19 @@
   (ensure-pyobj item))
 
 
-(def ^:dynamic *gil-captured* false)
+(definline current-thread-id
+  ^long []
+  (-> (Thread/currentThread)
+      (.getId)))
+
+(def gil-thread-id (AtomicLong. Long/MAX_VALUE))
+
+
+(defn set-gil-thread-id!
+  ^long [^long expected ^long new-value]
+  (when-not (.compareAndSet ^AtomicLong gil-thread-id expected new-value)
+    (throw (Exception. "Failed to set gil thread id")))
+  new-value)
 
 
 (defmacro def-no-gil-pylib-fn
@@ -78,7 +91,7 @@
   `(defn ~fn-name
      ~docstring
      ~(mapv first argpairs)
-     (when-not *gil-captured*
+     (when-not (== (current-thread-id) (.get ^AtomicLong gil-thread-id))
        (throw (Exception. "Failure to capture gil when calling into libpython")))
      (let [~'tvm-fn (jna/find-function ~(str fn-name) *python-library*)
            ~'fn-args (object-array
