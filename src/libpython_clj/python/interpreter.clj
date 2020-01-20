@@ -144,29 +144,33 @@ print(json.dumps(
 
 
 (defn detect-startup-info
-  [{:keys [library-path python-home]}]
-  (let [executable "python3"
-        system-info (python-system-info executable)
-        python-home (cond
-                      python-home
-                      python-home
-                      (seq (System/getenv "PYTHONHOME"))
-                      (System/getenv "PYTHONHOME")
-                      :else
-                      (:prefix system-info))
+  [{:keys [library-path python-home python-executable]
+    :or   {python-executable "python3"}}]
+  (log-info
+   (str "Detecting startup-info for Python executable: "
+        python-executable))
+  (let [executable                 python-executable
+        system-info                (python-system-info executable)
+        python-home                (cond
+                                     python-home
+                                     python-home
+                                     (seq (System/getenv "PYTHONHOME"))
+                                     (System/getenv "PYTHONHOME")
+                                     :else
+                                     (:prefix system-info))
         java-library-path-addendum (when python-home
                                      (-> (Paths/get python-home
                                                     (into-array String ["lib"]))
                                          (.toString)))
         [ver-maj ver-med _ver-min] (:version system-info)
-        lib-version (format "%s.%s" ver-maj ver-med)
-        libname (or library-path
-                    (when (seq lib-version)
-                      (str "python" lib-version "m")))
+        lib-version                (format "%s.%s" ver-maj ver-med)
+        libname                    (or library-path
+                                       (when (seq lib-version)
+                                         (str "python" lib-version "m")))
         retval
-        {:python-home python-home
-         :lib-version lib-version
-         :libname libname
+        {:python-home                python-home
+         :lib-version                lib-version
+         :libname                    libname
          :java-library-path-addendum java-library-path-addendum}]
     (log/infof "Startup info detected: %s" retval)
     retval))
@@ -438,10 +442,11 @@ print(json.dumps(
 
 (defn initialize!
   [& {:keys [program-name
-             library-path]
+             library-path
+             python-executable]
       :as options}]
   (when-not @*main-interpreter*
-    (log-info "Executing python initialize!")
+    (log-info (str "Executing python initialize with options:" options) )
     (let [{:keys [python-home libname java-library-path-addendum] :as startup-info}
           (detect-startup-info options)
           library-names (cond
