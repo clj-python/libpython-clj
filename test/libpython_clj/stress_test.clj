@@ -56,10 +56,6 @@ def getmultidata():
     (gd-fn)))
 
 
-;;If you want to see how the sausage is made...
-(alter-var-root #'libpython-clj.python.object/*object-reference-logging*
-                (constantly false))
-
 ;;Ensure that failure to open resource context before tracking for stack
 ;;related things causes immediate failure.  Unless you feel like being pedantic,
 ;;this isn't necessary.  The python library automatically switches to normal gc-only
