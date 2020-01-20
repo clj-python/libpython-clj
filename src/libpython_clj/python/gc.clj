@@ -31,7 +31,9 @@
                                                        (.remove (ptr-set) ptr-val)
                                                        (dispose-fn)))
         ^ConcurrentLinkedDeque stack-context (stack-context)]
-
+    ;;We have to keep track of the pointer.  If we do not the pointer gets gc'd then
+    ;;it will not be put on the reference queue when the object itself is gc'd.
+    ;;Nice little gotcha there.
     (if stack-context
       (.add stack-context ptr-val)
       ;;Ensure we don't lose track of the weak reference.  If it gets cleaned up
