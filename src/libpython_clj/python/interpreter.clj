@@ -144,12 +144,11 @@ print(json.dumps(
 
 
 (defn detect-startup-info
-  [{:keys [library-path python-home python-executable]
-    :or   {python-executable "python3"}}]
+  [{:keys [library-path python-home python-executable]}]
   (log-info
    (str "Detecting startup-info for Python executable: "
         python-executable))
-  (let [executable                 python-executable
+  (let [executable                 (or python-executable "python3")
         system-info                (python-system-info executable)
         python-home                (cond
                                      python-home
