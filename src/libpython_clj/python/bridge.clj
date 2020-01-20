@@ -40,17 +40,17 @@
              [expose-bridge-to-python!
               pybridge->bridge
               create-bridge-from-att-map]]
+            [libpython-clj.python.gc :as pygc]
             [clojure.stacktrace :as st]
             [tech.jna :as jna]
             [tech.v2.tensor :as dtt]
             [tech.v2.datatype.casting :as casting]
             [tech.v2.datatype.functional :as dtype-fn]
             [tech.v2.datatype :as dtype]
-            [tech.resource :as resource]
             [clojure.set :as c-set]
             [clojure.tools.logging :as log])
   (:import [java.util Map RandomAccess List Map$Entry Iterator UUID]
-           [java.util.concurrent ConcurrentHashMap]
+           [java.util.concurrent ConcurrentHashMap ConcurrentLinkedQueue]
            [clojure.lang IFn Symbol Keyword Seqable
             Fn MapEntry Range LongRange]
            [tech.v2.datatype ObjectReader ObjectWriter ObjectMutable
@@ -58,6 +58,7 @@
            [tech.v2.datatype.typed_buffer TypedBuffer]
            [tech.v2.tensor.protocols PTensor]
            [com.sun.jna Pointer]
+           [tech.resource GCReference]
            [java.io Writer]
            [libpython_clj.jna JVMBridge
             CFunction$KeyWordFunction
@@ -539,8 +540,7 @@
           long-addr (get-attr ctypes "data")
           hash-ary {:ctypes-map ctypes}
           ptr-val (-> (Pointer. long-addr)
-                      (resource/track #(get hash-ary :ctypes-map)
-                                      pyobj/*pyobject-tracking-flags*))]
+                      (pygc/track #(get hash-ary :ctypes-map)))]
       {:ptr ptr-val
        :datatype np-dtype
        :shape shape
@@ -782,7 +782,7 @@
   [& body]
   `(delay
      (with-gil
-       (with-bindings {#'pyobj/*pyobject-tracking-flags* [:gc]}
+       (with-bindings {#'pygc/*stack-gc-context* nil}
          ~@body))))
 
 
@@ -1094,7 +1094,7 @@
                             initial-buffer
                             (->py-tuple shape)
                             (->py-tuple strides))]
-      (resource/track retval #(get buffer-desc :ptr) pyobj/*pyobject-tracking-flags*))))
+      (pygc/track retval #(get buffer-desc :ptr)))))
 
 
 (extend-type Object
