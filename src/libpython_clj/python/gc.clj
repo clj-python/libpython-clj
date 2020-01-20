@@ -14,10 +14,12 @@
   ^ConcurrentLinkedDeque []
   *stack-gc-context*)
 
+
 (defonce reference-queue-var (ReferenceQueue.))
 (defn reference-queue
   ^ReferenceQueue []
   reference-queue-var)
+
 
 (defonce ptr-set-var (ConcurrentHashMap/newKeySet))
 (defn ptr-set
@@ -51,12 +53,9 @@
 
 (defn clear-stack-context
   []
-  (let [^java.util.Iterator iter (.descendingIterator (stack-context))]
-    (loop [continue? (.hasNext iter)]
-      (when continue?
-        (let [next-val (.next iter)]
-          (.run ^Runnable next-val))
-        (recur (.hasNext iter))))))
+  (when-let [next-ref (.pollLast (stack-context))]
+    (.run ^Runnable next-ref)
+    (recur)))
 
 
 (defmacro with-stack-context
