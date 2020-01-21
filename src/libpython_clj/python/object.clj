@@ -97,10 +97,7 @@
     (py-proto/->jvm item options)))
 
 
-(def object-reference-logging nil)
-
-
-(def object-reference-tracker nil)
+(def object-reference-logging (atom false))
 
 
 (defn incref
@@ -116,60 +113,66 @@
   (long (.ob_refcnt (PyObject. (libpy/as-pyobj pyobj)))))
 
 
+(def ^:private non-native-val
+  (delay (Pointer/nativeValue (libpy/as-pyobj (libpy/Py_None)))))
+
+
 (defn wrap-pyobject
   "Wrap object such that when it is no longer accessible via the program decref is
   called. Used for new references.  This is some of the meat of the issue, however,
   in that getting the two system's garbage collectors to play nice is kind
-  of tough."
-  [pyobj & [skip-check-error?]]
-  (when-not skip-check-error?
-    (check-error-throw))
-  ;;We don't wrap pynone
-  (if (and pyobj
-             (not= (Pointer/nativeValue (libpy/as-pyobj pyobj))
-                   (Pointer/nativeValue (libpy/as-pyobj (libpy/Py_None)))))
-    (do
-      (ensure-bound-interpreter)
-      (let [pyobj-value (Pointer/nativeValue (libpy/as-pyobj pyobj))
-            py-type-name (name (python-type pyobj))]
-        (when object-reference-logging
-          (let [obj-data (PyObject. (Pointer. pyobj-value))]
-            (println (format "tracking object  - 0x%x:%4d:%s"
-                             pyobj-value
-                             (.ob_refcnt obj-data)
-                             py-type-name))))
-        (when object-reference-tracker
-          (swap! object-reference-tracker
-                 update pyobj-value #(inc (or % 0))))
-        ;;We ask the garbage collector to track the python object and notify
-        ;;us when it is released.  We then decref on that event.
-        (pygc/track pyobj
-                    ;;No longer with-gil.  Because cleanup is cooperative, the gil is
-                    ;;guaranteed to be captured here already.
-                    #(try
-                       ;;Intentionally overshadow pyobj.  We cannot access it here.
-                       (let [pyobj (Pointer. pyobj-value)
-                             refcount (refcount pyobj)
-                             obj-data (PyObject. pyobj)]
-                         (if (< refcount 1)
-                           (log/errorf "Fatal error -- releasing object - 0x%x:%4d:%s
-Object's refcount is bad.  Crash is imminent" pyobj-value refcount py-type-name)
-                           (when object-reference-logging
-                             (println (format "releasing object - 0x%x:%4d:%s"
-                                              pyobj-value
-                                              (.ob_refcnt obj-data)
-                                              py-type-name))))
-                         (when object-reference-tracker
-                           (swap! object-reference-tracker
-                                  update pyobj-value (fn [arg]
-                                                       (dec (or arg 0))))))
-                       (libpy/Py_DecRef (Pointer. pyobj-value))
-                       (catch Throwable e
-                         (log/error e "Exception while releasing object"))))))
-    (do
-      ;;Special handling for PyNone types
-      (libpy/Py_DecRef pyobj)
-      nil)))
+  of tough.
+  This is a hot path; it is called quite a lot from a lot of places."
+  ([pyobj skip-check-error?]
+   ;;We don't wrap pynone
+   (if pyobj
+     (let [pyobj-value (Pointer/nativeValue (libpy/as-pyobj pyobj))
+           ^PyObject obj-data (when @object-reference-logging
+                                (PyObject. (Pointer. pyobj-value)))]
+       (if (not= pyobj-value
+                 (long @non-native-val))
+         (do
+           (ensure-bound-interpreter)
+           (when @object-reference-logging
+             (println (format "tracking object  - 0x%x:%4d:%s"
+                              pyobj-value
+                              (.ob_refcnt obj-data)
+                              (name (python-type pyobj)))))
+           ;;We ask the garbage collector to track the python object and notify
+           ;;us when it is released.  We then decref on that event.
+           (pygc/track
+            pyobj
+            ;;No longer with-gil.  Because cleanup is cooperative, the gil is
+            ;;guaranteed to be captured here already.
+            #(try
+               ;;Intentionally overshadow pyobj.  We cannot access it here.
+               (let [pyobj (Pointer. pyobj-value)]
+                 (when @object-reference-logging
+                   (let [_ (.read obj-data)
+                         refcount (.ob_refcnt obj-data)]
+                     (if (< refcount 1)
+                       (log/errorf "Fatal error -- releasing object - 0x%x:%4d:%s
+Object's refcount is bad.  Crash is imminent"
+                                   pyobj-value
+                                   refcount
+                                   (name (python-type pyobj)))
+                       (println (format "releasing object - 0x%x:%4d:%s"
+                                        pyobj-value
+                                        refcount
+                                        (name (python-type pyobj))))))))
+               (libpy/Py_DecRef pyobj)
+               (catch Throwable e
+                 (log/error e "Exception while releasing object"))))
+           (when-not skip-check-error? (check-error-throw))
+           pyobj)
+         (do
+           ;;Special handling for PyNone types
+           (libpy/Py_DecRef pyobj)
+           (when-not skip-check-error? (check-error-throw))
+           nil)))
+     (when-not skip-check-error? (check-error-throw))))
+  ([pyobj]
+   (wrap-pyobject pyobj false)))
 
 
 (defmacro stack-resource-context

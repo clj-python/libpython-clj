@@ -5,7 +5,7 @@
             :url "https://www.eclipse.org/legal/epl-2.0/"}
   :dependencies [[org.clojure/clojure "1.10.1"]
                  [camel-snake-kebab "0.4.0"]
-                 [techascent/tech.datatype "4.70"]
+                 [techascent/tech.datatype "4.71"]
                  [org.clojure/data.json "0.2.7"]]
   :repl-options {:init-ns user}
   :java-source-paths ["java"])
