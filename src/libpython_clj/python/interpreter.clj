@@ -1,7 +1,7 @@
 (ns libpython-clj.python.interpreter
   (:require [libpython-clj.jna :as libpy ]
             [libpython-clj.jna.base :as libpy-base]
-            [tech.resource :as resource]
+            [libpython-clj.python.gc :as pygc]
             [libpython-clj.python.logging
              :refer [log-error log-warn log-info]]
             [tech.jna :as jna]
@@ -351,6 +351,7 @@ print(json.dumps(
            (try
              ~@body
              (finally
+               (pygc/clear-reference-queue)
                (when new-binding?#
                  (release-gil! interp#)))))))))
 
@@ -437,7 +438,7 @@ print(json.dumps(
           (recur library-names))))
     ;;Set program name
     (when-let [program-name (or program-name *program-name* "")]
-      (resource/stack-resource-context
+      (pygc/with-stack-context
        (libpy/PySys_SetArgv 0 (-> program-name
                                   (jna/string->wide-ptr)))))
     (let [type-symbols (libpy/lookup-type-symbols)

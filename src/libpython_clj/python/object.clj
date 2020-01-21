@@ -33,12 +33,13 @@
              :as py-proto]
             [libpython-clj.jna.base :as libpy-base]
             [libpython-clj.jna :as libpy]
+            [libpython-clj.python.gc :as pygc]
             [clojure.stacktrace :as st]
             [tech.jna :as jna]
-            [tech.resource :as resource]
             [tech.v2.datatype :as dtype]
             [tech.v2.datatype.protocols :as dtype-proto]
             [tech.v2.datatype.casting :as casting]
+            [tech.resource :as resource]
             [tech.v2.tensor]
             [clojure.tools.logging :as log])
   (:import [com.sun.jna Pointer CallbackReference]
@@ -96,13 +97,10 @@
     (py-proto/->jvm item options)))
 
 
-(def ^:dynamic *object-reference-logging* false)
+(def object-reference-logging nil)
 
 
-(def ^:dynamic *object-reference-tracker* nil)
-
-
-(def ^:dynamic *pyobject-tracking-flags* [:gc])
+(def object-reference-tracker nil)
 
 
 (defn incref
@@ -130,41 +128,44 @@
   (if (and pyobj
              (not= (Pointer/nativeValue (libpy/as-pyobj pyobj))
                    (Pointer/nativeValue (libpy/as-pyobj (libpy/Py_None)))))
-    (let [interpreter (ensure-bound-interpreter)
-          pyobj-value (Pointer/nativeValue (libpy/as-pyobj pyobj))
-          py-type-name (name (python-type pyobj))]
-      (when *object-reference-logging*
-        (let [obj-data (PyObject. (Pointer. pyobj-value))]
-          (println (format "tracking object  - 0x%x:%4d:%s"
-                            pyobj-value
-                            (.ob_refcnt obj-data)
-                            py-type-name))))
-      (when *object-reference-tracker*
-        (swap! *object-reference-tracker*
-               update pyobj-value #(inc (or % 0))))
-      ;;We ask the garbage collector to track the python object and notify
-      ;;us when it is released.  We then decref on that event.
-      (resource/track pyobj
-                      #(with-gil
-                         (try
-                           (let [refcount (refcount pyobj)
-                                 obj-data (PyObject. (Pointer. pyobj-value))]
-                             (if (< refcount 1)
-                               (log/errorf "Fatal error -- releasing object - 0x%x:%4d:%s
+    (do
+      (ensure-bound-interpreter)
+      (let [pyobj-value (Pointer/nativeValue (libpy/as-pyobj pyobj))
+            py-type-name (name (python-type pyobj))]
+        (when object-reference-logging
+          (let [obj-data (PyObject. (Pointer. pyobj-value))]
+            (println (format "tracking object  - 0x%x:%4d:%s"
+                             pyobj-value
+                             (.ob_refcnt obj-data)
+                             py-type-name))))
+        (when object-reference-tracker
+          (swap! object-reference-tracker
+                 update pyobj-value #(inc (or % 0))))
+        ;;We ask the garbage collector to track the python object and notify
+        ;;us when it is released.  We then decref on that event.
+        (pygc/track pyobj
+                    ;;No longer with-gil.  Because cleanup is cooperative, the gil is
+                    ;;guaranteed to be captured here already.
+                    #(try
+                       ;;Intentionally overshadow pyobj.  We cannot access it here.
+                       (let [pyobj (Pointer. pyobj-value)
+                             refcount (refcount pyobj)
+                             obj-data (PyObject. pyobj)]
+                         (if (< refcount 1)
+                           (log/errorf "Fatal error -- releasing object - 0x%x:%4d:%s
 Object's refcount is bad.  Crash is imminent" pyobj-value refcount py-type-name)
-                               (when *object-reference-logging*
-                                 (println (format "releasing object - 0x%x:%4d:%s"
-                                                  pyobj-value
-                                                  (.ob_refcnt obj-data)
-                                                  py-type-name))))
-                             (when *object-reference-tracker*
-                               (swap! *object-reference-tracker*
-                                      update pyobj-value (fn [arg]
-                                                           (dec (or arg 0))))))
-                           (libpy/Py_DecRef (Pointer. pyobj-value))
-                           (catch Throwable e
-                             (log/error e "Exception while releasing object"))))
-                      *pyobject-tracking-flags*))
+                           (when object-reference-logging
+                             (println (format "releasing object - 0x%x:%4d:%s"
+                                              pyobj-value
+                                              (.ob_refcnt obj-data)
+                                              py-type-name))))
+                         (when object-reference-tracker
+                           (swap! object-reference-tracker
+                                  update pyobj-value (fn [arg]
+                                                       (dec (or arg 0))))))
+                       (libpy/Py_DecRef (Pointer. pyobj-value))
+                       (catch Throwable e
+                         (log/error e "Exception while releasing object"))))))
     (do
       ;;Special handling for PyNone types
       (libpy/Py_DecRef pyobj)
@@ -173,9 +174,8 @@ Object's refcount is bad.  Crash is imminent" pyobj-value refcount py-type-name)
 
 (defmacro stack-resource-context
   [& body]
-  `(with-bindings {#'*pyobject-tracking-flags* [:stack :gc]}
-     (resource/stack-resource-context
-      ~@body)))
+  `(pygc/with-stack-context
+     ~@body))
 
 
 (defn incref-wrap-pyobject
@@ -391,37 +391,37 @@ Object's refcount is bad.  Crash is imminent" pyobj-value refcount py-type-name)
                                    doc
                                    function]
                             :as method-data}]
-  (resource/stack-resource-context
-   (when-not (cfunc-instance? function)
-     (throw (Exception.
-             (format "Callbacks must implement one of the CFunction interfaces:
+  ;;Here we really do need a resource stack context
+  (when-not (cfunc-instance? function)
+    (throw (Exception.
+            (format "Callbacks must implement one of the CFunction interfaces:
 %s" (type function)))))
-   (let [meth-flags (long (cond
-                            (instance? CFunction$NoArgFunction function)
-                            @libpy/METH_NOARGS
+  (let [meth-flags (long (cond
+                           (instance? CFunction$NoArgFunction function)
+                           @libpy/METH_NOARGS
 
-                            (instance? CFunction$TupleFunction function)
-                            @libpy/METH_VARARGS
+                           (instance? CFunction$TupleFunction function)
+                           @libpy/METH_VARARGS
 
-                            (instance? CFunction$KeyWordFunction function)
-                            (bit-or @libpy/METH_KEYWORDS @libpy/METH_VARARGS)
-                            :else
-                            (throw (ex-info (format "Failed due to type: %s"
-                                                    (type function))
-                                            {}))))
-         name-ptr (jna/string->ptr name)
-         doc-ptr (jna/string->ptr doc)]
-     (set! (.ml_name method-def) name-ptr)
-     (set! (.ml_meth method-def) (CallbackReference/getFunctionPointer function))
-     (set! (.ml_flags method-def) (int meth-flags))
-     (set! (.ml_doc method-def) doc-ptr)
-     (.write method-def)
-     (pyinterp/conj-forever! (assoc method-data
-                                    :name-ptr name-ptr
-                                    :doc-ptr doc-ptr
-                                    :callback-object function
-                                    :method-definition method-def))
-     method-def)))
+                           (instance? CFunction$KeyWordFunction function)
+                           (bit-or @libpy/METH_KEYWORDS @libpy/METH_VARARGS)
+                           :else
+                           (throw (ex-info (format "Failed due to type: %s"
+                                                   (type function))
+                                           {}))))
+        name-ptr (jna/string->ptr-untracked name)
+        doc-ptr (jna/string->ptr-untracked doc)]
+    (set! (.ml_name method-def) name-ptr)
+    (set! (.ml_meth method-def) (CallbackReference/getFunctionPointer function))
+    (set! (.ml_flags method-def) (int meth-flags))
+    (set! (.ml_doc method-def) doc-ptr)
+    (.write method-def)
+    (pyinterp/conj-forever! (assoc method-data
+                                   :name-ptr name-ptr
+                                   :doc-ptr doc-ptr
+                                   :callback-object function
+                                   :method-definition method-def))
+    method-def))
 
 
 (defn method-def-data->method-def
