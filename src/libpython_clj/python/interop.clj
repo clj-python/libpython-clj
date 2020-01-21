@@ -10,7 +10,7 @@
             [libpython-clj.python.interpreter
              :refer
              [get-object-handle
-              with-gil with-interpreter
+              with-gil
               ensure-bound-interpreter
               ensure-interpreter
               find-jvm-bridge-entry
@@ -357,7 +357,7 @@
 (defn expose-bridge-to-python!
   "Create a python object for this bridge."
   [^JVMBridge bridge & [libpython-module]]
-  (with-interpreter (.interpreter bridge)
+  (with-gil
     (let [libpython-module (or libpython-module
                                (add-module libpython-clj-module-name))
           ^Pointer bridge-type-ptr (get-attr libpython-module

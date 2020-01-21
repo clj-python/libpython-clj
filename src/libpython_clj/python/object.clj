@@ -23,7 +23,6 @@
   get pointers back *but* they don't have to manage the gil."
   (:require [libpython-clj.python.interpreter
              :refer [with-gil
-                     with-interpreter
                      ensure-interpreter
                      ensure-bound-interpreter
                      check-error-throw]
@@ -146,7 +145,7 @@
       ;;We ask the garbage collector to track the python object and notify
       ;;us when it is released.  We then decref on that event.
       (resource/track pyobj
-                      #(with-interpreter interpreter
+                      #(with-gil
                          (try
                            (let [refcount (refcount pyobj)
                                  obj-data (PyObject. (Pointer. pyobj-value))]
@@ -461,7 +460,7 @@ Object's refcount is bad.  Crash is imminent" pyobj-value refcount py-type-name)
       (reify ObjectReader
         (lsize [_] n-items)
         (read [_ idx]
-          (with-interpreter interpreter
+          (with-gil
             (libpy/PyTuple_GetItem tuple idx)))))))
 
 
@@ -884,7 +883,7 @@ Object's refcount is bad.  Crash is imminent" pyobj-value refcount py-type-name)
       (let [py-iter (py-proto/call iter-fn)
             py-next-fn (when py-iter (py-proto/get-attr py-iter "__next__"))
             next-fn (fn [last-item]
-                      (with-interpreter interpreter
+                      (with-gil
                         (let [retval (libpy/PyObject_CallObject py-next-fn nil)]
                           (if (libpy/PyErr_Occurred)
                             (let [ptype (PointerByReference.)
