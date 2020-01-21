@@ -21,7 +21,7 @@
   ;; First attempt is to filter keywords and make sure any keywords are
   ;; in supported-flags
   (let [total-flags (set (concat supported-flags [:as :refer :exclude
-                                                  :* :all]))]
+                                                  :* :all :bind-ns]))]
     (when-let [missing-flags (->> reqs
                                   (filter #(and (not (total-flags %))
                                                 (keyword? %)))
@@ -88,31 +88,41 @@
 (defn- do-require-python
   [reqs-vec]
   (let [[module-name & etc] reqs-vec
-        supported-flags #{:reload :no-arglists}
-        flags (parse-flags supported-flags etc)
-        etc (->> etc
-                 (remove supported-flags)
-                 (remove boolean?))
-        _  (when-not (= 0 (rem (count etc) 2))
-             (throw (Exception. "Must have even number of entries")))
-        etc             (->> etc (partition-all 2)
-                             (map vec)
-                             (into {}))
+        supported-flags     #{:reload :no-arglists :bind-ns}
+        flags               (parse-flags supported-flags etc)
+        etc                 (->> etc
+                                 (remove supported-flags)
+                                 (remove boolean?))
+        _                   (when-not (= 0 (rem (count etc) 2))
+                              (throw (Exception. "Must have even number of entries")))
+        etc                 (->> etc (partition-all 2)
+                                 (map vec)
+                                 (into {}))
         reload?             (:reload flags)
         no-arglists?        (:no-arglists flags)
+        bind-ns?            (:bind-ns flags)
         alias-name          (:as etc)
         exclude             (into #{} (:exclude etc))
+
         refer-data          (cond
                               (= :all (:refer etc)) #{:all}
                               (= :* (:refer etc))   #{:*}
-                              :else (into #{} (:refer etc)))
-        pyobj (pymeta/path->py-obj (str module-name) :reload? reload?)
-        existing-py-ns? (find-ns module-name)]
+                              :else                 (into #{} (:refer etc)))
+        pyobj               (pymeta/path->py-obj (str module-name) :reload? reload?)
+        existing-py-ns?     (find-ns module-name)]
     (create-ns module-name)
+
+    (when bind-ns?
+      (intern
+       (symbol (str *ns*))
+       (symbol (or  (not-empty (str alias-name))
+                    (str module-name)))
+       (py/import-module (str module-name))))
+    
     (when (or (not existing-py-ns?) reload?)
       (pymeta/apply-static-metadata-to-namespace! module-name (datafy pyobj)
                                                   :no-arglists? no-arglists?))
-    (when-let [refer-symbols (->> (extract-refer-symbols {:refer refer-data
+    (when-let [refer-symbols (->> (extract-refer-symbols {:refer       refer-data
                                                           :this-module pyobj}
                                                          (ns-publics
                                                           (find-ns module-name)))
@@ -149,6 +159,12 @@
    force reload a namespace where invalid arglists have been generated.
 
    (require-python '[numpy :refer [linspace] :no-arglists :as np])
+
+   If you would like to bind the Python module to the namespace, use
+   the :bind-ns flag.
+
+   (require-python '[requests :bind-ns true]) or
+   (require-python '[requests :bind-ns])
 
    ## Use with custom modules ##
 
@@ -201,3 +217,4 @@
     (do-require-python reqs)
     :else
     (throw (Exception. "Invalid argument: %s" reqs))))
+
