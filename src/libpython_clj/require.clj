@@ -113,11 +113,18 @@
     (create-ns module-name)
 
     (when bind-ns?
-      (intern
-       (symbol (str *ns*))
-       (symbol (or  (not-empty (str alias-name))
-                    (str module-name)))
-       (py/import-module (str module-name))))
+      (let [import-name (or  (not-empty (str alias-name))
+                             (str module-name))
+            ns-dots (re-find #"[.]" import-name)]
+        (when (not (zero? (count ns-dots)))
+          (throw (Exception. (str "Cannot have periods in module/class"
+                                  "name. Please :alias "
+                                  import-name
+                                  " to something without periods."))))        
+        (intern
+         (symbol (str *ns*))
+         (symbol import-name)
+         pyobj)))
     
     (when (or (not existing-py-ns?) reload?)
       (pymeta/apply-static-metadata-to-namespace! module-name (datafy pyobj)
