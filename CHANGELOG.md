@@ -6,7 +6,7 @@
   ```clojure 
   (py/initialize! :python-executable <executable>)
   ```
-  where **<executable>** can be a system installation of Python
+  where **executable** can be a system installation of Python
   such as `"python3"`, `"python3.7"`; it can also be a fully qualified
   path such as `"/usr/bin/python3.7"`; or any Python executable along
   your discoverable system path.
