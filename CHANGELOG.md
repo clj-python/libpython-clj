@@ -2,7 +2,7 @@
 
 ## 1.32
 
-* Python executables can now be speficied directly using the syntax
+* Python executables can now be specified directly using the syntax
   ```clojure 
   (py/initialize! :python-executable <executable>)
   ```
@@ -39,7 +39,6 @@
         -content 
         (decode "latin-1)) ;; works
 ```
-  
 
 
 ## 1.31
