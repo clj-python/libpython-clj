@@ -234,11 +234,13 @@
   [& {:keys [program-name
              library-path
              python-home
-             no-io-redirect?]}]
+             no-io-redirect?
+             python-executable]}]
   (when-not @pyinterp/main-interpreter*
     (pyinterp/initialize! :program-name program-name
                           :library-path library-path
-                          :python-home python-home)
+                          :python-home python-home
+                          :python-executable python-executable)
     ;;setup bridge mechansim and io redirection
     (pyinterop/register-bridge-type!)
     (when-not no-io-redirect?
