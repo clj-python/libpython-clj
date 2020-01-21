@@ -1,5 +1,52 @@
 # Time for a ChangeLog!
 
+## 1.32
+
+* Python executables can now be specified directly using the syntax
+  ```clojure 
+  (py/initialize! :python-executable <executable>)
+  ```
+  where **executable** can be a system installation of Python
+  such as `"python3"`, `"python3.7"`; it can also be a fully qualified
+  path such as `"/usr/bin/python3.7"`; or any Python executable along
+  your discoverable system path.
+  
+* Python virtual environments can now be used instead of system 
+  installations! This has been tested on Linux/Ubuntu variants
+  with virtual environments installed with 
+  ```bash 
+  virtualenv -p $(which <python-version>) env
+  ```
+  and then invoked using 
+  ```clojure 
+  (py/initialize! :python-executable "/abs/path/to/env/bin/python")
+  ```
+  
+  Tested on Python 3.6.8 and Python 3.7.
+  
+  **WARNING**: This is suitable for casual hacking and exploratory
+  development -- however, at this time, we still strongly recommend 
+  using Docker and a system installation of Python in production
+  environments.
+  
+* **breaking change** (and remediation): `require-python` no longer
+  automatically binds the Python module to the Clojure the namespace 
+  symbol.  If you wish to bind the module to the namespace symbol,
+  you need to use the `:bind-ns` flag.  Example:
+  
+  ```clojure 
+  (require-python 'requests) ;;=> nil
+  requests ;;=> throws Exception
+  
+  (require-python '[requests :bind-ns]) ;;=> nil
+  (py.. requests 
+        (get "https://www.google.com)
+        -content 
+        (decode "latin-1)) ;; works
+  ```
+
+
+
 ## 1.31
 
 * Python objects are now datafy-able and nav-igable.  `require-python`
