@@ -10,9 +10,7 @@
             [clojure.string :as s]
             [clojure.tools.logging :as log]
             [clojure.data.json :as json])
-  (:import [libpython_clj.jna
-            JVMBridge
-            PyObject]
+  (:import [libpython_clj.jna JVMBridge PyObject DirectMapped]
            [java.util.concurrent.atomic AtomicLong]
            [com.sun.jna Pointer]
            [com.sun.jna.ptr PointerByReference]
@@ -403,6 +401,12 @@ print(json.dumps(
     (catch Exception e)))
 
 
+(defn- setup-direct-mapping!
+  []
+  (let [library (jna/load-library libpy-base/*python-library*)]
+    (com.sun.jna.Native/register DirectMapped library)))
+
+
 (defn initialize!
   [& {:keys [program-name
              library-path
@@ -435,7 +439,8 @@ print(json.dumps(
                  (not (try-load-python-library! library-name
                                                 @python-home-wide-ptr*
                                                 @python-path-wide-ptr*)))
-          (recur library-names))))
+          (recur library-names)))
+      (setup-direct-mapping!))
     ;;Set program name
     (when-let [program-name (or program-name *program-name* "")]
       (pygc/with-stack-context

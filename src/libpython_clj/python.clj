@@ -12,7 +12,7 @@
            [com.sun.jna.ptr PointerByReference]
            [java.lang.reflect Field]
            [java.io Writer]
-           [libpython_clj.jna PyObject
+           [libpython_clj.jna PyObject DirectMapped
             CFunction$KeyWordFunction
             CFunction$TupleFunction
             CFunction$NoArgFunction]))

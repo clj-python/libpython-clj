@@ -13,21 +13,21 @@
             [camel-snake-kebab.core :refer [->kebab-case]])
   (:import [com.sun.jna Pointer Native NativeLibrary]
            [com.sun.jna.ptr PointerByReference]
-           [libpython_clj.jna PyObject]))
+           [libpython_clj.jna PyObject DirectMapped]))
 
 
 ;; Object Protocol
 
-(def-pylib-fn Py_DecRef
+(defn Py_DecRef
   "Decrement the refference count on an object"
-  nil
-  [py-obj ensure-pyobj])
+  [py-obj]
+  (DirectMapped/Py_DecRef (ensure-pyobj py-obj)))
 
 
-(def-pylib-fn Py_IncRef
+(defn Py_IncRef
   "Increment the reference count on an object"
-  nil
-  [py-obj ensure-pyobj])
+  [py-obj]
+  (DirectMapped/Py_IncRef (ensure-pyobj py-obj)))
 
 
 ;; object.h:937
