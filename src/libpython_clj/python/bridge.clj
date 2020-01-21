@@ -13,7 +13,6 @@
             [libpython-clj.python.interpreter
              :refer
              [with-gil
-              with-interpreter
               ensure-bound-interpreter
               check-error-throw
               initialize!]
@@ -238,7 +237,7 @@
          (->py-object-ptr [item#] (libpy/as-pyobj pyobj#))
          py-proto/PPythonType
          (get-python-type [item]
-           (with-interpreter interpreter#
+           (with-gil
              (py-proto/get-python-type pyobj#)))
          py-proto/PCopyToPython
          (->python [item# options#] pyobj#)
@@ -248,43 +247,43 @@
          (as-jvm [item# options#] item#)
          py-proto/PCopyToJVM
          (->jvm [item# options#]
-           (with-interpreter interpreter#
+           (with-gil
              (->jvm pyobj# options#)))
          py-proto/PPyObject
          (dir [item#]
-           (with-interpreter interpreter#
+           (with-gil
              (py-proto/dir pyobj#)))
          (has-attr? [item# item-name#]
-           (with-interpreter interpreter#
+           (with-gil
              (py-proto/has-attr? pyobj# item-name#)))
          (get-attr [item# item-name#]
-           (with-interpreter interpreter#
+           (with-gil
              (-> (py-proto/get-attr pyobj# item-name#)
                  as-jvm)))
          (set-attr! [item# item-name# item-value#]
-           (with-interpreter interpreter#
+           (with-gil
              (py-proto/set-attr! pyobj# item-name#
                                  (as-python item-value#))))
          (callable? [item#]
-           (with-interpreter interpreter#
+           (with-gil
              (py-proto/callable? pyobj#)))
          (has-item? [item# item-name#]
-           (with-interpreter interpreter#
+           (with-gil
              (py-proto/has-item? pyobj# item-name#)))
          (get-item [item# item-name#]
-           (with-interpreter interpreter#
+           (with-gil
              (-> (py-proto/get-item pyobj# item-name#)
                  as-jvm)))
          (set-item! [item# item-name# item-value#]
-           (with-interpreter interpreter#
+           (with-gil
              (py-proto/set-item! pyobj# item-name# (as-python item-value#))))
          py-proto/PPyAttMap
          (att-type-map [item#]
-           (with-interpreter interpreter#
+           (with-gil
              (py-proto/att-type-map pyobj#)))
          py-proto/PyCall
          (do-call-fn [callable# arglist# kw-arg-map#]
-           (with-interpreter interpreter#
+           (with-gil
              (let [arglist# (mapv mostly-copy-arg arglist#)
                    kw-arg-map# (->> kw-arg-map#
                                     (map (fn [[k# v#]]
@@ -294,7 +293,7 @@
                    (as-jvm)))))
          Object
          (toString [this#]
-           (with-interpreter interpreter#
+           (with-gil
              (if (= 1 (libpy/PyObject_IsInstance pyobj# (libpy/PyType_Type)))
                (format "%s.%s"
                        (->jvm (py-proto/get-attr pyobj# "__module__"))
@@ -363,7 +362,7 @@
                             (map (juxt identity (partial py-proto/get-attr pyobj)))
                             (into {}))
           py-call (fn [fn-name & args]
-                    (with-interpreter interpreter
+                    (with-gil
                       (py-impl-call-as fn-name dict-att-map args)))]
 
       (bridge-pyobject
@@ -405,7 +404,7 @@
               (->> (raw-python-iterator dict-att-map)
                    iterator-seq
                    (map (fn [pyobj-key]
-                          (with-interpreter interpreter
+                          (with-gil
                             (let [k (as-jvm pyobj-key)
                                   v (.get this pyobj-key)
                                   tuple [k v]]
@@ -435,7 +434,7 @@
                             (map (juxt identity (partial py-proto/get-attr pyobj)))
                             (into {}))
           py-call (fn [fn-name & args]
-                    (with-interpreter interpreter
+                    (with-gil
                       (py-impl-call-as fn-name dict-att-map args)))]
       (bridge-pyobject
        pyobj
@@ -550,7 +549,7 @@
 
 (defmethod py-proto/python-obj-iterator :default
   [pyobj interpreter]
-  (with-interpreter interpreter
+  (with-gil
     (let [iter-fn (py-proto/get-attr pyobj "__iter__")]
       (python->jvm-iterator iter-fn as-jvm))))
 
@@ -647,32 +646,32 @@
            IFn
            ;;uggh
            (invoke [this]
-                   (with-interpreter interpreter
+                   (with-gil
                      (cfn this)))
 
            (invoke [this arg0]
-                   (with-interpreter interpreter
+                   (with-gil
                      (cfn this arg0)))
 
            (invoke [this arg0 arg1]
-                   (with-interpreter interpreter
+                   (with-gil
                      (cfn this arg0 arg1)))
 
            (invoke [this arg0 arg1 arg2]
-                   (with-interpreter interpreter
+                   (with-gil
                      (cfn this arg0 arg1 arg2)))
 
            (invoke [this arg0 arg1 arg2 arg3]
-                   (with-interpreter interpreter
+                   (with-gil
                      (cfn this arg0 arg1 arg2 arg3)))
 
 
            (invoke [this arg0 arg1 arg2 arg3 arg4]
-                   (with-interpreter interpreter
+                   (with-gil
                      (cfn this arg0 arg1 arg2 arg3 arg4)))
 
            (applyTo [this arglist]
-                    (with-interpreter interpreter
+                    (with-gil
                       (apply cfn this arglist)))
            ;;Mark this as executable
            Fn

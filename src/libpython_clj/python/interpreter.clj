@@ -1,5 +1,5 @@
 (ns libpython-clj.python.interpreter
-  (:require [libpython-clj.jna :as libpy]
+  (:require [libpython-clj.jna :as libpy ]
             [libpython-clj.jna.base :as libpy-base]
             [tech.resource :as resource]
             [libpython-clj.python.logging
@@ -13,6 +13,7 @@
   (:import [libpython_clj.jna
             JVMBridge
             PyObject]
+           [java.util.concurrent.atomic AtomicLong]
            [com.sun.jna Pointer]
            [com.sun.jna.ptr PointerByReference]
            [java.io StringWriter]
@@ -184,39 +185,19 @@ print(json.dumps(
                         ])
 
 
-;;Map of interpreter handle to interpreter
-(defonce ^:dynamic *interpreters* (atom {}))
-
-
 ;; Main interpreter booted up during initialize!
-(defonce ^:dynamic *main-interpreter* (atom nil))
+;; * in the right to indicate atom
+(def main-interpreter* (atom nil))
+(defn main-interpreter
+  ^Interpreter []
+  @main-interpreter*)
 
 
-
-(defn add-interpreter-handle!
-  [interpreter]
-  (swap! *interpreters* assoc
-         (get-object-handle interpreter)
-         interpreter))
-
-
-(defn remove-interpreter-handle!
-  [interpreter]
-  (swap! *interpreters* dissoc
-         (get-object-handle interpreter)))
-
-
-(defn handle->interpreter
-  [interpreter-handle]
-  (if-let [retval (get @*interpreters* interpreter-handle)]
-    retval
-    (throw (ex-info "Failed to convert from handle to interpreter"
-                    {}))))
 
 (defn handle-or-interpreter->interpreter
   [hdl-or-interp]
   (if (number? hdl-or-interp)
-    (handle->interpreter hdl-or-interp)
+    (throw (Exception. "Interpreters are no long handles"))
     hdl-or-interp))
 
 
@@ -232,7 +213,7 @@ print(json.dumps(
 
 (defn get-jvm-bridge
   ^JVMBridge [handle interpreter]
-  (if-let [bridge-obj (find-jvm-bridge-entry handle interpreter)]
+  (if-let [bridge-obj (find-jvm-bridge-entry handle (main-interpreter))]
     (:jvm-bridge bridge-obj)
     (throw (Exception.
             (format "Unable to find bridge for interpreter %s and handle %s"
@@ -265,18 +246,22 @@ print(json.dumps(
 
 (defn- construct-main-interpreter!
   [thread-state type-symbol-table]
-  (when @*main-interpreter*
-    (throw (ex-info "Main interpreter is already constructed" {})))
-  (let [retval (->Interpreter (atom {:thread-state thread-state
-                                     :bridge-objects {}
-                                     :sub-interpreters []})
-                              ;;This that have to live as long as the main
-                              ;;interpreter does
-                              (atom {:type-symbol-table type-symbol-table
-                                     :forever []}))]
-    (reset! *main-interpreter* retval)
-    (add-interpreter-handle! retval)
-    :ok))
+  (swap!
+   main-interpreter*
+   (fn [existing-interpreter]
+     (when existing-interpreter
+       (throw (Exception. "Main interpreter is already constructed")))
+
+     (let [retval (->Interpreter
+                                 (atom {:thread-state thread-state
+                                        :bridge-objects {}
+                                        :sub-interpreters []})
+                                 ;;This that have to live as long as the main
+                                 ;;interpreter does
+                                 (atom {:type-symbol-table type-symbol-table
+                                        :forever []}))]
+       retval)))
+  :ok)
 
 
 (defn- python-thread-state
@@ -288,13 +273,15 @@ print(json.dumps(
   "non-reentrant pathway to release the gil.  It must not be held by this thread."
   [interpreter]
   (let [thread-state (libpy/PyEval_SaveThread)]
+    (libpy-base/set-gil-thread-id! (libpy-base/current-thread-id) Long/MAX_VALUE)
     (assoc @(:interpreter-state* interpreter) :thread-state thread-state)))
 
 
 (defn acquire-gil!
   "Non-reentrant pathway to acquire gil.  It must not be held by this thread."
   [interpreter]
-  (libpy/PyEval_RestoreThread (python-thread-state interpreter)))
+  (libpy/PyEval_RestoreThread (python-thread-state interpreter))
+  (libpy-base/set-gil-thread-id! Long/MAX_VALUE (libpy-base/current-thread-id)))
 
 
 (defn swap-interpreters!
@@ -305,26 +292,27 @@ print(json.dumps(
                             (python-thread-state new-interp)))
 
 
+(defn main-interpreter-thread-id
+  ^long []
+  (.get ^AtomicLong libpy-base/gil-thread-id))
 
-
-;;Interpreter for current thread that holds the gil
-(defonce ^:dynamic *current-thread-interpreter* nil)
 
 
 (defn ensure-interpreter
-  []
-  (if-let [retval (or @*main-interpreter*
-                      *current-thread-interpreter*)]
-    retval
-    (throw (ex-info "No interpreters found, perhaps an initialize! call is missing?"
-                    {}))))
+  ^Interpreter []
+  (let [retval (main-interpreter)]
+    (when-not retval
+      (throw (Exception. "No interpreters found, perhaps an initialize! call is missing?")))
+    retval))
 
 
 (defn ensure-bound-interpreter
   []
-  (when-not *current-thread-interpreter*
-    (throw (ex-info "No interpreter bound to current thread" {})))
-  *current-thread-interpreter*)
+  (let [interp (main-interpreter)]
+    (if (and interp
+             (= (libpy-base/current-thread-id) (main-interpreter-thread-id)))
+      interp
+      (throw (Exception. "No interpreters found, perhaps an initialize! call is missing?")))))
 
 
 (defn py-type-keyword
@@ -346,50 +334,25 @@ print(json.dumps(
     (get-in symbol-table [type-addr :typename])))
 
 
-(defn with-gil-fn
-  "Run a function with the gil aquired.  If you acquired the gil, release
-  it when finished.  Note we also lock the interpreter so that even
-  if some code releases thegil, this interpreter cannot be entered."
-  ([interpreter body-fn]
-   (let [interpreter (or interpreter (ensure-interpreter))]
-     (cond
-       ;;No interpreters bound
-       (not *current-thread-interpreter*)
-       (locking interpreter
-         (with-bindings {#'*current-thread-interpreter* interpreter}
-           (acquire-gil! interpreter)
-           (with-bindings {#'libpy-base/*gil-captured* true}
-             (try
-               (body-fn)
-               (finally
-                 (release-gil! interpreter))))))
-       ;;Switch interpreters in the current thread...deadlock
-       ;;is possible here.
-       (not (identical? interpreter *current-thread-interpreter*))
-       (locking interpreter
-         (let [old-interp *current-thread-interpreter*]
-           (try
-             (with-bindings {#'*current-thread-interpreter* interpreter}
-               (swap-interpreters! old-interp interpreter)
-               (body-fn))
-             (finally
-               (swap-interpreters! interpreter old-interp)))))
-       :else
-       (do
-         (assert (identical? interpreter *current-thread-interpreter*))
-         (body-fn))))))
-
 
 (defmacro with-gil
-  "See with-gil-fn"
+  "Grab the gil and use the main interpreter.  Do not grab gil if already grabbed"
   [& body]
-  `(with-gil-fn nil (fn [] (do ~@body))))
-
-
-(defmacro with-interpreter
-  "See with-gil-fn"
-  [interp & body]
-  `(with-gil-fn ~interp (fn [] (do ~@body))))
+  `(do
+     (let [interp# (ensure-interpreter)
+           ^AtomicLong bound-thread# libpy-base/gil-thread-id
+           thread-id# (libpy-base/current-thread-id)]
+       (locking interp#
+         (let [new-binding?# (if-not (= thread-id# (.get bound-thread#))
+                               (do
+                                 (acquire-gil! interp#)
+                                 true)
+                               false)]
+           (try
+             ~@body
+             (finally
+               (when new-binding?#
+                 (release-gil! interp#)))))))))
 
 
 (defonce ^:dynamic *program-name* "")
@@ -444,7 +407,7 @@ print(json.dumps(
              library-path
              python-executable]
       :as options}]
-  (when-not @*main-interpreter*
+  (when-not (main-interpreter)
     (log-info (str "Executing python initialize with options:" options) )
     (let [{:keys [python-home libname java-library-path-addendum] :as startup-info}
           (detect-startup-info options)
@@ -478,8 +441,11 @@ print(json.dumps(
        (libpy/PySys_SetArgv 0 (-> program-name
                                   (jna/string->wide-ptr)))))
     (let [type-symbols (libpy/lookup-type-symbols)
-          context (with-bindings {#'libpy-base/*gil-captured* true}
-                    (libpy/PyEval_SaveThread))]
+          context (do
+                    (libpy-base/set-gil-thread-id! Long/MAX_VALUE (libpy-base/current-thread-id))
+                    (let [retval (libpy/PyEval_SaveThread)]
+                      (libpy-base/set-gil-thread-id! (libpy-base/current-thread-id) Long/MAX_VALUE)
+                      retval))]
       (construct-main-interpreter! context type-symbols))))
 
 
@@ -513,18 +479,17 @@ print(json.dumps(
 
 (defn finalize!
   []
-  (when *current-thread-interpreter*
-    (throw (ex-info "There cannot be an interpreter bound when finalize! is called"
-                    {})))
-  (check-error-throw)
-  (when-let [main-interpreter (first (swap-vals! *main-interpreter* (constantly nil)))]
-    (log-info "executing python finalize!")
-    (with-bindings {#'*current-thread-interpreter* main-interpreter}
-      (acquire-gil! main-interpreter)
+  (when-not (== Long/MAX_VALUE (.get ^AtomicLong libpy-base/gil-thread-id))
+    (throw (Exception. (format "A thread still owns the interpreter: "
+                               (.get ^AtomicLong libpy-base/gil-thread-id)))))
+  (let [interp (ensure-interpreter)]
+    (locking interp
+      (check-error-throw)
+      (log-info "executing python finalize!")
+      (acquire-gil! interp)
       (let [finalize-value (libpy/Py_FinalizeEx)]
         (when-not (= 0 finalize-value)
-          (log-error (format "PyFinalize returned nonzero value: %s" finalize-value)))))
-    (remove-interpreter-handle! main-interpreter)))
+          (log-error (format "PyFinalize returned nonzero value: %s" finalize-value)))))))
 
 
 (defn conj-forever!
