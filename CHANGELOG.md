@@ -24,6 +24,11 @@
   
   Tested on Python 3.6.8 and Python 3.7.
   
+  **WARNING**: This is suitable for casual hacking and exploratory
+  development -- however, at this time, we still strongly recommend 
+  using Docker and a system installation of Python in production
+  environments.
+  
 * **breaking change** (and remediation): `require-python` no longer
   automatically binds the Python module to the Clojure the namespace 
   symbol.  If you wish to bind the module to the namespace symbol,
