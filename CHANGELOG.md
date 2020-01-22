@@ -45,6 +45,25 @@
         (decode "latin-1)) ;; works
   ```
 
+* Python method helper syntax for programmatic passing of maps
+  to satisfy `*args`, `**kwargs` situations on the `py.` family of
+  macros. Two new macros have been introduced to address this 
+  
+  ```clojure 
+  (py* obj method args)
+  (py* obj method args kwargs)
+  (py** obj method kwargs)
+  (py** obj method arg1 arg2 arg3 ... argN kwargs)
+  ```
+  and the `py..` syntax has been extended to accomodate these 
+  conventions as well.
+  
+  ```clojure 
+  (py.. obj (*method args))
+  (py.. obj (*method args kwargs))
+  (py.. obj (**method kwargs))
+  (py.. obj (**method arg1 arg2 arg3 ... argN kwargs))
+  ```
 
 
 ## 1.31
