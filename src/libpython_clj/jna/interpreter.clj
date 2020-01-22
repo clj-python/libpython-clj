@@ -17,7 +17,7 @@
             [clojure.tools.logging :as log])
   (:import [com.sun.jna Pointer Native NativeLibrary]
            [com.sun.jna.ptr PointerByReference]
-           [libpython_clj.jna PyObject]))
+           [libpython_clj.jna PyObject DirectMapped]))
 
 
 
@@ -264,7 +264,7 @@
 
 
 ;;Acquire the GIL of the given thread state
-(def-no-gil-pylib-fn PyEval_RestoreThread
+(defn PyEval_RestoreThread
   "Acquire the global interpreter lock (if it has been created and thread support is
   enabled) and set the thread state to tstate, which must not be NULL. If the lock has
   been created, the current thread must not have acquired it, otherwise deadlock ensues.
@@ -275,17 +275,18 @@
   thread, even if the thread was not created by Python. You can use _Py_IsFinalizing()
   or sys.is_finalizing() to check if the interpreter is in process of being finalized
   before calling this function to avoid unwanted termination."
-  nil
-  [tstate ensure-pyobj])
+  [tstate]
+  (DirectMapped/PyEval_RestoreThread (ensure-pyobj tstate)))
 
 
 ;;Release the GIL, return thread state
-(def-pylib-fn PyEval_SaveThread
+(defn PyEval_SaveThread
   "Release the global interpreter lock (if it has been created and thread support is
   enabled) and reset the thread state to NULL, returning the previous thread state
   (which is not NULL). If the lock has been created, the current thread must have
   acquired it."
-  Pointer)
+  ^Pointer []
+  (DirectMapped/PyEval_SaveThread))
 
 
 ;;Get current thread state for interpreter

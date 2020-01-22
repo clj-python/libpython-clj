@@ -134,15 +134,15 @@
   [attr-name ensure-pyobj])
 
 
-(def-pylib-fn PyObject_GetAttrString
+(defn PyObject_GetAttrString
   "Return value: New reference.
 
    Retrieve an attribute named attr_name from object o. Returns the attribute value on
    success, or NULL on failure. This is the equivalent of the Python expression
    o.attr_name."
-  Pointer
-  [pyobj ensure-pyobj]
-  [attr-name str])
+  ^Pointer [pyobj attr-name]
+  (DirectMapped/PyObject_GetAttrString (ensure-pyobj pyobj)
+                                       (str attr-name)))
 
 
 (def-pylib-fn PyObject_GenericGetAttr
