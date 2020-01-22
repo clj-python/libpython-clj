@@ -222,8 +222,9 @@ Object's refcount is bad.  Crash is imminent"
 
 (defn py-raw-type
   ^Pointer [pyobj]
-  (let [pyobj (PyObject. (libpy/as-pyobj pyobj))]
-    (.ob_type pyobj)))
+  (let [^Pointer pyobj (libpy/as-pyobj pyobj)]
+    (jna/size-t-compile-time-switch
+     (.getPointer pyobj 4) (.getPointer pyobj 8))))
 
 
 (extend-protocol py-proto/PPythonType
@@ -401,13 +402,13 @@ Object's refcount is bad.  Crash is imminent"
 %s" (type function)))))
   (let [meth-flags (long (cond
                            (instance? CFunction$NoArgFunction function)
-                           @libpy/METH_NOARGS
+                           libpy/METH_NOARGS
 
                            (instance? CFunction$TupleFunction function)
-                           @libpy/METH_VARARGS
+                           libpy/METH_VARARGS
 
                            (instance? CFunction$KeyWordFunction function)
-                           (bit-or @libpy/METH_KEYWORDS @libpy/METH_VARARGS)
+                           (bit-or libpy/METH_KEYWORDS libpy/METH_VARARGS)
                            :else
                            (throw (ex-info (format "Failed due to type: %s"
                                                    (type function))
@@ -798,7 +799,7 @@ Object's refcount is bad.  Crash is imminent"
   (has-attr? [item name] (has-attr? item name))
   (get-attr [item name] (get-attr item name))
   (set-attr! [item item-name item-value] (set-attr! item item-name item-value))
-  (callable? [item] (= 1 (@libpy/PyCallable_Check item)))
+  (callable? [item] (= 1 (libpy/PyCallable_Check item)))
   (has-item? [item item-name] (obj-has-item? item item-name))
   (get-item [item item-name] (obj-get-item item item-name))
   (set-item! [item item-name item-value] (obj-set-item! item item-name item-value))

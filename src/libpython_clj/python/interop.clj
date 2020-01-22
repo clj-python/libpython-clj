@@ -220,8 +220,8 @@
          docstring-ptr (when docstring (jna/string->ptr-untracked docstring))
          type-name-ptr (jna/string->ptr-untracked (str module-name "." type-name))
          tp_flags (long (or tp_flags
-                            (bit-or @libpy/Py_TPFLAGS_DEFAULT
-                                    @libpy/Py_TPFLAGS_BASETYPE)))
+                            (bit-or libpy/Py_TPFLAGS_DEFAULT
+                                    libpy/Py_TPFLAGS_BASETYPE)))
          ;;We allocate our memory manually here else the system will gc the
          ;;type object memory when the type goes out of scope.
          new-mem (jna/malloc-untracked type-obj-size)
