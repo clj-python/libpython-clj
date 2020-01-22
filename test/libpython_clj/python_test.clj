@@ -1,5 +1,5 @@
 (ns libpython-clj.python-test
-  (:require [libpython-clj.python :as py]
+  (:require [libpython-clj.python :as py :refer [py. py.. py.- py* py**]]
             [libpython-clj.jna :as libpy]
             [tech.v2.datatype :as dtype]
             [tech.v2.datatype.functional :as dfn]
@@ -303,7 +303,57 @@ class Foo:
            (py/py.. f res __len__)
            ((py/py.. f res -__len__))
            (py/py.. f count)
-           ((py/py.. f -count))))))
+           ((py/py.. f -count)))))
+
+
+  (let [builtins (py/import-module "builtins")
+        dict (py/get-attr builtins "dict")
+        d (dict)]
+    (py* d update nil {:a 1})
+    (is  (= 1 (py* d get [:a])))
+    (let [iterable [[:a 2]]]
+      (py* d update [iterable]))
+    (is (= 2 (py* d get [:a])))
+    (let [iterable [[:a 1] [:b 2]]
+          kwargs {:name "taco"}]
+      (py* d update [iterable] kwargs))
+    (is (= {"name" "taco" "a" 1 "b" 2} d))
+
+    (py. d clear)
+
+    (py** d update {:a 1})
+    (is (= d {"a" 1}))
+
+    (py** d update [[:a 2]] {:c 3})
+    (is (= d {"a" 2 "c" 3}))
+
+
+    (py. d clear)
+
+    (doto d
+      (py.. (*update nil {:a 1}))
+      (py.. (*update [[[:b 2]]]))
+      (py.. (**update {:c 3}))
+      (py.. (**update [[:d 4]] {:e 5})))
+
+    (is (= d {"a" 1 "b" 2 "c" 3 "d" 4 "e" 5}))
+    
+    
+    
+
+    
+
+    
+
+    
+    
+
+    
+    
+    
+
+    )
+  )
 
 (deftest infinite-seq
   (let [islice (-> (py/import-module "itertools")
@@ -375,4 +425,3 @@ class Foo:
 (deftest characters
   (is (= (py/->jvm (py/->python "c"))
          (py/->jvm (py/->python \c)))))
-

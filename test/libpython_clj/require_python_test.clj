@@ -75,3 +75,12 @@
   (is csv.DictWriter/writeheader)
   (is csv.DictWriter/writerow)
   (is csv.DictWriter/writerows))
+
+(deftest import-python-test
+  (req/import-python)
+  (is (ns-map python.set))
+  (is (ns-map python.list))
+  (is (ns-map python.tuple))
+  (is (ns-map python.frozenset))
+  (is (ns-map python.dict))
+  (is (ns-map python)))

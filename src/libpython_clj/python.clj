@@ -432,6 +432,37 @@
   [x & args]
   (list* (into (vector #'$a x) args)))
 
+(defmacro py*
+  "Special syntax for passing along *args and **kwargs style arguments
+  to methods.
+
+  Usage:
+
+  (py* obj method args kwargs)
+
+  Example:
+
+  (def d (python/dict))
+  d ;;=> {}
+  (def iterable [[:a 1] [:b 2]])
+  (def kwargs {:cat \"dog\" :name \"taco\"})
+  (py* d  update [iterable] kwargs)
+  d ;;=> {\"a\": 1, \"b\": 2, \"cat\": \"dog\", \"name\": \"taco\"}"
+  ([x method args]
+   (list #'call-attr-kw x (str method) args nil))
+  ([x method args kwargs]
+   (list #'call-attr-kw x (str method) args kwargs)))
+
+(defmacro py**
+  "Like py*, but it is assumed that the LAST argument is kwargs."
+  ([x method kwargs]
+   (list #'call-attr-kw x (str method) nil kwargs))
+  ([x method arg & args]
+   (let [args   (into [arg] args)
+         kwargs (last args)
+         args   (vec (pop args))]
+     (list #'call-attr-kw x (str method) args kwargs))))
+
 
 (defn ^:private handle-pydotdot
   ([x form]
@@ -439,8 +470,18 @@
      (let [form-data (vec form)
            [instance-member & args] form-data
            symbol-str (str instance-member)]
-       (if (clojure.string/starts-with? symbol-str "-")
+       (cond
+         (clojure.string/starts-with? symbol-str "-")
          (list #'py.- x (symbol (subs symbol-str 1 (count symbol-str))))
+
+         (clojure.string/starts-with? symbol-str "**")
+         (list* #'py** x (symbol (subs symbol-str 2 (count symbol-str))) args)
+         
+         (clojure.string/starts-with? symbol-str "*")
+         (list* #'py* x (symbol (subs symbol-str 1 (count symbol-str))) args)
+
+         :else ;; assumed to be method invocation
+         
          (list* (into (vector #'py. x instance-member) args))))
      (handle-pydotdot x (list form))))
   ([x form & more]
@@ -456,6 +497,30 @@
   is equivalent to Python's
 
   import sys
-  sys.path.append('/home/user/bin')"
+  sys.path.append('/home/user/bin')
+
+  SPECIAL SYNTAX for programmatic *args and **kwargs
+
+  Special syntax is provided to meet the needs required by
+  Python's *args and **kwargs syntax programmatically.
+
+
+  (= (py.. obj (*method args))
+     (py* obj methods args))
+
+  (= (py.. obj (*methods args kwargs))
+     (py* obj method args kwargs))
+
+  (= (py.. obj (**method kwargs))
+     (py** obj kwargs))
+
+  (= (py.. obj (**method arg1 arg2 arg3 ... argN kwargs))
+     (py** obj method arg1 arg2 arg3 ... argN kwargs)
+     (py*  obj method [arg1 arg2 arg3 ... argN] kwargs))
+
+
+  These forms exist for when you need to pass in a map of options
+  in the same way you would use the f(*args, **kwargs) forms in
+  Python."
   [x & args]
   (apply handle-pydotdot x args))
