@@ -9,7 +9,7 @@
              :as libpy-base]
             [tech.jna :as jna])
   (:import [com.sun.jna Pointer]
-           [libpython_clj.jna PyObject]))
+           [libpython_clj.jna PyObject DirectMapped]))
 
 
 (def-pylib-fn PyTuple_Check
@@ -18,22 +18,21 @@
   [p ensure-pyobj])
 
 
-(def-pylib-fn PyTuple_New
+(defn PyTuple_New
   "Return value: New reference.
 
    Return a new tuple object of size len, or NULL on failure."
-  Pointer
-  [len jna/size-t])
+  ^Pointer [^long len]
+  (DirectMapped/PyTuple_New (long len)))
 
 
-(def-pylib-fn PyTuple_GetItem
+(defn PyTuple_GetItem
   "Return value: Borrowed reference.
 
    Return the object at position pos in the tuple pointed to by p. If pos is out of
    bounds, return NULL and sets an IndexError exception."
-  Pointer
-  [p ensure-pyobj]
-  [pos jna/size-t])
+  ^Pointer [p pos]
+  (DirectMapped/PyTuple_GetItem (ensure-pyobj p) (long pos)))
 
 
 (def-pylib-fn PyTuple_GetSlice
@@ -47,14 +46,14 @@
   [high jna/size-t])
 
 
-(def-pylib-fn PyTuple_SetItem
+(defn PyTuple_SetItem
   "Insert a reference to object o at position pos of the tuple pointed to by p. Return 0
   on success.
 
    Note
 
    This function “steals” a reference to o"
-  Integer
-  [p ensure-pyobj]
-  [pos jna/size-t]
-  [o ensure-pyobj])
+  ^long [p pos o]
+  (long (DirectMapped/PyTuple_SetItem (ensure-pyobj p)
+                                      (long pos)
+                                      (ensure-pyobj o))))

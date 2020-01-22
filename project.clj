@@ -7,5 +7,6 @@
                  [camel-snake-kebab "0.4.0"]
                  [techascent/tech.datatype "4.71"]
                  [org.clojure/data.json "0.2.7"]]
+  :profiles {:dev {:dependencies [[criterium "0.4.5"]]}}
   :repl-options {:init-ns user}
   :java-source-paths ["java"])

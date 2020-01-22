@@ -8,7 +8,7 @@
              :as libpy-base]
             [tech.jna :as jna])
   (:import [com.sun.jna Pointer]
-           [libpython_clj.jna PyObject]))
+           [libpython_clj.jna PyObject DirectMapped]))
 
 
 (def-pylib-fn PyFloat_Check
@@ -31,22 +31,21 @@
   [str ensure-pyobj])
 
 
-(def-pylib-fn PyFloat_FromDouble
+(defn PyFloat_FromDouble
   "Return value: New reference.
 
    Create a PyFloatObject object from v, or NULL on failure."
-  Pointer
-  [v double])
+  ^Pointer [v]
+  (DirectMapped/PyFloat_FromDouble (double v)))
 
 
-(def-pylib-fn PyFloat_AsDouble
+(defn PyFloat_AsDouble
   "Return a C double representation of the contents of pyfloat. If pyfloat is not a
   Python floating point object but has a __float__() method, this method will first be
   called to convert pyfloat into a float. This method returns -1.0 upon failure, so one
   should call PyErr_Occurred() to check for errors."
-  Double
-  [v ensure-pyobj])
-
+  ^double [v]
+  (DirectMapped/PyFloat_AsDouble (ensure-pyobj v)))
 
 
 (def-pylib-fn PyFloat_GetInfo

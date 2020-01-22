@@ -110,16 +110,17 @@
   [attr-name ensure-pyobj])
 
 
-(def-pylib-fn PyObject_HasAttrString
+(defn PyObject_HasAttrString
   "Returns 1 if o has the attribute attr_name, and 0 otherwise. This is equivalent to
   the Python expression hasattr(o, attr_name). This function always succeeds.
 
    Note that exceptions which occur while calling __getattr__() and __getattribute__()
    methods and creating a temporary string object will get suppressed. To get error
-   reporting use Pointer_GetAttrString() instead."
-  Integer
-  [pyobj ensure-pyobj]
-  [attr-name str])
+   reporting use Object_GetAttrString() instead."
+  ^long [pyobj attr-name]
+  (long
+   (DirectMapped/PyObject_HasAttrString (ensure-pyobj pyobj)
+                                        (str attr-name))))
 
 
 (def-pylib-fn PyObject_GetAttr
@@ -267,14 +268,14 @@
   [opid bool-fn-constant])
 
 
-(def-pylib-fn PyCallable_Check
+(defn PyCallable_Check
   "Determine if the object o is callable. Return 1 if the object is callable and 0
   otherwise. This function always succeeds."
-  Integer
-  [pyobj ensure-pyobj])
+  ^long [pyobj]
+  (long (DirectMapped/PyCallable_Check (ensure-pyobj pyobj))))
 
 
-(def-pylib-fn PyObject_Call
+(defn PyObject_Call
   "Return value: New reference.
 
    Call a callable Python object callable, with arguments given by the tuple args, and
@@ -286,12 +287,12 @@
    Returns the result of the call on success, or NULL on failure.
 
    This is the equivalent of the Python expression: callable(*args, **kwargs)."
-  Pointer
-  [callable ensure-pyobj]
-  [args ensure-pytuple]
-  [kwargs as-pyobj])
+  ^Pointer [callable args kwargs]
+  (DirectMapped/PyObject_Call (ensure-pyobj callable)
+                              (ensure-pytuple args)
+                              (as-pyobj kwargs)))
 
-(def-pylib-fn PyObject_CallObject
+(defn PyObject_CallObject
   "Return value: New reference.
 
    Call a callable Python object callable, with arguments given by the tuple args. If no
@@ -300,9 +301,9 @@
    Returns the result of the call on success, or NULL on failure.
 
    This is the equivalent of the Python expression: callable(*args)."
-  Pointer
-  [callable ensure-pyobj]
-  [args as-pyobj])
+  ^Pointer [callable args]
+  (DirectMapped/PyObject_CallObject (ensure-pyobj callable)
+                                    (as-pyobj args)))
 
 
 (def-pylib-fn PyObject_Hash

@@ -798,7 +798,7 @@ Object's refcount is bad.  Crash is imminent"
   (has-attr? [item name] (has-attr? item name))
   (get-attr [item name] (get-attr item name))
   (set-attr! [item item-name item-value] (set-attr! item item-name item-value))
-  (callable? [item] (= 1 (libpy/PyCallable_Check item)))
+  (callable? [item] (= 1 (@libpy/PyCallable_Check item)))
   (has-item? [item item-name] (obj-has-item? item item-name))
   (get-item [item item-name] (obj-get-item item item-name))
   (set-item! [item item-name item-value] (obj-set-item! item item-name item-value))
