@@ -225,3 +225,15 @@
     :else
     (throw (Exception. "Invalid argument: %s" reqs))))
 
+(defn import-python
+  "Loads python, python.list, python.dict, python.set, python.tuple,
+  and python.frozenset."
+  []
+  (require-python
+   '([builtins :as python]
+     [builtins.list :as python.list]
+     [builtins.dict :as python.dict]
+     [builtins.set :as python.set]
+     [builtins.tuple :as python.tuple]
+     [builtins.frozenset :as python.frozenset])))
+
