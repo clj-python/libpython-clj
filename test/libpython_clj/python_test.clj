@@ -336,23 +336,7 @@ class Foo:
       (py.. (**update {:c 3}))
       (py.. (**update [[:d 4]] {:e 5})))
 
-    (is (= d {"a" 1 "b" 2 "c" 3 "d" 4 "e" 5}))
-    
-    
-    
-
-    
-
-    
-
-    
-    
-
-    
-    
-    
-
-    )
+    (is (= d {"a" 1 "b" 2 "c" 3 "d" 4 "e" 5})))
   )
 
 (deftest infinite-seq
