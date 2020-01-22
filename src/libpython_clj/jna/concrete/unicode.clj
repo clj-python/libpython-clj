@@ -12,11 +12,11 @@
   (:import [com.sun.jna Pointer]
            [com.sun.jna.ptr PointerByReference
             LongByReference IntByReference]
-           [libpython_clj.jna PyObject]))
+           [libpython_clj.jna PyObject DirectMapped]))
 
 
 
-(def-pylib-fn PyUnicode_Decode
+(defn PyUnicode_Decode
   "Return value: New reference.
 
    Create a Unicode object by decoding size bytes of the encoded string s. encoding and
@@ -26,11 +26,11 @@
 
   Signature:
   PyObject* (const char *s, Py_ssize_t size, const char *encoding, const char *errors)"
-  Pointer
-  [s dtype/as-nio-buffer]
-  [size jna/size-t]
-  [encoding str]
-  [errors str])
+  ^Pointer [s size encoding errors]
+  (DirectMapped/PyUnicode_Decode (dtype/as-nio-buffer s)
+                                 (jna/size-t size)
+                                 (str encoding)
+                                 (str errors)))
 
 
 (def-pylib-fn PyUnicode_AsEncodedString
@@ -55,7 +55,7 @@
     IntByReference))
 
 
-(def-pylib-fn PyUnicode_AsUTF8AndSize
+(defn PyUnicode_AsUTF8AndSize
   "Return a pointer to the UTF-8 encoding of the Unicode object, and store the size of
    the encoded representation (in bytes) in size. The size argument can be NULL; in this
    case no size will be stored. The returned buffer always has an extra null byte
@@ -71,9 +71,9 @@
    New in version 3.3.
 
    Changed in version 3.7: The return type is now const char * rather of char *."
-  Pointer
-  [py-obj ensure-pyobj]
-  [size-ptr (partial jna/ensure-type (size-t-by-reference-type))])
+  ^Pointer [py-obj size-ptr]
+  (DirectMapped/PyUnicode_AsUTF8AndSize (ensure-pyobj py-obj)
+                                        ^LongByReference size-ptr))
 
 
 (def-pylib-fn PyUnicode_AsUTF8

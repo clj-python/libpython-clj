@@ -9,24 +9,24 @@
              :as libpy-base]
             [tech.jna :as jna])
   (:import [com.sun.jna Pointer]
-           [libpython_clj.jna PyObject]))
+           [libpython_clj.jna PyObject DirectMapped]))
 
 
 
-(def-pylib-fn PySequence_Check
+(defn PySequence_Check
   "Return 1 if the object provides sequence protocol, and 0 otherwise. Note that it
   returns 1 for Python classes with a __getitem__() method unless they are dict
   subclasses since in general case it is impossible to determine what the type of keys
   it supports. This function always succeeds."
-  Integer
-  [o ensure-pyobj])
+  ^long [o]
+  (long (DirectMapped/PySequence_Check (ensure-pyobj o))))
 
 
-(def-pylib-fn PySequence_Length
+(defn PySequence_Length
   "Returns the number of objects in sequence o on success, and -1 on failure. This is
   equivalent to the Python expression len(o)."
-  size-t-type
-  [o ensure-pyobj])
+  ^long [o]
+  (long (DirectMapped/PySequence_Length (ensure-pyobj o))))
 
 
 (def-pylib-fn PySequence_Concat
@@ -71,14 +71,13 @@
   [count jna/size-t])
 
 
-(def-pylib-fn PySequence_GetItem
+(defn PySequence_GetItem
   "Return value: New reference.
 
    Return the ith element of o, or NULL on failure. This is the equivalent of the Python
    expression o[i]."
-  Pointer
-  [o ensure-pyobj]
-  [i jna/size-t])
+  ^Pointer [o i]
+  (DirectMapped/PySequence_GetItem (ensure-pyobj o) (jna/size-t i)))
 
 
 (def-pylib-fn PySequence_GetSlice

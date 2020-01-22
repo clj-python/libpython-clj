@@ -9,7 +9,7 @@
              :as libpy-base]
             [tech.jna :as jna])
   (:import [com.sun.jna Pointer]
-           [libpython_clj.jna PyObject]))
+           [libpython_clj.jna PyObject DirectMapped]))
 
 
 
@@ -181,7 +181,7 @@
   [p ensure-pyobj])
 
 
-(def-pylib-fn PyDict_Next
+(defn PyDict_Next
   "Iterate over all key-value pairs in the dictionary p. The Py_ssize_t referred to by
   ppos must be initialized to 0 prior to the first call to this function to start the
   iteration; the function returns true for each pair in the dictionary, and false once
@@ -190,11 +190,11 @@
   may be NULL. Any references returned through them are borrowed. ppos should not be
   altered during iteration. Its value represents offsets within the internal dictionary
   structure, and since the structure is sparse, the offsets are not consecutive."
-  Integer
-  [p ensure-pyobj]
-  [ppos (partial jna/ensure-type jna/size-t-ref-type)]
-  [pkey jna/ensure-ptr-ptr]
-  [pvalue jna/ensure-ptr-ptr])
+  ^long [p ppos pkey pvalue]
+  (long (DirectMapped/PyDict_Next (ensure-pyobj p)
+                                  (jna/ensure-type jna/size-t-ref-type ppos)
+                                  (jna/ensure-ptr-ptr pkey)
+                                  (jna/ensure-ptr-ptr pvalue))))
 
 
 (def-pylib-fn PyDict_Merge

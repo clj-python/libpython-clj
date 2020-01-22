@@ -8,7 +8,7 @@
              :as libpy-base]
             [tech.jna :as jna])
   (:import [com.sun.jna Pointer]
-           [libpython_clj.jna PyObject]))
+           [libpython_clj.jna PyObject DirectMapped]))
 
 
 (def-pylib-fn PyLong_Check
@@ -53,12 +53,13 @@
   [v jna/size-t])
 
 
-(def-pylib-fn PyLong_FromLongLong
+(defn PyLong_FromLongLong
   "Return value: New reference.
 
    Return a new PyLongObject object from a C long long, or NULL on failure."
-  Pointer
-  [v long])
+  ^Pointer [v]
+  (DirectMapped/PyLong_FromLongLong (long v)))
+
 
 (def-pylib-fn PyLong_FromUnsignedLongLong
   "Return value: New reference.
@@ -87,7 +88,7 @@
   [obj ensure-pyobj])
 
 
-(def-pylib-fn PyLong_AsLongLong
+(defn PyLong_AsLongLong
   "Return a C long long representation of obj. If obj is not an instance of
   PyLongObject, first call its __int__() method (if present) to convert it to a
   PyLongObject.
@@ -95,5 +96,5 @@
    Raise OverflowError if the value of obj is out of range for a long.
 
    Returns -1 on error. Use PyErr_Occurred() to disambiguate."
-  Long
-  [obj ensure-pyobj])
+  ^long [obj]
+  (DirectMapped/PyLong_AsLongLong (ensure-pyobj obj)))

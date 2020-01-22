@@ -10,12 +10,13 @@
              :as libpy-base]
             [tech.jna :as jna])
   (:import [com.sun.jna Pointer]
-           [libpython_clj.jna PyObject PyTypeObject]))
+           [libpython_clj.jna PyObject PyTypeObject DirectMapped]))
 
 
-(def-pylib-fn PyErr_Occurred
+(defn PyErr_Occurred
   "Check if the error indicator is set.  If so, return the exception type."
-  Pointer)
+  ^Pointer []
+  (DirectMapped/PyErr_Occurred))
 
 
 (def-pylib-fn PyErr_Clear
