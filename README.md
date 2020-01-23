@@ -13,6 +13,8 @@ JNA libpython bindings to the tech ecosystem.
 * Finding the python libraries is done dynamically allowing one system to run on multiple versions
   of python.
 * REPL oriented design means fast, smooth, iterative development.
+* Carin Meier has written excellent posts on [plotting](http://gigasquidsoftware.com/blog/2020/01/18/parens-for-pyplot/) and
+  [advanced text generation](http://gigasquidsoftware.com/blog/2020/01/10/hugging-face-gpt-with-clojure/).
 
 
 ## Vision
