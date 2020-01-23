@@ -1,5 +1,7 @@
 # Time for a ChangeLog!
 
+## 1.33-SNAPSHOT
+
 ## 1.32
 * DecRef now happens cooperatively in python thread.  We used to use separate threads
   in order to do decrement the refcount on objects that aren't reachable any more.  Now
@@ -7,7 +9,7 @@
   python access confined to a single thread if this is desired for stability.  It is
   also quite a bit faster as the GIL is captured once and all decrefs happen after
   that.
-  
+
 * Major performance and stability enhancements.
   1.  Doubled down on single-interpreter design.  This simplified some important aspects
       and led to a bit of perf gain.
@@ -15,68 +17,68 @@
       examples.  Lots of people helped out with this (John Collins, Tom Poole (joinr)).
 
 * Python executables can now be specified directly using the syntax
-  ```clojure 
+  ```clojure
   (py/initialize! :python-executable <executable>)
   ```
   where **executable** can be a system installation of Python
   such as `"python3"`, `"python3.7"`; it can also be a fully qualified
   path such as `"/usr/bin/python3.7"`; or any Python executable along
   your discoverable system path.
-  
-* Python virtual environments can now be used instead of system 
+
+* Python virtual environments can now be used instead of system
   installations! This has been tested on Linux/Ubuntu variants
-  with virtual environments installed with 
-  ```bash 
+  with virtual environments installed with
+  ```bash
   virtualenv -p $(which <python-version>) env
   ```
-  and then invoked using 
-  ```clojure 
+  and then invoked using
+  ```clojure
   (py/initialize! :python-executable "/abs/path/to/env/bin/python")
   ```
-  
+
   Tested on Python 3.6.8 and Python 3.7.
-  
+
   **WARNING**: This is suitable for casual hacking and exploratory
-  development -- however, at this time, we still strongly recommend 
+  development -- however, at this time, we still strongly recommend
   using Docker and a system installation of Python in production
   environments.
-  
+
 * **breaking change** (and remediation): `require-python` no longer
-  automatically binds the Python module to the Clojure the namespace 
+  automatically binds the Python module to the Clojure the namespace
   symbol.  If you wish to bind the module to the namespace symbol,
   you need to use the `:bind-ns` flag.  Example:
-  
-  ```clojure 
+
+  ```clojure
   (require-python 'requests) ;;=> nil
   requests ;;=> throws Exception
-  
+
   (require-python '[requests :bind-ns]) ;;=> nil
-  (py.. requests 
+  (py.. requests
         (get "https://www.google.com)
-        -content 
+        -content
         (decode "latin-1)) ;; works
   ```
 
 * Python method helper syntax for programmatic passing of maps
   to satisfy `*args`, `**kwargs` situations on the `py.` family of
-  macros. Two new macros have been introduced to address this 
-  
-  ```clojure 
+  macros. Two new macros have been introduced to address this
+
+  ```clojure
   (py* obj method args)
   (py* obj method args kwargs)
   (py** obj method kwargs)
   (py** obj method arg1 arg2 arg3 ... argN kwargs)
   ```
-  and the `py..` syntax has been extended to accomodate these 
+  and the `py..` syntax has been extended to accomodate these
   conventions as well.
-  
-  ```clojure 
+
+  ```clojure
   (py.. obj (*method args))
   (py.. obj (*method args kwargs))
   (py.. obj (**method kwargs))
   (py.. obj (**method arg1 arg2 arg3 ... argN kwargs))
   ```
-  
+
 ### Bugs Fixed:
 
 * [attribute calls with argument given in map](https://github.com/cnuernber/libpython-clj/issues/46)
@@ -90,11 +92,11 @@
 
 * Python objects are now datafy-able and nav-igable.  `require-python`
   is now rebuilt using datafy.
-  
+
 * `py.`, `py.-`, and `py..` added to the `libpython-clj` APIs
   to allow method/attribute access more consistent with idiomatic
   Clojure forms.
-  
+
 
 ## 1.30
 
@@ -116,7 +118,7 @@ classes and some serious refactoring overall.
 * Most of the datatype libraries math operators supported by numpy objects (+,-,etc).
 * Numpy objects can be used in datatype library functions (like `copy`, `make-container`)
   and work in optimized ways.
-  
+
 ```clojure
 libpython-clj.python.numpy-test> (def test-ary (py/$a np-mod array (->> (range 9)
                                                                         (partition 3)
@@ -135,7 +137,7 @@ libpython-clj.python.numpy-test> (dfn/> test-ary 4)
  [False False  True]
  [ True  True  True]]
 ```
-  
+
 #### Bugs Fixed
 * Support for java character <-> py string
 * Fixed potential crash related to use of delay mechanism and stack based gc.
