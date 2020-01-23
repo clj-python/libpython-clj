@@ -1,6 +1,18 @@
 # Time for a ChangeLog!
 
 ## 1.32
+* DecRef now happens cooperatively in python thread.  We used to use separate threads
+  in order to do decrement the refcount on objects that aren't reachable any more.  Now
+  it happens at the end of the `with-gil` macro and thus it is possible to have all
+  python access confined to a single thread if this is desired for stability.  It is
+  also quite a bit faster as the GIL is captured once and all decrefs happen after
+  that.
+  
+* Major performance and stability enhancements.
+  1.  Doubled down on single-interpreter design.  This simplified some important aspects
+      and led to a bit of perf gain.
+  2.  Implemented JNA [DirectMapping](https://github.com/java-native-access/jna/blob/master/www/DirectMapping.md) for quite a few hotspots found via profiling some simple
+      examples.  Lots of people helped out with this (John Collins, Tom Poole (joinr)).
 
 * Python executables can now be specified directly using the syntax
   ```clojure 
@@ -64,6 +76,14 @@
   (py.. obj (**method kwargs))
   (py.. obj (**method arg1 arg2 arg3 ... argN kwargs))
   ```
+  
+### Bugs Fixed:
+
+* [attribute calls with argument given in map](https://github.com/cnuernber/libpython-clj/issues/46)
+* [allow specification of python executable](https://github.com/cnuernber/libpython-clj/issues/52)
+* [difference in calling conventions leads to strange behavior in pandas](https://github.com/cnuernber/libpython-clj/issues/50) with [screencast of fix](https://drive.google.com/file/d/1PTXzWqNaRAiIDDZWqkeffIK2KESRWSRh/view?usp=sharing)
+* [Allow single threaded use of Python](https://github.com/cnuernber/libpython-clj/issues/48)
+* [Simplify interpreter design for only one interpreter](https://github.com/cnuernber/libpython-clj/issues/47)
 
 
 ## 1.31
