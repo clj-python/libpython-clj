@@ -263,6 +263,17 @@
   [data-ptr jna/as-ptr])
 
 
+(defn PyGILState_Check
+  "Return 1 if the current thread is holding the GIL and 0 otherwise. This function
+  can be called from any thread at any time. Only if it has had its Python thread
+  state initialized and currently is holding the GIL will it return 1. This is
+  mainly a helper/diagnostic function. It can be useful for example in callback
+  contexts or memory allocation functions when knowing that the GIL is locked can
+  allow the caller to perform sensitive actions or otherwise behave differently."
+  ^long []
+  (DirectMapped/PyGILState_Check))
+
+
 ;;Acquire the GIL of the given thread state
 (defn PyEval_RestoreThread
   "Acquire the global interpreter lock (if it has been created and thread support is

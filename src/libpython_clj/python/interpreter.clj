@@ -339,19 +339,27 @@ print(json.dumps(
   `(do
      (let [interp# (ensure-interpreter)
            ^AtomicLong bound-thread# libpy-base/gil-thread-id
-           thread-id# (libpy-base/current-thread-id)]
+           thread-id# (libpy-base/current-thread-id)
+           bound-thread-id# (.get bound-thread#)]
        (locking interp#
          (let [new-binding?# (if-not (= thread-id# (.get bound-thread#))
-                               (do
-                                 (acquire-gil! interp#)
-                                 true)
-                               false)]
+                               (if (== 1 (libpy/PyGILState_Check))
+                                 (do
+                                   (.set bound-thread# thread-id#)
+                                   :external-entry)
+                                 (do
+                                   (acquire-gil! interp#)
+                                   :internal-entry))
+                               nil)]
            (try
              ~@body
              (finally
                (pygc/clear-reference-queue)
-               (when new-binding?#
-                 (release-gil! interp#)))))))))
+               (cond
+                 (= new-binding?# :internal-entry)
+                 (release-gil! interp#)
+                 (= new-binding?# :external-entry)
+                 (.set bound-thread# bound-thread-id#)))))))))
 
 
 (defonce ^:dynamic *program-name* "")
