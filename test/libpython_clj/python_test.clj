@@ -252,7 +252,7 @@
            (str (-> (py/get-attr np "random")
                     (py/get-attr "shuffle"))))))
 
-  
+
   (let [builtins (py/import-module "builtins")
         l        (py/call-attr builtins "list")]
     (is (= (py/py. l __len__) 0))
@@ -409,3 +409,22 @@ class Foo:
 (deftest characters
   (is (= (py/->jvm (py/->python "c"))
          (py/->jvm (py/->python \c)))))
+
+
+(comment
+  (require '[libpython-clj.require :refer [require-python]])
+
+  (require-python '[pandas :as pd])
+  (require-python '[plotly.express :as px])
+  (def px (py/import-module "plotly.express"))
+
+  (let [data (doto (pd/DataFrame {:index [1 2] :value [2 3] :variable [1 1]})
+               (py. melt :id_vars "index"))]
+    (py. px line :data_frame data :x "index" :y "value" :color "variable"))
+
+
+  (let [data (doto (pd/DataFrame {:index [1 2] :value [2 3] :variable [1 1]})
+               (py. melt :id_vars "index"))]
+    ((py.- px line) :data_frame data :x "index" :y "value" :color "variable"))
+
+  )

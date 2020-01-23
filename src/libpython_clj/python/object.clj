@@ -159,8 +159,8 @@ Object's refcount is bad.  Crash is imminent"
                        (println (format "releasing object - 0x%x:%4d:%s"
                                         pyobj-value
                                         refcount
-                                        (name (python-type pyobj))))))))
-               (libpy/Py_DecRef pyobj)
+                                        (name (python-type pyobj)))))))
+                 (libpy/Py_DecRef pyobj))
                (catch Throwable e
                  (log/error e "Exception while releasing object"))))
            (when-not skip-check-error? (check-error-throw))

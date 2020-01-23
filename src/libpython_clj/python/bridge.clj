@@ -665,10 +665,95 @@
                    (with-gil
                      (cfn this arg0 arg1 arg2 arg3)))
 
-
            (invoke [this arg0 arg1 arg2 arg3 arg4]
                    (with-gil
                      (cfn this arg0 arg1 arg2 arg3 arg4)))
+
+           (invoke [this arg0 arg1 arg2 arg3 arg4 arg5]
+                   (with-gil
+                     (cfn this arg0 arg1 arg2 arg3 arg4 arg5)))
+
+           (invoke [this arg0 arg1 arg2 arg3 arg4 arg5 arg6]
+                   (with-gil
+                     (cfn this arg0 arg1 arg2 arg3 arg4 arg5 arg6)))
+
+           (invoke [this arg0 arg1 arg2 arg3 arg4 arg5 arg6 arg7]
+                   (with-gil
+                     (cfn this arg0 arg1 arg2 arg3 arg4 arg5 arg6 arg7)))
+
+           (invoke [this arg0 arg1 arg2 arg3 arg4 arg5 arg6 arg7 arg8]
+                   (with-gil
+                     (cfn this arg0 arg1 arg2 arg3 arg4 arg5 arg6 arg7 arg8)))
+
+           (invoke [this arg0 arg1 arg2 arg3 arg4 arg5 arg6 arg7 arg8 arg9]
+                   (with-gil
+                     (cfn this arg0 arg1 arg2 arg3 arg4 arg5 arg6 arg7 arg8 arg9)))
+
+           (invoke [this arg0 arg1 arg2 arg3 arg4 arg5 arg6 arg7 arg8 arg9 arg10]
+                   (with-gil
+                     (cfn this arg0 arg1 arg2 arg3 arg4 arg5 arg6 arg7 arg8 arg9 arg10)))
+
+           (invoke [this arg0 arg1 arg2 arg3 arg4 arg5 arg6 arg7 arg8 arg9 arg10
+                    arg11]
+                   (with-gil
+                     (cfn this arg0 arg1 arg2 arg3 arg4 arg5 arg6 arg7 arg8 arg9 arg10
+                          arg11)))
+
+           (invoke [this arg0 arg1 arg2 arg3 arg4 arg5 arg6 arg7 arg8 arg9 arg10
+                    arg11 arg12]
+                   (with-gil
+                     (cfn this arg0 arg1 arg2 arg3 arg4 arg5 arg6 arg7 arg8 arg9 arg10
+                          arg11 arg12)))
+
+           (invoke [this arg0 arg1 arg2 arg3 arg4 arg5 arg6 arg7 arg8 arg9 arg10
+                    arg11 arg12 arg13]
+                   (with-gil
+                     (cfn this arg0 arg1 arg2 arg3 arg4 arg5 arg6 arg7 arg8 arg9 arg10
+                          arg11 arg12 arg13)))
+
+           (invoke [this arg0 arg1 arg2 arg3 arg4 arg5 arg6 arg7 arg8 arg9 arg10
+                    arg11 arg12 arg13 arg14]
+                   (with-gil
+                     (cfn this arg0 arg1 arg2 arg3 arg4 arg5 arg6 arg7 arg8 arg9 arg10
+                          arg11 arg12 arg13 arg14)))
+
+           (invoke [this arg0 arg1 arg2 arg3 arg4 arg5 arg6 arg7 arg8 arg9 arg10
+                    arg11 arg12 arg13 arg14 arg15]
+                   (with-gil
+                     (cfn this arg0 arg1 arg2 arg3 arg4 arg5 arg6 arg7 arg8 arg9 arg10
+                          arg11 arg12 arg13 arg14 arg15)))
+
+           (invoke [this arg0 arg1 arg2 arg3 arg4 arg5 arg6 arg7 arg8 arg9 arg10
+                    arg11 arg12 arg13 arg14 arg15 arg16]
+                   (with-gil
+                     (cfn this arg0 arg1 arg2 arg3 arg4 arg5 arg6 arg7 arg8 arg9 arg10
+                          arg11 arg12 arg13 arg14 arg15 arg16)))
+
+           (invoke [this arg0 arg1 arg2 arg3 arg4 arg5 arg6 arg7 arg8 arg9 arg10
+                    arg11 arg12 arg13 arg14 arg15 arg16 arg17]
+                   (with-gil
+                     (cfn this arg0 arg1 arg2 arg3 arg4 arg5 arg6 arg7 arg8 arg9 arg10
+                          arg11 arg12 arg13 arg14 arg15 arg16 arg17)))
+
+           (invoke [this arg0 arg1 arg2 arg3 arg4 arg5 arg6 arg7 arg8 arg9 arg10
+                    arg11 arg12 arg13 arg14 arg15 arg16 arg17 arg18]
+                   (with-gil
+                     (cfn this arg0 arg1 arg2 arg3 arg4 arg5 arg6 arg7 arg8 arg9 arg10
+                          arg11 arg12 arg13 arg14 arg15 arg16 arg17 arg18)))
+
+           (invoke [this arg0 arg1 arg2 arg3 arg4 arg5 arg6 arg7 arg8 arg9 arg10
+                    arg11 arg12 arg13 arg14 arg15 arg16 arg17 arg18 arg19]
+                   (with-gil
+                     (cfn this arg0 arg1 arg2 arg3 arg4 arg5 arg6 arg7 arg8 arg9 arg10
+                          arg11 arg12 arg13 arg14 arg15 arg16 arg17 arg18 arg19)))
+
+           (invoke [this arg0 arg1 arg2 arg3 arg4 arg5 arg6 arg7 arg8 arg9 arg10
+                    arg11 arg12 arg13 arg14 arg15 arg16 arg17 arg18 arg19 arg20-obj-array]
+                   (with-gil
+                     (apply
+                      cfn this arg0 arg1 arg2 arg3 arg4 arg5 arg6 arg7 arg8 arg9 arg10
+                      arg11 arg12 arg13 arg14 arg15 arg16 arg17 arg18 arg19
+                      arg20-obj-array)))
 
            (applyTo [this arglist]
                     (with-gil

@@ -333,6 +333,14 @@
              (catch Throwable e#
                (with-exit-error-handler ~varname e#))))))))
 
+
+(defn gc!
+  "Run the system garbage collection facility and then call the cooperative
+  'cleanup python objects' queue"
+  []
+  (System/gc)
+  (with-gil))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 
@@ -476,12 +484,12 @@
 
          (clojure.string/starts-with? symbol-str "**")
          (list* #'py** x (symbol (subs symbol-str 2 (count symbol-str))) args)
-         
+
          (clojure.string/starts-with? symbol-str "*")
          (list* #'py* x (symbol (subs symbol-str 1 (count symbol-str))) args)
 
          :else ;; assumed to be method invocation
-         
+
          (list* (into (vector #'py. x instance-member) args))))
      (handle-pydotdot x (list form))))
   ([x form & more]
