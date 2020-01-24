@@ -262,7 +262,6 @@
 
    (require-python '[operators :refer :*])"
   ([req]
-   ;; TODO -- change documentation
    (cond
      (list? req) ;; prefix list
      (let [prefix-lists (req-transform req)]
@@ -272,11 +271,14 @@
      (vector? req)
      (do-require-python req)
      :else
-     (throw (Exception. "Invalid argument: %s" req))))
+     (throw (Exception. "Invalid argument: %s" req)))
+   :ok)
   ([req & reqs]
    (require-python req)
    (when (not-empty reqs)
-     (apply require-python reqs))))
+     (apply require-python reqs))
+   :ok))
+
 
 (defn import-python
   "Loads python, python.list, python.dict, python.set, python.tuple,

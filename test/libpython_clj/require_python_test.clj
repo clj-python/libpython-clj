@@ -2,8 +2,7 @@
   (:require [libpython-clj.require :as req :refer [require-python]
              :reload true]
             [libpython-clj.python :as py]
-            [clojure.test :refer :all]
-            [clojure.core.async :as a]))
+            [clojure.test :refer :all]))
 
 ;; Since this test mutates the global environment we have to accept that
 ;; it may not always work.
