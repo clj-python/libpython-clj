@@ -2,7 +2,8 @@
   (:require [libpython-clj.require :as req :refer [require-python]
              :reload true]
             [libpython-clj.python :as py]
-            [clojure.test :refer :all]))
+            [clojure.test :refer :all]
+            [clojure.core.async :as a]))
 
 ;; Since this test mutates the global environment we have to accept that
 ;; it may not always work.
@@ -11,7 +12,6 @@
                   :refer :*
                   :exclude [sin cos]
                   :as pymath])
-
 
 (deftest base-require-test
   (let [publics (ns-publics (find-ns 'libpython-clj.require-python-test))]
@@ -46,9 +46,8 @@
     (is (= #{:b} (parse-flags #{:a :b} '[:b :a false])))
     (is (= #{:b :a} (parse-flags #{:a :b} '[:b :a false :a true])))))
 
-
-(require-python '([builtins :as python]
-                  [builtins.list :as python.pylist]))
+(require-python '[builtins :as python]
+                '[builtins.list :as python.pylist])
 
 ;; NOTE -- even though builtins.list has been aliased to
 ;; to python.pylist, you are still required to require
@@ -66,7 +65,6 @@
     (python.pylist/clear l)
     (is (= (python/list) (vec l)))))
 
-
 (require-python 'csv.DictWriter)
 
 (deftest require-python-classes
@@ -75,3 +73,34 @@
   (is csv.DictWriter/writeheader)
   (is csv.DictWriter/writerow)
   (is csv.DictWriter/writerows))
+
+(deftest test-req-transform
+  (let [req-transform #'libpython-clj.require/req-transform]
+
+    (is (= (req-transform 'a) 'a))
+
+    (is (= (req-transform '(a b c))
+           '(a.b a.c)))
+
+    (is (= (req-transform '(a [b :as c :refer [blah]]))
+           (list '[a.b :as c :refer [blah]])))
+
+    (is (= (req-transform  '(a [b :as c :refer [x] :flagA] d))
+           (list '[a.b :as c :refer [x] :flagA] 'a.d)))
+
+    (is (= (req-transform 'a 'b)
+           'a.b))
+
+    (is (= (req-transform 'a.b 'c)
+           'a.b.c))
+
+    (is (thrown? Exception (req-transform 'a.b 'c.d)))
+
+    (is (= (req-transform 'a '[b]) '[a.b]))
+
+    (is (= (req-transform 'a '[b :as c :refer [blah] :flagA])
+           '[a.b :as c :refer [blah] :flagA]))))
+
+
+(deftest import-python-test
+  (is (= :ok (libpython-clj.require/import-python))))
