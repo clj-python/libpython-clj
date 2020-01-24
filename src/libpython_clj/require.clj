@@ -149,7 +149,7 @@
   ([prefix req] 
    (cond
      (and  (symbol? req)
-           (some #{\.} (into [] (str req))))
+           (clojure.string/includes? (name req) ".") )
      (throw (Exception.
              (str "After removing prefix list, requirements cannot "
                   "contain periods. Please remove periods from " req)))
