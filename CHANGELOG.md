@@ -2,6 +2,38 @@
 
 ## 1.33-SNAPSHOT
 
+* **BREAKING CHANGE** `require-python` now respects prefix lists --
+  unfortunately, the previous syntax was incorrect. 
+  ```clojure 
+  ;; WRONG (syntax version < 1.33)
+  (require-python '(os math)) 
+  ```
+  would be equivalent to 
+  ```clojure 
+  ;; (do (require-python 'os) (require-python 'math))
+  ```
+  the correct syntax for this SHOULD have been
+  ```clojure 
+  (require-python 'os 'math)
+  ```
+  
+  1.33 fixes this mistake, and provides support for prefix lists, 
+  for example:
+  
+  ```clojure
+  (require-python 
+   '[builtins :as python]
+   '(builtins 
+     [list :as python.list]
+     [dict :as python.dict]
+     [tuple :as python.tuple]
+     [set :as python.set]
+     [frozenset :as python.frozenset]))
+  ```
+  (**Note**: this is done for you by the function `libpython-clj.require/import-python`)
+  
+  
+
 ## 1.32
 * DecRef now happens cooperatively in python thread.  We used to use separate threads
   in order to do decrement the refcount on objects that aren't reachable any more.  Now

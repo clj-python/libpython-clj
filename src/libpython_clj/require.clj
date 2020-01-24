@@ -139,6 +139,37 @@
       (alias alias-name module-name))))
 
 
+(defn ^:private req-transform
+  ([req]
+   (if (symbol? req)
+     req
+     (let [base (first req)
+           reqs (rest req)]
+       (map (partial req-transform base) reqs))))
+  ([prefix req] 
+   (cond
+     (and  (symbol? req)
+           (clojure.string/includes? (name req) ".") )
+     (throw (Exception.
+             (str "After removing prefix list, requirements cannot "
+                  "contain periods. Please remove periods from " req)))
+     (symbol? req)
+     (symbol (str prefix "." req))
+     :else
+     (let [base   (first req)
+           reqs   (rest req)
+           alias? (reduce (fn [res [a b]]
+                            (cond
+                              (not b)   nil
+                              (= :as a) (reduced b)
+                              :else     nil))
+                          nil
+                          (partition 2 1 reqs))]
+       (if alias?
+         (into [(symbol (str prefix "." base))] reqs)
+         (into [(req-transform prefix base)] reqs))))))
+
+
 (defn require-python
   "## Basic usage ##
 
@@ -148,12 +179,13 @@
    (require-python '[math :as maaaath])
 
    (maaaath/sin 1.0) ;;=> 0.8414709848078965
-
-   (require-python '(math csv))
-   (require-python '([math :as pymath] csv))
-   (require-python '([math :as pymath] [csv :as py-csv])
+  
+   (require-python 'math 'csv)
+   (require-python '[math :as pymath] 'csv))
+   (require-python '[math :as pymath] '[csv :as py-csv])
    (require-python 'concurrent.futures)
    (require-python '[concurrent.futures :as fs])
+   (require-python '(concurrent [futures :as fs]))
 
    (require-python '[requests :refer [get post]])
 
@@ -201,6 +233,22 @@
    (os/chdir \"/path/to/foodir\")
 
 
+   ## prefix lists ##
+
+   For convenience, if you are loading multiple Python modules
+   with the same prefix, you can use the following notation:
+
+   (require-python '(a b c))
+   is equivalent to
+   (require-python 'a.b 'a.c)
+
+   (require-python '(foo [bar :as baz :refer [qux]]))
+   is equivalent to
+   (require-python '[foo.bar :as baz :refer [qux]])
+
+   (require-python '(foo [bar :as baz :refer [qux]] buster))
+   (require-python '[foo.bar :as baz :refer [qux]] 'foo.buster))
+  
    ## For library developers ##
 
    If you want to intern all symbols to your current namespace,
@@ -213,27 +261,36 @@
    you can do
 
    (require-python '[operators :refer :*])"
-  [reqs]
+  ([req]
+   (cond
+     (list? req) ;; prefix list
+     (let [prefix-lists (req-transform req)]
+       (doseq [req prefix-lists] (require-python req)))
+     (symbol? req) 
+     (require-python (vector req))
+     (vector? req)
+     (do-require-python req)
+     :else
+     (throw (Exception. "Invalid argument: %s" req)))
+   :ok)
+  ([req & reqs]
+   (require-python req)
+   (when (not-empty reqs)
+     (apply require-python reqs))
+   :ok))
 
-  (cond
-    (list? reqs)
-    (doseq [req reqs] (require-python req))
-    (symbol? reqs)
-    (require-python (vector reqs))
-    (vector? reqs)
-    (do-require-python reqs)
-    :else
-    (throw (Exception. "Invalid argument: %s" reqs))))
 
 (defn import-python
   "Loads python, python.list, python.dict, python.set, python.tuple,
   and python.frozenset."
   []
   (require-python
-   '([builtins :as python]
-     [builtins.list :as python.list]
-     [builtins.dict :as python.dict]
-     [builtins.set :as python.set]
-     [builtins.tuple :as python.tuple]
-     [builtins.frozenset :as python.frozenset])))
+   '(builtins
+     [list :as python.list]
+     [dict :as python.dict]
+     [set :as python.set]
+     [tuple :as python.tuple]
+     [frozenset :as python.frozenset])
+   '[builtins :as python])
+  :ok)
 
