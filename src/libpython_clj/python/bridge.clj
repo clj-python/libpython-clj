@@ -621,6 +621,47 @@
     (py-proto/call-attr-kw item (key-sym-str->str attr)
                            pos-args kw-args)))
 
+;;utility fn to generate IFn arities
+(defn- emit-args
+  [bodyf varf]
+   (let [argify (fn [n argfn bodyf]
+                  (let [raw  `[~'this ~@(map #(symbol (str "arg" %))
+                                             (range n))]]
+                    `~(bodyf (argfn raw))))]
+     (concat (for [i (range 21)]
+               (argify i identity bodyf))
+             [(argify 21 (fn [xs]
+                          `[~@(butlast xs) ~'arg20-obj-array])
+                     varf)])))
+
+;;Python specific interop wrapper for IFn invocations.
+(defn- emit-py-args []
+  (emit-args    (fn [args] `(~'invoke [~@args]
+                             (~'with-gil
+                              (~'cfn ~@args))))
+                (fn [args]
+                  `(~'invoke [~@args]
+                    (~'with-gil
+                     (~'apply ~'cfn ~@(butlast args) ~(last args)))))))
+
+(defmacro bridge-callable-pyobject
+  "Like bridge-pyobject, except it populates the implementation of IFn
+   for us, where all arg permutations are supplied, as well as applyTo,
+   and the function invocation is of the form
+   (invoke [this arg] (with-gil (cfn this arg))).
+   If caller supplies an implementation for clojure.lang.IFn or aliased
+   Fn, the macro will use that instead (allowing more control but
+   requiring caller to specify implementations for all desired arities)."
+  [pyobj interpreter & body]
+  (let [fn-specs (when-not (some #{'IFn 'clojure.lang.IFn} body)
+                   `(~'IFn
+                     ~@(emit-py-args)
+                     (~'applyTo [~'this ~'arglist]
+                      (~'with-gil
+                       (~'apply ~'cfn ~'this ~'arglist)))))]
+    `(bridge-pyobject ~pyobj ~interpreter
+                      ~@fn-specs
+                      ~@body)))
 
 (defn generic-python-as-jvm
   "Given a generic pyobject, wrap it in a read-only map interface
@@ -631,7 +672,7 @@
       nil
       (let [interpreter (ensure-bound-interpreter)]
         (if (py-proto/callable? pyobj)
-          (bridge-pyobject
+          (bridge-callable-pyobject
            pyobj
            interpreter
            Iterable
@@ -643,121 +684,7 @@
            py-proto/PPyObjectBridgeToList
            (as-list [item]
                     (generic-python-as-list pyobj))
-           IFn
-           ;;uggh
-           (invoke [this]
-                   (with-gil
-                     (cfn this)))
-
-           (invoke [this arg0]
-                   (with-gil
-                     (cfn this arg0)))
-
-           (invoke [this arg0 arg1]
-                   (with-gil
-                     (cfn this arg0 arg1)))
-
-           (invoke [this arg0 arg1 arg2]
-                   (with-gil
-                     (cfn this arg0 arg1 arg2)))
-
-           (invoke [this arg0 arg1 arg2 arg3]
-                   (with-gil
-                     (cfn this arg0 arg1 arg2 arg3)))
-
-           (invoke [this arg0 arg1 arg2 arg3 arg4]
-                   (with-gil
-                     (cfn this arg0 arg1 arg2 arg3 arg4)))
-
-           (invoke [this arg0 arg1 arg2 arg3 arg4 arg5]
-                   (with-gil
-                     (cfn this arg0 arg1 arg2 arg3 arg4 arg5)))
-
-           (invoke [this arg0 arg1 arg2 arg3 arg4 arg5 arg6]
-                   (with-gil
-                     (cfn this arg0 arg1 arg2 arg3 arg4 arg5 arg6)))
-
-           (invoke [this arg0 arg1 arg2 arg3 arg4 arg5 arg6 arg7]
-                   (with-gil
-                     (cfn this arg0 arg1 arg2 arg3 arg4 arg5 arg6 arg7)))
-
-           (invoke [this arg0 arg1 arg2 arg3 arg4 arg5 arg6 arg7 arg8]
-                   (with-gil
-                     (cfn this arg0 arg1 arg2 arg3 arg4 arg5 arg6 arg7 arg8)))
-
-           (invoke [this arg0 arg1 arg2 arg3 arg4 arg5 arg6 arg7 arg8 arg9]
-                   (with-gil
-                     (cfn this arg0 arg1 arg2 arg3 arg4 arg5 arg6 arg7 arg8 arg9)))
-
-           (invoke [this arg0 arg1 arg2 arg3 arg4 arg5 arg6 arg7 arg8 arg9 arg10]
-                   (with-gil
-                     (cfn this arg0 arg1 arg2 arg3 arg4 arg5 arg6 arg7 arg8 arg9 arg10)))
-
-           (invoke [this arg0 arg1 arg2 arg3 arg4 arg5 arg6 arg7 arg8 arg9 arg10
-                    arg11]
-                   (with-gil
-                     (cfn this arg0 arg1 arg2 arg3 arg4 arg5 arg6 arg7 arg8 arg9 arg10
-                          arg11)))
-
-           (invoke [this arg0 arg1 arg2 arg3 arg4 arg5 arg6 arg7 arg8 arg9 arg10
-                    arg11 arg12]
-                   (with-gil
-                     (cfn this arg0 arg1 arg2 arg3 arg4 arg5 arg6 arg7 arg8 arg9 arg10
-                          arg11 arg12)))
-
-           (invoke [this arg0 arg1 arg2 arg3 arg4 arg5 arg6 arg7 arg8 arg9 arg10
-                    arg11 arg12 arg13]
-                   (with-gil
-                     (cfn this arg0 arg1 arg2 arg3 arg4 arg5 arg6 arg7 arg8 arg9 arg10
-                          arg11 arg12 arg13)))
-
-           (invoke [this arg0 arg1 arg2 arg3 arg4 arg5 arg6 arg7 arg8 arg9 arg10
-                    arg11 arg12 arg13 arg14]
-                   (with-gil
-                     (cfn this arg0 arg1 arg2 arg3 arg4 arg5 arg6 arg7 arg8 arg9 arg10
-                          arg11 arg12 arg13 arg14)))
-
-           (invoke [this arg0 arg1 arg2 arg3 arg4 arg5 arg6 arg7 arg8 arg9 arg10
-                    arg11 arg12 arg13 arg14 arg15]
-                   (with-gil
-                     (cfn this arg0 arg1 arg2 arg3 arg4 arg5 arg6 arg7 arg8 arg9 arg10
-                          arg11 arg12 arg13 arg14 arg15)))
-
-           (invoke [this arg0 arg1 arg2 arg3 arg4 arg5 arg6 arg7 arg8 arg9 arg10
-                    arg11 arg12 arg13 arg14 arg15 arg16]
-                   (with-gil
-                     (cfn this arg0 arg1 arg2 arg3 arg4 arg5 arg6 arg7 arg8 arg9 arg10
-                          arg11 arg12 arg13 arg14 arg15 arg16)))
-
-           (invoke [this arg0 arg1 arg2 arg3 arg4 arg5 arg6 arg7 arg8 arg9 arg10
-                    arg11 arg12 arg13 arg14 arg15 arg16 arg17]
-                   (with-gil
-                     (cfn this arg0 arg1 arg2 arg3 arg4 arg5 arg6 arg7 arg8 arg9 arg10
-                          arg11 arg12 arg13 arg14 arg15 arg16 arg17)))
-
-           (invoke [this arg0 arg1 arg2 arg3 arg4 arg5 arg6 arg7 arg8 arg9 arg10
-                    arg11 arg12 arg13 arg14 arg15 arg16 arg17 arg18]
-                   (with-gil
-                     (cfn this arg0 arg1 arg2 arg3 arg4 arg5 arg6 arg7 arg8 arg9 arg10
-                          arg11 arg12 arg13 arg14 arg15 arg16 arg17 arg18)))
-
-           (invoke [this arg0 arg1 arg2 arg3 arg4 arg5 arg6 arg7 arg8 arg9 arg10
-                    arg11 arg12 arg13 arg14 arg15 arg16 arg17 arg18 arg19]
-                   (with-gil
-                     (cfn this arg0 arg1 arg2 arg3 arg4 arg5 arg6 arg7 arg8 arg9 arg10
-                          arg11 arg12 arg13 arg14 arg15 arg16 arg17 arg18 arg19)))
-
-           (invoke [this arg0 arg1 arg2 arg3 arg4 arg5 arg6 arg7 arg8 arg9 arg10
-                    arg11 arg12 arg13 arg14 arg15 arg16 arg17 arg18 arg19 arg20-obj-array]
-                   (with-gil
-                     (apply
-                      cfn this arg0 arg1 arg2 arg3 arg4 arg5 arg6 arg7 arg8 arg9 arg10
-                      arg11 arg12 arg13 arg14 arg15 arg16 arg17 arg18 arg19
-                      arg20-obj-array)))
-
-           (applyTo [this arglist]
-                    (with-gil
-                      (apply cfn this arglist)))
+           ;;IFn is now supplied for us by the macro.
            ;;Mark this as executable
            Fn
            PyFunction
