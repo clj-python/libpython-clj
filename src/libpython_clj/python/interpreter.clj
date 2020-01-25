@@ -268,18 +268,17 @@ print(json.dumps(
 
 
 (defn release-gil!
-  "non-reentrant pathway to release the gil.  It must not be held by this thread."
-  [interpreter]
-  (let [thread-state (libpy/PyEval_SaveThread)]
-    (libpy-base/set-gil-thread-id! (libpy-base/current-thread-id) Long/MAX_VALUE)
-    (assoc @(:interpreter-state* interpreter) :thread-state thread-state)))
+  "Reentrant pathway to release the gil.  It must not be held by this thread."
+  [git-state]
+  (libpy-base/set-gil-thread-id! (libpy-base/current-thread-id) Long/MAX_VALUE)
+  (libpy/PyGILState_Release git-state))
 
 
 (defn acquire-gil!
-  "Non-reentrant pathway to acquire gil.  It must not be held by this thread."
-  [interpreter]
-  (libpy/PyEval_RestoreThread (python-thread-state interpreter))
-  (libpy-base/set-gil-thread-id! Long/MAX_VALUE (libpy-base/current-thread-id)))
+  "Reentrant pathway to acquire gil.  It must not be held by this thread."
+  []
+  (libpy-base/set-gil-thread-id! Long/MAX_VALUE (libpy-base/current-thread-id))
+  (libpy/PyGILState_Ensure))
 
 
 (defn swap-interpreters!
@@ -342,24 +341,15 @@ print(json.dumps(
            thread-id# (libpy-base/current-thread-id)
            bound-thread-id# (.get bound-thread#)]
        (locking interp#
-         (let [new-binding?# (if-not (= thread-id# (.get bound-thread#))
-                               (if (== 1 (libpy/PyGILState_Check))
-                                 (do
-                                   (.set bound-thread# thread-id#)
-                                   :external-entry)
-                                 (do
-                                   (acquire-gil! interp#)
-                                   :internal-entry))
-                               nil)]
+         (let [gil-state# (if-not (= thread-id# (.get bound-thread#))
+                            (acquire-gil!)
+                            nil)]
            (try
              ~@body
              (finally
                (pygc/clear-reference-queue)
-               (cond
-                 (= new-binding?# :internal-entry)
-                 (release-gil! interp#)
-                 (= new-binding?# :external-entry)
-                 (.set bound-thread# bound-thread-id#)))))))))
+               (when-not (nil? gil-state#)
+                 (release-gil! gil-state#)))))))))
 
 
 (defonce ^:dynamic *program-name* "")
@@ -500,7 +490,6 @@ print(json.dumps(
     (locking interp
       (check-error-throw)
       (log-info "executing python finalize!")
-      (acquire-gil! interp)
       (let [finalize-value (libpy/Py_FinalizeEx)]
         (when-not (= 0 finalize-value)
           (log-error (format "PyFinalize returned nonzero value: %s" finalize-value)))))))

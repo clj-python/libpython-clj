@@ -10,6 +10,8 @@ public class DirectMapped
 {
   public static native void Py_IncRef(Pointer ptr);
   public static native void Py_DecRef(Pointer ptr);
+  public static native int PyGILState_Ensure();
+  public static native void PyGILState_Release(int gilState);
   public static native int PyGILState_Check();
   public static native void PyEval_RestoreThread(Pointer tstate);
   public static native Pointer PyEval_SaveThread();

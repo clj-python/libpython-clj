@@ -49,6 +49,8 @@
                 Py_None
                 Py_NotImplemented
                 PyMem_Free
+                PyGILState_Ensure
+                PyGILState_Release
                 PyGILState_Check
                 PyEval_RestoreThread
                 PyEval_SaveThread

@@ -667,7 +667,7 @@
   "Given a generic pyobject, wrap it in a read-only map interface
   where the keys are the attributes."
   [pyobj]
-  (with-gil nil
+  (with-gil
     (if (= :none-type (python-type pyobj))
       nil
       (let [interpreter (ensure-bound-interpreter)]

@@ -263,6 +263,35 @@
   [data-ptr jna/as-ptr])
 
 
+(defn PyGILState_Ensure
+  "Ensure that the current thread is ready to call the Python C API regardless of
+   the current state of Python, or of the global interpreter lock. This may be called
+   as many times as desired by a thread as long as each call is matched with a call
+   to PyGILState_Release(). In general, other thread-related APIs may be used between
+   PyGILState_Ensure() and PyGILState_Release() calls as long as the thread state is
+   restored to its previous state before the Release(). For example, normal usage of
+   the Py_BEGIN_ALLOW_THREADS and Py_END_ALLOW_THREADS macros is acceptable.
+
+   The return value is an opaque “handle” to the thread state when PyGILState_Ensure()
+   was called, and must be passed to PyGILState_Release() to ensure Python is left in 
+   the same state. Even though recursive calls are allowed, these handles cannot be shared -
+   each unique call to PyGILState_Ensure() must save the handle for its call to PyGILState_Release().
+
+   When the function returns, the current thread will hold the GIL and be able to call
+   arbitrary Python code. Failure is a fatal error."
+  ^long []
+  (DirectMapped/PyGILState_Ensure))
+
+(defn PyGILState_Release
+  "Release any resources previously acquired. After this call, Python’s state will be
+   the same as it was prior to the corresponding PyGILState_Ensure() call (but generally
+   this state will be unknown to the caller, hence the use of the GILState API).
+
+   Every call to PyGILState_Ensure() must be matched by a call to PyGILState_Release()
+   on the same thread."
+  [^long s]
+  (DirectMapped/PyGILState_Release s))
+
 (defn PyGILState_Check
   "Return 1 if the current thread is holding the GIL and 0 otherwise. This function
   can be called from any thread at any time. Only if it has had its Python thread
