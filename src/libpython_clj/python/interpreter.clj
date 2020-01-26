@@ -268,14 +268,14 @@ print(json.dumps(
 
 
 (defn release-gil!
-  "Reentrant pathway to release the gil.  It must not be held by this thread."
-  [git-state]
-  (libpy-base/set-gil-thread-id! (libpy-base/current-thread-id) Long/MAX_VALUE)
-  (libpy/PyGILState_Release git-state))
+  "Reentrant pathway to release the gil."
+  [gil-state]
+  (libpy/PyGILState_Release gil-state)
+  (libpy-base/set-gil-thread-id! (libpy-base/current-thread-id) Long/MAX_VALUE))
 
 
 (defn acquire-gil!
-  "Reentrant pathway to acquire gil.  It must not be held by this thread."
+  "Reentrant pathway to acquire gil."
   []
   (libpy-base/set-gil-thread-id! Long/MAX_VALUE (libpy-base/current-thread-id))
   (libpy/PyGILState_Ensure))
