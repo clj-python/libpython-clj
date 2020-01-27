@@ -269,16 +269,17 @@ print(json.dumps(
 
 (defn release-gil!
   "Reentrant pathway to release the gil."
-  [gil-state]
-  (libpy/PyGILState_Release gil-state)
-  (libpy-base/set-gil-thread-id! (libpy-base/current-thread-id) Long/MAX_VALUE))
+  [gil-state ^long original-thread-id]
+  (.set ^AtomicLong libpy-base/gil-thread-id original-thread-id)
+  (libpy/PyGILState_Release gil-state))
 
 
 (defn acquire-gil!
   "Reentrant pathway to acquire gil."
   []
-  (libpy-base/set-gil-thread-id! Long/MAX_VALUE (libpy-base/current-thread-id))
-  (libpy/PyGILState_Ensure))
+  (let [retval (libpy/PyGILState_Ensure)]
+    (.set ^AtomicLong libpy-base/gil-thread-id (libpy-base/current-thread-id))
+    retval))
 
 
 (defn swap-interpreters!
@@ -333,23 +334,22 @@ print(json.dumps(
 
 
 (defmacro with-gil
-  "Grab the gil and use the main interpreter.  Do not grab gil if already grabbed"
+  "Grab the gil and use the main interpreter using reentrant acquire-gil pathway."
   [& body]
   `(do
      (let [interp# (ensure-interpreter)
            ^AtomicLong bound-thread# libpy-base/gil-thread-id
            thread-id# (libpy-base/current-thread-id)
-           bound-thread-id# (.get bound-thread#)]
+           previously-bound-thread-id# (.get bound-thread#)]
        (locking interp#
-         (let [gil-state# (if-not (= thread-id# (.get bound-thread#))
-                            (acquire-gil!)
-                            nil)]
+         (let [gil-state# (when-not (== thread-id# previously-bound-thread-id#)
+                            (acquire-gil!))]
            (try
              ~@body
              (finally
-               (pygc/clear-reference-queue)
-               (when-not (nil? gil-state#)
-                 (release-gil! gil-state#)))))))))
+               (when gil-state#
+                 (pygc/clear-reference-queue)
+                 (release-gil! gil-state# previously-bound-thread-id#)))))))))
 
 
 (defonce ^:dynamic *program-name* "")

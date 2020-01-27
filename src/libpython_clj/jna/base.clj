@@ -1,7 +1,6 @@
 (ns libpython-clj.jna.base
   (:require [tech.jna :as jna]
-            [tech.jna.base :as jna-base]
-            [camel-snake-kebab.core :refer [->kebab-case]])
+            [tech.jna.base :as jna-base])
   (:import [com.sun.jna Pointer NativeLibrary]
            [libpython_clj.jna PyObject]
            [java.util.concurrent.atomic AtomicLong]))
