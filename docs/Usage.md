@@ -44,7 +44,7 @@ user> (require '[libpython-clj.python
                          python-type]])
 nil
 
-
+; Mac and Linux
 user> (initialize!)
 Jun 30, 2019 4:47:39 PM clojure.tools.logging$eval7369$fn__7372 invoke
 INFO: executing python initialize!
@@ -52,6 +52,17 @@ Jun 30, 2019 4:47:39 PM clojure.tools.logging$eval7369$fn__7372 invoke
 INFO: Library python3.6m found at [:system "python3.6m"]
 Jun 30, 2019 4:47:39 PM clojure.tools.logging$eval7369$fn__7372 invoke
 INFO: Reference thread starting
+:ok
+
+; Windows with Anaconda
+(initialize! ; Python executable
+             :python-executable "C:\\Users\\USER\\AppData\\Local\\Continuum\\anaconda3\\python.exe"
+             ; Python Library
+             :library-path "C:\\Users\\USER\\AppData\\Local\\Continuum\\anaconda3\\python37.dll"
+             ; Anacondas PATH environment to load native dlls of modules (numpy, etc.)
+             :windows-anaconda-activate-bat "C:\\Users\\USER\\AppData\\Local\\Continuum\\anaconda3\\Scripts\\activate.bat"
+             )
+...
 :ok
 ```
 
