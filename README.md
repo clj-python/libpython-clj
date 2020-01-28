@@ -31,29 +31,33 @@ This code is a concrete example that generates an
 ```clojure
 (ns facial-rec.face-feature
   (:require [libpython-clj.require :refer [require-python]]
-            [libpython-clj.python :as py]
+            [libpython-clj.python :refer [py. py.. py.-] :as py]
             [tech.v2.datatype :as dtype]))
 
 
-(require-python '(mxnet mxnet.ndarray mxnet.module mxnet.io mxnet.model))
+
+(require-python 'mxnet
+                '(mxnet ndarray module io model))
 (require-python 'cv2)
 (require-python '[numpy :as np])
+
 
 (defn load-model
   [& {:keys [model-path checkpoint]
       :or {model-path "models/recognition/model"
            checkpoint 0}}]
   (let [[sym arg-params aux-params] (mxnet.model/load_checkpoint model-path checkpoint)
-        all-layers (py/$a sym get_internals)
+        all-layers (py. sym get_internals)
         target-layer (py/get-item all-layers "fc1_output")
-        ;;TODO - We haven't overloaded enough of the IFn invoke methods for
-		;;this to work without using call-kw
-        model (py/call-kw mxnet.module/Module [] {:symbol target-layer :context (mxnet/cpu) :label_names nil})]
-    (py/$a model bind :data_shapes [["data" [1 3 112 112]]])
-    (py/$a model set_params arg-params aux-params)
+        model (mxnet.module/Module :symbol target-layer
+                                   :context (mxnet/cpu)
+                                   :label_names nil)]
+    (py. model bind :data_shapes [["data" [1 3 112 112]]])
+    (py. model set_params arg-params aux-params)
     model))
 
 (defonce model (load-model))
+
 
 (defn face->feature
   [img-path]
@@ -64,10 +68,10 @@ This code is a concrete example that generates an
             input-blob (np/expand_dims new-img :axis 0)
             data (mxnet.ndarray/array input-blob)
             batch (mxnet.io/DataBatch :data [data])]
-        (py/$a model forward batch :is_train false)
-        (-> (py/$a model get_outputs)
+        (py. model forward batch :is_train false)
+        (-> (py. model get_outputs)
             first
-            (py/$a asnumpy)
+            (py. asnumpy)
             (#(dtype/make-container :java-array :float32 %))))
       (throw (Exception. (format "Failed to load img: %s" img-path))))))
 ```
@@ -107,7 +111,7 @@ the `libpython3.Xm.so` shared library so for example if we are loading python
 3.6 we look for `libpython3.6m.so` on Linux or `libpython3.6m.dylib` on the Mac.
 
 This pathway has allowed us support Conda albeit with some work.  For examples
-using Conda, check out the facial rec repository above or look into how we 
+using Conda, check out the facial rec repository above or look into how we
 [build](scripts/build-conda-docker)
 our test [docker containers](dockerfiles/CondaDockerfile).
 
@@ -119,7 +123,7 @@ our test [docker containers](dockerfiles/CondaDockerfile).
 * [development discussion forum](https://clojurians.zulipchat.com/#narrow/stream/215609-libpython-clj-dev)
 * [design documentation](docs/design.md)
 * [scope and garbage collection docs](https://github.com/cnuernber/libpython-clj/blob/master/docs/scopes-and-gc.md)
-* [examples](example/README.md)
+* [examples](https://github.com/gigasquid/libpython-clj-examples)
 * [docker setup](https://github.com/scicloj/docker-hub)
 * [pandas bindings (!!)](https://github.com/alanmarazzi/panthera)
 * [nextjournal notebook](https://nextjournal.com/chrisn/fun-with-matplotlib)

@@ -2,6 +2,8 @@
 
 ## 1.34-SNAPSHOT
 
+* [Examples are now done by gigasquid](https://github.com/gigasquid/libpython-clj-examples)
+
 ## 1.33
 
 * Better [windows anaconda support](https://github.com/cnuernber/libpython-clj/pull/67)
