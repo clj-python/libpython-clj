@@ -1,6 +1,14 @@
 # Time for a ChangeLog!
 
-## 1.33-SNAPSHOT
+## 1.33
+
+* Better [windows anaconda support](https://github.com/cnuernber/libpython-clj/pull/67)
+  thanks to [orolle](https://github.com/orolle).
+
+* Moved to PyGILState* functions for GIL management.  This mainly due to 
+  [FongHou](https://github.com/cnuernber/libpython-clj/commits?author=FongHou) in
+  PRs [here](https://github.com/cnuernber/libpython-clj/pull/64) and 
+  [here](https://github.com/cnuernber/libpython-clj/pull/65).
 
 * **BREAKING CHANGE** `require-python` now respects prefix lists --
   unfortunately, the previous syntax was incorrect. 
@@ -32,6 +40,7 @@
   ```
   (**Note**: this is done for you by the function `libpython-clj.require/import-python`)
   
+  This fix brought to you by [jjtolten](https://github.com/jjtolton).
   
 
 ## 1.32
