@@ -1,5 +1,7 @@
 # Time for a ChangeLog!
 
+## 1.34-SNAPSHOT
+
 ## 1.33
 
 * Better [windows anaconda support](https://github.com/cnuernber/libpython-clj/pull/67)
