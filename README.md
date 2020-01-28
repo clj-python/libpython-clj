@@ -127,7 +127,7 @@ our test [docker containers](dockerfiles/CondaDockerfile).
 * [examples](https://github.com/gigasquid/libpython-clj-examples)
 * [docker setup](https://github.com/scicloj/docker-hub)
 * [pandas bindings (!!)](https://github.com/alanmarazzi/panthera)
-* [nextjournal notebook](https://nextjournal.com/chrisn/fun-with-matplotlib)
+* [nextjournal notebooks](https://nextjournal.com/kommen)
 * [scicloj video](https://www.youtube.com/watch?v=ajDiGS73i2o)
 * [Clojure/Python interop technical blog post](www.techascent.com/blogs/functions-across-languages.html)
 * [persistent datastructures in python](https://github.com/tobgu/pyrsistent)
