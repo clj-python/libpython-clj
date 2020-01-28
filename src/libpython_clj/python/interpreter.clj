@@ -1,5 +1,5 @@
 (ns libpython-clj.python.interpreter
-  (:require [libpython-clj.jna :as libpy ]
+  (:require [libpython-clj.jna :as libpy]
             [libpython-clj.jna.base :as libpy-base]
             [libpython-clj.python.gc :as pygc]
             [libpython-clj.python.logging
@@ -30,13 +30,13 @@
   (let [{:keys [out err exit]}
         (sh executable "-c" "import sys, json;
 print(json.dumps(
-{\"platform\":          sys.platform,
-  \"prefix\":           sys.prefix,
-  \"base_prefix\":      sys.base_prefix,
-  \"executable\":       sys.executable,
-  \"base_exec_prefix\": sys.base_exec_prefix,
-  \"exec_prefix\":      sys.exec_prefix,
-  \"version\":          list(sys.version_info)[:3]}))")]
+{'platform':          sys.platform,
+  'prefix':           sys.prefix,
+  'base_prefix':      sys.base_prefix,
+  'executable':       sys.executable,
+  'base_exec_prefix': sys.base_exec_prefix,
+  'exec_prefix':      sys.exec_prefix,
+  'version':          list(sys.version_info)[:3]}))")]
     (when (= 0 exit)
       (json/read-str out :key-fn keyword))))
 
@@ -93,7 +93,7 @@ print(json.dumps(
         ;;   ..: mac and windows are for sys.platform
         :linux   "libpython%s.%sm.so$"
         :mac     "libpython%s.%sm.dylib$"
-        :windows "python%s.%sm.dll$")
+        :win32   "python%s%s.dll$")
       major minor))))
 
 (defn python-library-paths
@@ -131,9 +131,9 @@ print(json.dumps(
   (let [executable "python3.7"
         system-info (python-system-info executable)
         pyregex (python-library-regex system-info)]
-    (python-library-paths system-info pyregex))
+    (python-library-paths system-info pyregex)))
   ;;=> ["/usr/lib/x86_64-linux-gnu/libpython3.7m.so" "/usr/lib/python3.7/config-3.7m-x86_64-linux-gnu/libpython3.7m.so"]
-  )
+
 
 (defn- ignore-shell-errors
   [& args]
@@ -179,8 +179,8 @@ print(json.dumps(
 ;;get the type of that item if we have seen it before.
 (defrecord Interpreter [
                         interpreter-state* ;;Thread state, per interpreter
-                        shared-state* ;;state shared among all interpreters
-                        ])
+                        shared-state*]) ;;state shared among all interpreters
+
 
 
 ;; Main interpreter booted up during initialize!
@@ -411,7 +411,7 @@ print(json.dumps(
              python-executable]
       :as options}]
   (when-not (main-interpreter)
-    (log-info (str "Executing python initialize with options:" options) )
+    (log-info (str "Executing python initialize with options:" options))
     (let [{:keys [python-home libname java-library-path-addendum] :as startup-info}
           (detect-startup-info options)
           library-names (cond

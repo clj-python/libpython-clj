@@ -4,6 +4,7 @@
             [libpython-clj.python.interpreter :as pyinterp]
             [libpython-clj.python.object :as pyobj]
             [libpython-clj.python.bridge :as pybridge]
+            [libpython-clj.python.windows :as win]
             [libpython-clj.jna :as libpy]
             ;;Protocol implementations purely for nd-ness
             [libpython-clj.python.np-array]
@@ -235,7 +236,8 @@
              library-path
              python-home
              no-io-redirect?
-             python-executable]}]
+             python-executable
+             windows-anaconda-activate-bat]}]
   (when-not @pyinterp/main-interpreter*
     (pyinterp/initialize! :program-name program-name
                           :library-path library-path
@@ -245,14 +247,16 @@
     (pyinterop/register-bridge-type!)
     (when-not no-io-redirect?
       (pyinterop/setup-std-writer #'*err* "stderr")
-      (pyinterop/setup-std-writer #'*out* "stdout")))
+      (pyinterop/setup-std-writer #'*out* "stdout"))
+    (if-not (nil? windows-anaconda-activate-bat)
+      (win/setup-windows-conda! windows-anaconda-activate-bat)))
   :ok)
 
 
 (defn ptr-refcnt
   [item]
   (-> (libpy/as-pyobj item)
-      (libpython_clj.jna.PyObject. )
+      (libpython_clj.jna.PyObject.)
       (.ob_refcnt)))
 
 
