@@ -3,6 +3,8 @@ FROM ubuntu:latest
 
 # Updating Ubuntu packages
 
+ARG CLOJURE_TOOLS_VERSION=1.10.1.507
+
 
 RUN apt-get -qq update && apt-get -qq -y install curl wget bzip2 openjdk-8-jdk-headless \
     && curl -sSL https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -o /tmp/miniconda.sh \
@@ -10,9 +12,9 @@ RUN apt-get -qq update && apt-get -qq -y install curl wget bzip2 openjdk-8-jdk-h
     && rm -rf /tmp/miniconda.sh \
     && conda install -y python=3 \
     && conda update conda \
-    && curl -O https://download.clojure.org/install/linux-install-1.10.1.507.sh \
-    && chmod +x linux-install-1.10.1.507.sh \
-    && ./linux-install-1.10.1.507.sh && rm linux-install-1.10.1.507.sh \
+    && curl -o install-clojure https://download.clojure.org/install/linux-install-${CLOJURE_TOOLS_VERSION}.sh \
+    && chmod +x install-clojure \
+    && ./install-clojure && rm install-clojure \
     && apt-get -qq -y autoremove \
     && apt-get autoclean \
     && rm -rf /var/lib/apt/lists/* /var/log/dpkg.log \
