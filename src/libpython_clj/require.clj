@@ -319,7 +319,7 @@
     pytype)
   
   (defmulti pynav
-    "Turn a data from a datafied Python object.
+    "Nav data from a Python object.
   
      Extend this method to nav a custom Python object into Clojure data.
      Extend pydafy if you would like to datafy a Python object.
