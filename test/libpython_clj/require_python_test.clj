@@ -1,8 +1,6 @@
 (ns libpython-clj.require-python-test
-  (:require [libpython-clj.require :as req :refer [require-python
-                                                   pydafy
-                                                   pynav
-                                                   ]
+  (:require [libpython-clj.require :as req
+             :refer [require-python pydafy pynav]
              :reload true]
             [libpython-clj.python :as py]
             [clojure.test :refer :all]

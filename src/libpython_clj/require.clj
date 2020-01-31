@@ -8,8 +8,7 @@
             [clojure.tools.logging :as log]
             [libpython-clj.python.protocols :as py-proto]
             [clojure.core.protocols :as clj-proto])
-  (:import [libpython_clj.python.protocols PPyObject])
-  )
+  (:import [libpython_clj.python.protocols PPyObject]))
 
 ;; for hot reloading multimethod in development
 (ns-unmap 'libpython-clj.require 'intern-ns-class)
@@ -298,8 +297,6 @@
      [str :as python.str])
    '[builtins :as python])
   :ok)
-
-
 
 
 (let [builtins (py/import-module "builtins")
