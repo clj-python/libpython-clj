@@ -111,23 +111,11 @@
 
   (is (vector? (datafy (python/list [1 2 3]))))
 
-  (defmethod pynav "builtins.list" [coll k v]
-    (def coll coll)
-    (def k k)
-    (def v v)
-    (get (datafy coll) k v))
-
-  (str (python/type (python/list)))
-  
-  (def k 0) (def v false)
-  (nav coll 0 false)
-  (get (datafy coll) 0 false)
-  (is (= 1 (nav (python/list [1 2 3]) 0 false)))
-
   (defmethod pydafy "builtins.frozenset" [x]
     (set x))
 
   (is (set? (datafy (python/frozenset [1 2 3])))))
+
 
 
 (deftest import-python-test
