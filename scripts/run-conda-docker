@@ -3,12 +3,8 @@
 scripts/build-conda-docker
 
 docker run --rm -it -u $(id -u):$(id -g) \
-  -e LEIN_REPL_HOST="0.0.0.0" \
   -v /$HOME/.m2:/home/$USER/.m2 \
   -v /$HOME/.lein:/home/$USER/.lein \
   -v $(pwd)/:/libpython-clj \
-  --net=host -w /libpython-clj \
+  -p 0.0.0.0:2222:2222 -w /libpython-clj \
   docker-conda scripts/conda-repl
-     # lein update-in :dependencies conj \[nrepl\ \"0.6.0\"\]\
-     #   -- update-in :plugins conj \[cider/cider-nrepl\ \"0.22.4\"\]\
-     #   -- repl :headless :host localhost

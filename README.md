@@ -160,26 +160,26 @@ $ clojure -R:bg -A:javac
 ### REPL
 
 ```bash
-$ clj -A:repl
+$ clojure -A:repl
 nREPL server started on port 56785 on host localhost - nrepl://localhost:56785
 ```
 or, if you want to compile sources from repl, then include :bg alias
 
 ```bash
-$ clj -R:bg -A:repl
+$ clojure -R:bg -A:repl
 nREPL server started on port 56788 on host localhost - nrepl://localhost:56788
 ```
 
 ### Tests
 
 ```bash
-$  clj -A:test:runner
+$  clojure -A:test:runner
 ```
 
 ### Package jar
 
 ```bash
-$ clj -R:bg -A:jar
+$ clojure -R:bg -A:jar
 ```
 
 ### Local install
@@ -187,7 +187,7 @@ $ clj -R:bg -A:jar
 To install jar to local .m2 :
 
 ```bash
-$ clj -R:bg -A:install
+$ clojure -R:bg -A:install
 ```
 
 ### Deploy to clojars
