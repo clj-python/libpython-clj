@@ -4,6 +4,13 @@
 
 * [Examples are now done by gigasquid](https://github.com/gigasquid/libpython-clj-examples)
 
+* [datafy/nav](https://clojure.github.io/clojure/branch-master/clojure.datafy-api.html) are now extensible for custom Python objects. 
+  Extend `libpython-clj.require/pydafy` and `libpython-clj.require/pynav` 
+  respectively with the string of class you want to extend. See 
+  respective docstrings for details.
+  
+* bugfix -- python.str now loaded by `import-python`
+
 ## 1.33
 
 * Better [windows anaconda support](https://github.com/cnuernber/libpython-clj/pull/67)
@@ -44,7 +51,7 @@
   ```
   (**Note**: this is done for you by the function `libpython-clj.require/import-python`)
   
-  This fix brought to you by [jjtolten](https://github.com/jjtolton).
+  This fix brought to you by [jjtolton](https://github.com/jjtolton).
   
 
 ## 1.32
