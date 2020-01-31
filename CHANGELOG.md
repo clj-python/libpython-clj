@@ -6,7 +6,7 @@
 
 * [datafy/nav](https://clojure.github.io/clojure/branch-master/clojure.datafy-api.html) are now extensible for custom Python objects. 
   Extend `libpython-clj.require/pydafy` and `libpython-clj.require/pynav` 
-  respectively with the string of class you want to extend. See 
+  respectively with the symbol of class you want to extend. See 
   respective docstrings for details.
   
 * bugfix -- python.str now loaded by `import-python`
