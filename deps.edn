@@ -33,43 +33,52 @@
              :repl    {:extra-deps  {criterium            {:mvn/version "0.4.5"}
                                      nrepl                {:mvn/version "0.6.0"}
                                      healthsamurai/matcho {:mvn/version "0.3.3"}
-                                     hashp                {:mvn/version "0.1.1"}}
+                                     hashp                {:mvn/version "0.1.1"}
+                                     badigeon/badigeon {:git/url "https://github.com/EwenG/badigeon.git"
+                                                        :sha     "c5d7d8f9c44fee2f193ef924cdf8a485aee539c5"}
+                                    ch.qos.logback/logback-classic {:mvn/version "1.1.3"}}
                        :jvm-opts    ["-Duser.timezone=UTC"]
                        :extra-paths ["dev/src" "resources" "test"]
                        :main-opts   ["--main" "nrepl.cmdline"]}
                ;; testing and debugging tools:
              :test {:extra-paths ["test" "src/test/clojure"]
-                    :extra-deps {org.clojure/test.check {:mvn/version "RELEASE"}}}
-             ;; - see https://github.com/cognitect-labs/test-runner
-             ;; - run your tests: clj -A:test:runner
-             :runner {:extra-deps {com.cognitect/test-runner
-                                   {:git/url "https://github.com/cognitect-labs/test-runner"
-                                    :sha "3cb0a9daf1cb746259dc8309b218f9211ad3b33b"}}
-                      :main-opts ["-m" "cognitect.test-runner"
-                                  "-d" "test"
-                                  "-d" "src/test/clojure"]}
-
-             :bg      {:extra-deps {badigeon/badigeon {:git/url "https://github.com/EwenG/badigeon.git"
-                                                       :sha     "c5d7d8f9c44fee2f193ef924cdf8a485aee539c5"}
-                                    ch.qos.logback/logback-classic {:mvn/version "1.1.3"}}}
+                    :extra-deps {org.clojure/test.check {:mvn/version "RELEASE"}
+                                 com.cognitect/test-runner
+                                 {:git/url "https://github.com/cognitect-labs/test-runner"
+                                  :sha "3cb0a9daf1cb746259dc8309b218f9211ad3b33b"}}
+                    :main-opts ["-m" "cognitect.test-runner"
+                                "-d" "test"
+                                "-d" "src/test/clojure"]}
 
              ;; build jar (compile java, clj files): clj -R:bg -A:jar
              :jar     {:main-opts ["-e" "(load-file,\"dev/src/build.clj\"),(build/clean),(build/compile-java),(build/jar)"]
+                       :extra-deps {badigeon/badigeon {:git/url "https://github.com/EwenG/badigeon.git"
+                                                       :sha     "c5d7d8f9c44fee2f193ef924cdf8a485aee539c5"}
+                                    ch.qos.logback/logback-classic {:mvn/version "1.1.3"}}
                        ;;; to supress noisy logs with logback file
                        :extra-paths ["dev/resources"]}
 
              ;; compile java classes only: clj -R:bg -A:javac
              :javac   {:main-opts  ["-e" "(load-file,\"dev/src/build.clj\"),(build/compile-java)"]
+                       :extra-deps {badigeon/badigeon {:git/url "https://github.com/EwenG/badigeon.git"
+                                                       :sha     "c5d7d8f9c44fee2f193ef924cdf8a485aee539c5"}
+                                    ch.qos.logback/logback-classic {:mvn/version "1.1.3"}}
                        ;;; to supress noisy logs with logback file
                        :extra-paths ["dev/resources"]}
 
              ;; install to local .m2: clj -R:bg -A:install
              :install {:main-opts  ["-e" "(load-file,\"dev/src/build.clj\"),(build/install)"]
+                       :extra-deps {badigeon/badigeon {:git/url "https://github.com/EwenG/badigeon.git"
+                                                       :sha     "c5d7d8f9c44fee2f193ef924cdf8a485aee539c5"}
+                                    ch.qos.logback/logback-classic {:mvn/version "1.1.3"}}
                         ;;; to supress noisy logs with logback file
                        :extra-paths ["dev/resources"]}
 
              ;; public to clojars: clj -R:bg -A:deploy
              :deploy  {:main-opts  ["-e" "(load-file,\"dev/src/build.clj\"),(build/deploy)"]
+                       :extra-deps {badigeon/badigeon {:git/url "https://github.com/EwenG/badigeon.git"
+                                                       :sha     "c5d7d8f9c44fee2f193ef924cdf8a485aee539c5"}
+                                    ch.qos.logback/logback-classic {:mvn/version "1.1.3"}}
                         ;;; to supress noisy logs with logback file
                        :extra-paths ["dev/resources"]}}}
 

@@ -154,7 +154,7 @@ we have an [introductory document](docs/new-to-clojure.md).
 Uncomment  :java-source-paths and :javac-options in deps.edn.
 
 ```bash
-$ clojure -R:bg -A:javac
+$ clojure -A:javac
 ```
 
 ### REPL
@@ -163,23 +163,18 @@ $ clojure -R:bg -A:javac
 $ clojure -A:repl
 nREPL server started on port 56785 on host localhost - nrepl://localhost:56785
 ```
-or, if you want to compile sources from repl, then include :bg alias
 
-```bash
-$ clojure -R:bg -A:repl
-nREPL server started on port 56788 on host localhost - nrepl://localhost:56788
-```
 
 ### Tests
 
 ```bash
-$  clojure -A:test:runner
+$  clojure -A:test
 ```
 
 ### Package jar
 
 ```bash
-$ clojure -R:bg -A:jar
+$ clojure -A:jar
 ```
 
 ### Local install
@@ -187,7 +182,7 @@ $ clojure -R:bg -A:jar
 To install jar to local .m2 :
 
 ```bash
-$ clojure -R:bg -A:install
+$ clojure -A:install
 ```
 
 ### Deploy to clojars
@@ -195,7 +190,7 @@ $ clojure -R:bg -A:install
 Put your clojars.org credentials to settings.xml (or uncomment login and password prompt in dev/src/build.clj).
 
 ```bash
-$ clojure -R:bg -A:deploy
+$ clojure -A:deploy
 ```
 This command will sign jar before deploy, using your gpg key. (see dev/src/build.clj for signing options)
 
