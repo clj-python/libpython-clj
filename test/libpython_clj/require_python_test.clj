@@ -1,8 +1,12 @@
 (ns libpython-clj.require-python-test
-  (:require [libpython-clj.require :as req :refer [require-python]
+  (:require [libpython-clj.require :as req :refer [require-python
+                                                   pydafy
+                                                   pynav
+                                                   ]
              :reload true]
             [libpython-clj.python :as py]
-            [clojure.test :refer :all]))
+            [clojure.test :refer :all]
+            [clojure.datafy :refer [datafy nav]]))
 
 ;; Since this test mutates the global environment we have to accept that
 ;; it may not always work.
@@ -99,6 +103,31 @@
 
     (is (= (req-transform 'a '[b :as c :refer [blah] :flagA])
            '[a.b :as c :refer [blah] :flagA]))))
+
+(deftest datafy-test
+
+  (defmethod pydafy "builtins.list" [x]
+    (vec x))
+
+  (is (vector? (datafy (python/list [1 2 3]))))
+
+  (defmethod pynav "builtins.list" [coll k v]
+    (def coll coll)
+    (def k k)
+    (def v v)
+    (get (datafy coll) k v))
+
+  (str (python/type (python/list)))
+  
+  (def k 0) (def v false)
+  (nav coll 0 false)
+  (get (datafy coll) 0 false)
+  (is (= 1 (nav (python/list [1 2 3]) 0 false)))
+
+  (defmethod pydafy "builtins.frozenset" [x]
+    (set x))
+
+  (is (set? (datafy (python/frozenset [1 2 3])))))
 
 
 (deftest import-python-test
