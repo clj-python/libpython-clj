@@ -147,6 +147,59 @@ we have an [introductory document](docs/new-to-clojure.md).
 * [create C ptr from numpy](https://docs.scipy.org/doc/numpy/reference/generated/numpy.ndarray.ctypes.html)
 
 
+## How to run project tasks
+
+### Compile Java classes
+
+Uncomment  :java-source-paths and :javac-options in deps.edn.
+
+```bash
+$ clojure -R:bg -A:javac
+```
+
+### REPL
+
+```bash
+$ clj -A:repl
+nREPL server started on port 56785 on host localhost - nrepl://localhost:56785
+```
+or, if you want to compile sources from repl, then include :bg alias
+
+```bash
+$ clj -R:bg -A:repl
+nREPL server started on port 56788 on host localhost - nrepl://localhost:56788
+```
+
+### Tests
+
+```bash
+$  clj -A:test:runner
+```
+
+### Package jar
+
+```bash
+$ clj -R:bg -A:jar
+```
+
+### Local install
+
+To install jar to local .m2 :
+
+```bash
+$ clj -R:bg -A:install
+```
+
+### Deploy to clojars
+
+Put your clojars.org credentials to settings.xml (or uncomment login and password prompt in dev/src/build.clj).
+
+```bash
+$ clojure -R:bg -A:deploy
+```
+This command will sign jar before deploy, using your gpg key. (see dev/src/build.clj for signing options)
+
+
 
 ## License
 
