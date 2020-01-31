@@ -104,12 +104,12 @@
 
 (deftest datafy-test
 
-  (defmethod pydafy "builtins.list" [x]
+  (defmethod pydafy 'builtins.list [x]
     (vec x))
 
   (is (vector? (datafy (python/list [1 2 3]))))
 
-  (defmethod pydafy "builtins.frozenset" [x]
+  (defmethod pydafy 'builtins.frozenset [x]
     (set x))
 
   (is (set? (datafy (python/frozenset [1 2 3])))))

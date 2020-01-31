@@ -300,7 +300,7 @@
 
 
 (let [builtins (py/import-module "builtins")
-      pytype   (comp str (py/get-attr builtins "type"))]
+      pytype   (comp symbol str (py/get-attr builtins "type"))]
 
   
   (defmulti pydafy
@@ -311,7 +311,7 @@
      Extend pynav if you would like to nav the resulting Clojure data.
 
      Note: we don't have a way yet to use a 'python type' as a 'jvm class',
-     so you need to extend with the string of the object name. I know it's
+     so you need to extend with the symbol of the object name. I know it's
      an ugly hack. Sorry. See examples in libpython-clj.require."
     pytype)
   
@@ -322,7 +322,7 @@
      Extend pydafy if you would like to datafy a Python object.
 
      Note: we don't have a way yet to use a 'python type' as a 'jvm class',
-     so you need to extend with the string of the object name. I know it's
+     so you need to extend with the symbol of the object name. I know it's
      an ugly hack. Sorry. See examples in libpython-clj.require."
     (fn [coll k v] (pytype coll)))
   
@@ -338,13 +338,13 @@
       (throw (ex-info (str "nav not implemented for " (pytype x))
                       {:type (pytype x)}))))
   
-  (defmethod pydafy "builtins.module" [m]
+  (defmethod pydafy 'builtins.module [m]
     (metadata/datafy-module m))
 
-  (defmethod pynav "builtins.module" [coll k v]
+  (defmethod pynav 'builtins.module [coll k v]
     (metadata/nav-module coll k v))
   
-  (defmethod pydafy "builtins.dict" [x]
+  (defmethod pydafy 'builtins.dict [x]
     (py/->jvm x)))
 
 
