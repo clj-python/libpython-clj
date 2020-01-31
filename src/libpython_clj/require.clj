@@ -373,16 +373,20 @@
         ;; presumably metadata doesn't work for this type
         res))))
 
-(extend-type PPyObject
-  clj-proto/Datafiable
-  (datafy [item] (py-datafy item))
-  clj-proto/Navigable
-  (nav [coll k v] (py-nav coll k v)))
 
+(defn ^:private -pydatafy [types]
+  ;; credit: Tom Spoon
+  ;; https://clojurians.zulipchat.com/#narrow/stream/215609-libpython-clj-dev/topic/feature-requests/near/187055187
+  (list*
+   'do
+   (for [t types]
+     (list 'extend-type t
+           `clj-proto/Datafiable
+           '(datafy [item] (py-datafy item))
+           `clj-proto/Navigable
+           '(nav [coll k v] (py-nav coll k v))))))
 
-(extend-type PBridgeToJVM
-  clj-proto/Datafiable
-  (datafy [item] (py-datafy item))
-  clj-proto/Navigable
-  (nav [coll k v] (py-nav coll k v)))
+(defmacro pydatafy [& types]
+  (-pydatafy types))
 
+(pydatafy PPyObject PBridgeToJVM)
