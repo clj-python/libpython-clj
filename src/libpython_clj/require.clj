@@ -301,7 +301,10 @@
 
 
 (def ^:private builtins (py/import-module "builtins"))
+
+
 (def ^:private pytype   (comp symbol str (py/get-attr builtins "type")))
+
 
 (defmulti pydafy
   "Turn a Python object into Clojure data.  Metadata of Clojure
@@ -326,11 +329,13 @@
      an ugly hack. Sorry. See examples in libpython-clj.require."
   (fn [coll k v] (pytype coll)))
 
+
 (defmethod pydafy :default [x]
   (if (metadata/pyclass? x)
     (metadata/datafy-module x)
     (throw (ex-info (str "datafy not implemented for " (pytype x))
                     {:type (pytype x)}))))
+
 
 (defmethod pynav :default [x]
   (if (metadata/pyclass? x)
@@ -338,14 +343,18 @@
     (throw (ex-info (str "nav not implemented for " (pytype x))
                     {:type (pytype x)}))))
 
+
 (defmethod pydafy 'builtins.module [m]
   (metadata/datafy-module m))
+
 
 (defmethod pynav 'builtins.module [coll k v]
   (metadata/nav-module coll k v))
 
+
 (defmethod pydafy 'builtins.dict [x]
   (py/->jvm x))
+
 
 (defn ^:private py-datafy [item]
   (let [res (pydafy item)
@@ -359,6 +368,7 @@
       (catch ClassCastException _
         ;; presumably metadata doesn't work for this type
         res))))
+
 
 (defn ^:private py-nav [coll k v]
   (let [res (pynav coll k v)
@@ -374,19 +384,16 @@
         res))))
 
 
-(defn ^:private -pydatafy [types]
-  ;; credit: Tom Spoon
-  ;; https://clojurians.zulipchat.com/#narrow/stream/215609-libpython-clj-dev/topic/feature-requests/near/187055187
-  (list*
-   'do
-   (for [t types]
-     (list 'extend-type t
-           `clj-proto/Datafiable
-           '(datafy [item] (py-datafy item))
-           `clj-proto/Navigable
-           '(nav [coll k v] (py-nav coll k v))))))
-
 (defmacro pydatafy [& types]
-  (-pydatafy types))
+  ;; credit: Tom Spoon
+  ;; https://clojurians.zulipchat.com/#narrow/stream/215609-libpython-clj-dev/topic/feature-requests/near/187055187  
+  `(do ~@(for [t types]
+           `(extend-type ~t
+              clj-proto/Datafiable
+              (datafy [item#] (py-datafy item#))
+              clj-proto/Navigable
+              (nav [coll# k# v#] (py-nav coll# k# v#))))))
+
 
 (pydatafy PPyObject PBridgeToJVM)
+
