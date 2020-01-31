@@ -300,12 +300,11 @@
   :ok)
 
 
-(let [builtins (py/import-module "builtins")
-      pytype   (comp symbol str (py/get-attr builtins "type"))]
-  
-  
-  (defmulti pydafy
-    "Turn a Python object into Clojure data.  Metadata of Clojure
+(def ^:private builtins (py/import-module "builtins"))
+(def ^:private pytype   (comp symbol str (py/get-attr builtins "type")))
+
+(defmulti pydafy
+  "Turn a Python object into Clojure data.  Metadata of Clojure
      data will automatically be merged with nav protocol.
 
      Extend this method to convert a custom Python object into Clojure data.
@@ -314,10 +313,10 @@
      Note: we don't have a way yet to use a 'python type' as a 'jvm class',
      so you need to extend with the symbol of the object name. I know it's
      an ugly hack. Sorry. See examples in libpython-clj.require."
-    pytype)
-  
-  (defmulti pynav
-    "Nav data from a Python object.
+  pytype)
+
+(defmulti pynav
+  "Nav data from a Python object.
   
      Extend this method to nav a custom Python object into Clojure data.
      Extend pydafy if you would like to datafy a Python object.
@@ -325,28 +324,28 @@
      Note: we don't have a way yet to use a 'python type' as a 'jvm class',
      so you need to extend with the symbol of the object name. I know it's
      an ugly hack. Sorry. See examples in libpython-clj.require."
-    (fn [coll k v] (pytype coll)))
-  
-  (defmethod pydafy :default [x]
-    (if (metadata/pyclass? x)
-      (metadata/datafy-module x)
-      (throw (ex-info (str "datafy not implemented for " (pytype x))
-                      {:type (pytype x)}))))
+  (fn [coll k v] (pytype coll)))
 
-  (defmethod pynav :default [x]
-    (if (metadata/pyclass? x)
-      (metadata/nav-module x)
-      (throw (ex-info (str "nav not implemented for " (pytype x))
-                      {:type (pytype x)}))))
-  
-  (defmethod pydafy 'builtins.module [m]
-    (metadata/datafy-module m))
+(defmethod pydafy :default [x]
+  (if (metadata/pyclass? x)
+    (metadata/datafy-module x)
+    (throw (ex-info (str "datafy not implemented for " (pytype x))
+                    {:type (pytype x)}))))
 
-  (defmethod pynav 'builtins.module [coll k v]
-    (metadata/nav-module coll k v))
-  
-  (defmethod pydafy 'builtins.dict [x]
-    (py/->jvm x)))
+(defmethod pynav :default [x]
+  (if (metadata/pyclass? x)
+    (metadata/nav-module x)
+    (throw (ex-info (str "nav not implemented for " (pytype x))
+                    {:type (pytype x)}))))
+
+(defmethod pydafy 'builtins.module [m]
+  (metadata/datafy-module m))
+
+(defmethod pynav 'builtins.module [coll k v]
+  (metadata/nav-module coll k v))
+
+(defmethod pydafy 'builtins.dict [x]
+  (py/->jvm x))
 
 (defn ^:private py-datafy [item]
   (let [res (pydafy item)
