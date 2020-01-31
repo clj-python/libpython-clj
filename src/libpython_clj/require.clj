@@ -8,10 +8,11 @@
             [clojure.tools.logging :as log]
             [libpython-clj.python.protocols :as py-proto]
             [clojure.core.protocols :as clj-proto])
-  (:import [libpython_clj.python.protocols PPyObject]))
+  (:import [libpython_clj.python.protocols PPyObject PBridgeToJVM]))
 
 ;; for hot reloading multimethod in development
 (ns-unmap 'libpython-clj.require 'intern-ns-class)
+(ns-unmap *ns* 'pydafy)
 
 
 (defn- parse-flags
@@ -301,7 +302,7 @@
 
 (let [builtins (py/import-module "builtins")
       pytype   (comp symbol str (py/get-attr builtins "type"))]
-
+  
   
   (defmulti pydafy
     "Turn a Python object into Clojure data.  Metadata of Clojure
@@ -347,23 +348,42 @@
   (defmethod pydafy 'builtins.dict [x]
     (py/->jvm x)))
 
-
-(extend-type PPyObject
-  clj-proto/Datafiable
-  (datafy [item]
-    (let [res (pydafy item)
-          m   (meta res)]
+(defn ^:private py-datafy [item]
+  (let [res (pydafy item)
+        m   (meta res)]
+    (try
       (with-meta 
         res
         (merge
-         {`clj-proto/nav pynav}
-         m))))
-  (nav [coll k v]
-    (let [res (pynav coll k v)
-          m   (meta res)]
+         {'clj-proto/nav pynav}
+         m))
+      (catch ClassCastException _
+        ;; presumably metadata doesn't work for this type
+        res))))
+
+(defn ^:private py-nav [coll k v]
+  (let [res (pynav coll k v)
+        m   (meta res)]
+    (try
       (with-meta
         res
         (merge
          {'clj-proto/datafy pydafy}
-         m)))))
+         m))
+      (catch ClassCastException _
+        ;; presumably metadata doesn't work for this type
+        res))))
+
+(extend-type PPyObject
+  clj-proto/Datafiable
+  (datafy [item] (py-datafy item))
+  clj-proto/Navigable
+  (nav [coll k v] (py-nav coll k v)))
+
+
+(extend-type PBridgeToJVM
+  clj-proto/Datafiable
+  (datafy [item] (py-datafy item))
+  clj-proto/Navigable
+  (nav [coll k v] (py-nav coll k v)))
 
