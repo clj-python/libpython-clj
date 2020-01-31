@@ -386,7 +386,7 @@
 
 (defmacro pydatafy [& types]
   ;; credit: Tom Spoon
-  ;; https://clojurians.zulipchat.com/#narrow/stream/215609-libpython-clj-dev/topic/feature-requests/near/187055187  
+  ;; https://clojurians.zulipchat.com/#narrow/stream/215609-libpython-clj-dev/topic/feature-requests/near/187056819
   `(do ~@(for [t types]
            `(extend-type ~t
               clj-proto/Datafiable
