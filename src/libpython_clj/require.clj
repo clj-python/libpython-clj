@@ -4,7 +4,7 @@
             [libpython-clj.metadata :as pymeta]
             [clojure.datafy :refer [datafy nav]]
             ;;Binds datafy/nav to python objects
-            [libpython-clj.metadata :as metadata :reload true]
+            [libpython-clj.metadata :as metadata]
             [clojure.tools.logging :as log]
             [libpython-clj.python.protocols :as py-proto]
             [clojure.core.protocols :as clj-proto])
