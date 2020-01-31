@@ -129,7 +129,7 @@ our test [docker containers](dockerfiles/CondaDockerfile).
 * [pandas bindings (!!)](https://github.com/alanmarazzi/panthera)
 * [nextjournal notebooks](https://nextjournal.com/kommen)
 * [scicloj video](https://www.youtube.com/watch?v=ajDiGS73i2o)
-* [Clojure/Python interop technical blog post](www.techascent.com/blogs/functions-across-languages.html)
+* [Clojure/Python interop technical blog post](http://techascent.com/blog/functions-across-languages.html)
 * [persistent datastructures in python](https://github.com/tobgu/pyrsistent)
 
 
