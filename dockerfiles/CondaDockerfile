@@ -13,9 +13,6 @@ RUN apt-get -qq update && apt-get -qq -y install curl wget bzip2 openjdk-8-jdk-h
     && curl -O https://download.clojure.org/install/linux-install-1.10.1.507.sh \
     && chmod +x linux-install-1.10.1.507.sh \
     && ./linux-install-1.10.1.507.sh && rm linux-install-1.10.1.507.sh \
-    && wget https://raw.githubusercontent.com/technomancy/leiningen/stable/bin/lein \
-    && chmod a+x lein \
-    && mv lein /usr/bin \
     && apt-get -qq -y autoremove \
     && apt-get autoclean \
     && rm -rf /var/lib/apt/lists/* /var/log/dpkg.log \

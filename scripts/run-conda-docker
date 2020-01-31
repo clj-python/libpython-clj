@@ -4,7 +4,6 @@ scripts/build-conda-docker
 
 docker run --rm -it -u $(id -u):$(id -g) \
   -v /$HOME/.m2:/home/$USER/.m2 \
-  -v /$HOME/.lein:/home/$USER/.lein \
   -v $(pwd)/:/libpython-clj \
   -p 0.0.0.0:2222:2222 -w /libpython-clj \
   docker-conda scripts/conda-repl
