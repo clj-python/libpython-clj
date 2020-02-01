@@ -187,6 +187,13 @@ $  clojure -A:test
 $ clojure -A:jar
 ```
 
+### Clean target directory
+
+```bash
+$ clojure -A:clean
+```
+
+
 ### Local install
 
 To install jar to local .m2 :
