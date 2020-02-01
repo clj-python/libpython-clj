@@ -148,10 +148,20 @@ we have an [introductory document](docs/new-to-clojure.md).
 
 
 ## How to run project tasks
+This project has java sources in additon to regular clojure sources.
+The build alias have the javac built into the tasks, however for running tests or repl you would
+need to run that as a seperate step if you need to recompile the java classes.
+Example:
+
+- `clojure -A:javac`
+- `clojure -A:test`
+
+Also note, that if you have tools installed you may substitue the `clj` command for `clojure` below:
+
+- `clj -A:test`
+
 
 ### Compile Java classes
-
-Uncomment  :java-source-paths and :javac-options in deps.edn.
 
 ```bash
 $ clojure -A:javac

@@ -14,9 +14,7 @@
              org.clojure/data.json {:mvn/version "0.2.7"}}
 
  :build     {
-             ;; uncomment :java-source-paths and :javac-options if you need to compile java sources
              :java-source-paths "java"
-             ;;  ( default options: ["-target" "1.8" "-source" "1.8" "-Xlint:-options"] )
              :javac-options     ["-target" "1.8" "-source" "1.8" "-Xlint:-options"]
 
              :group-id         "cnuernber"
@@ -30,6 +28,7 @@
 
 
  :aliases   {
+             ;;; clj -A:repl
              :repl    {:extra-deps  {criterium            {:mvn/version "0.4.5"}
                                      nrepl                {:mvn/version "0.6.0"}
                                      healthsamurai/matcho {:mvn/version "0.3.3"}
@@ -40,7 +39,7 @@
                        :jvm-opts    ["-Duser.timezone=UTC"]
                        :extra-paths ["dev/src" "resources" "test"]
                        :main-opts   ["--main" "nrepl.cmdline"]}
-               ;; testing and debugging tools:
+             ;;; clj -A:test
              :test {:extra-paths ["test" "src/test/clojure"]
                     :extra-deps {org.clojure/test.check {:mvn/version "RELEASE"}
                                  com.cognitect/test-runner
@@ -50,7 +49,7 @@
                                 "-d" "test"
                                 "-d" "src/test/clojure"]}
 
-             ;; build jar (compile java, clj files): clj -R:bg -A:jar
+             ;; build jar (compile java, clj files): clj -A:jar
              :jar     {:main-opts ["-e" "(load-file,\"dev/src/build.clj\"),(build/clean),(build/compile-java),(build/jar)"]
                        :extra-deps {badigeon/badigeon {:git/url "https://github.com/EwenG/badigeon.git"
                                                        :sha     "c5d7d8f9c44fee2f193ef924cdf8a485aee539c5"}
@@ -58,7 +57,7 @@
                        ;;; to supress noisy logs with logback file
                        :extra-paths ["dev/resources"]}
 
-             ;; compile java classes only: clj -R:bg -A:javac
+             ;; compile java classes only: clj -A:javac
              :javac   {:main-opts  ["-e" "(load-file,\"dev/src/build.clj\"),(build/compile-java)"]
                        :extra-deps {badigeon/badigeon {:git/url "https://github.com/EwenG/badigeon.git"
                                                        :sha     "c5d7d8f9c44fee2f193ef924cdf8a485aee539c5"}
@@ -66,7 +65,7 @@
                        ;;; to supress noisy logs with logback file
                        :extra-paths ["dev/resources"]}
 
-             ;; install to local .m2: clj -R:bg -A:install
+             ;; install to local .m2: clj -A:install
              :install {:main-opts  ["-e" "(load-file,\"dev/src/build.clj\"),(build/install)"]
                        :extra-deps {badigeon/badigeon {:git/url "https://github.com/EwenG/badigeon.git"
                                                        :sha     "c5d7d8f9c44fee2f193ef924cdf8a485aee539c5"}
@@ -74,7 +73,7 @@
                         ;;; to supress noisy logs with logback file
                        :extra-paths ["dev/resources"]}
 
-             ;; public to clojars: clj -R:bg -A:deploy
+             ;; public to clojars: clj -A:deploy
              :deploy  {:main-opts  ["-e" "(load-file,\"dev/src/build.clj\"),(build/deploy)"]
                        :extra-deps {badigeon/badigeon {:git/url "https://github.com/EwenG/badigeon.git"
                                                        :sha     "c5d7d8f9c44fee2f193ef924cdf8a485aee539c5"}
