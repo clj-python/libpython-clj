@@ -10,6 +10,7 @@ before_install:
 addons:
   apt:
     update: true
+install: clojure -Sdescribe
 script:
   - clojure -A:test
 
