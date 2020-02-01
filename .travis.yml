@@ -12,5 +12,6 @@ addons:
     update: true
 install: clojure -Sdescribe
 script:
+  - clojure -A:javac
   - clojure -A:test
 
