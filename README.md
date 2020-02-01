@@ -147,6 +147,71 @@ we have an [introductory document](docs/new-to-clojure.md).
 * [create C ptr from numpy](https://docs.scipy.org/doc/numpy/reference/generated/numpy.ndarray.ctypes.html)
 
 
+## How to run project tasks
+This project has java sources in additon to regular clojure sources.
+The build alias have the javac built into the tasks, however for running tests or repl you would
+need to run that as a seperate step if you need to recompile the java classes.
+Example:
+
+- `clojure -A:javac`
+- `clojure -A:test`
+
+Also note, that if you have tools installed you may substitue the `clj` command for `clojure` below:
+
+- `clj -A:test`
+
+
+### Compile Java classes
+
+```bash
+$ clojure -A:javac
+```
+
+### REPL
+
+```bash
+$ clojure -A:repl
+nREPL server started on port 56785 on host localhost - nrepl://localhost:56785
+```
+
+
+### Tests
+
+```bash
+$  clojure -A:test
+```
+
+### Package jar
+
+```bash
+$ clojure -A:jar
+```
+
+### Clean target directory
+
+```bash
+$ clojure -A:clean
+```
+
+
+### Local install
+
+To install jar to local .m2 :
+
+```bash
+$ clojure -A:install
+```
+
+### Deploy to clojars
+
+Put your clojars.org credentials to settings.xml (or uncomment login and password prompt in dev/src/build.clj).
+
+```bash
+$ clojure -A:deploy
+```
+This command will sign jar before deploy, using your gpg key. (see dev/src/build.clj for signing options)
+
+
 
 ## License
 
