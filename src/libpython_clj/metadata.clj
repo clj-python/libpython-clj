@@ -205,48 +205,44 @@
   (or (string? att-val)
       (number? att-val)))
 
+(defn datafy-module [item]
+  (with-gil
+    (->> (if (or (pyclass? item)
+                 (pymodule? item))
+           (-> (vars item)
+               (py-proto/as-map))
+           (->> (py/dir item)
+                (map (juxt identity #(get-attr item %)))))
+         (map (fn [[att-name att-val]]
+                (when att-val
+                  (try
+                    [att-name
+                     (merge (base-pyobj-map att-val)
+                            (when (callable? att-val)
+                              (py-fn-metadata att-name att-val {}))
+                            (when (scalar? att-val)
+                              {:value att-val}))]
+                    (catch Throwable e
+                      (log/warnf "Metadata generation failed for %s:%s"
+                                 (.toString item)
+                                 att-name)
+                      nil)))))
+         (remove nil?)
+         (into (base-pyobj-map item)))))
 
-(extend-type PPyObject
-  clj-proto/Datafiable
-  (datafy [item]
-    (with-meta
-      (with-gil
-        (->> (if (or (pyclass? item)
-                     (pymodule? item))
-               (-> (vars item)
-                   (py-proto/as-map))
-               (->> (py/dir item)
-                    (map (juxt identity #(get-attr item %)))))
-             (map (fn [[att-name att-val]]
-                    (when att-val
-                      (try
-                        [att-name
-                         (merge (base-pyobj-map att-val)
-                                (when (callable? att-val)
-                                  (py-fn-metadata att-name att-val {}))
-                                (when (scalar? att-val)
-                                  {:value att-val}))]
-                        (catch Throwable e
-                          (log/warnf "Metadata generation failed for %s:%s"
-                                     (.toString item)
-                                     att-name)
-                          nil)))))
-             (remove nil?)
-             (into (base-pyobj-map item))))
-      {`clj-proto/nav
-       (fn nav-pyval
-         [coll f val]
-         (if (map? val)
-           (cond
-             (= :module (:type val))
-             (as-jvm (import-module (:name val)) {})
-             (= :type (:type val))
-             (let [mod (as-jvm (import-module (:module val)) {})
-                   cls-obj (get-attr mod (:name val))]
-               cls-obj)
-             :else
-             val)
-           val))})))
+(defn nav-module [coll f val]
+  (with-gil
+    (if (map? val)
+      (cond
+        (= :module (:type val))
+        (as-jvm (import-module (:name val)) {})
+        (= :type (:type val))
+        (let [mod (as-jvm (import-module (:module val)) {})
+              cls-obj (get-attr mod (:name val))]
+          cls-obj)
+        :else
+        val)
+      val)))
 
 
 (defn module-path-string

@@ -4,11 +4,15 @@
             [libpython-clj.metadata :as pymeta]
             [clojure.datafy :refer [datafy nav]]
             ;;Binds datafy/nav to python objects
-            [libpython-clj.metadata]
-            [clojure.tools.logging :as log]))
+            [libpython-clj.metadata :as metadata]
+            [clojure.tools.logging :as log]
+            [libpython-clj.python.protocols :as py-proto]
+            [clojure.core.protocols :as clj-proto])
+  (:import [libpython_clj.python.protocols PPyObject PBridgeToJVM]))
 
 ;; for hot reloading multimethod in development
 (ns-unmap 'libpython-clj.require 'intern-ns-class)
+(ns-unmap *ns* 'pydafy)
 
 
 (defn- parse-flags
@@ -290,7 +294,106 @@
      [dict :as python.dict]
      [set :as python.set]
      [tuple :as python.tuple]
-     [frozenset :as python.frozenset])
+     [frozenset :as python.frozenset]
+     [str :as python.str])
    '[builtins :as python])
   :ok)
+
+
+(def ^:private builtins (py/import-module "builtins"))
+
+
+(def ^:private pytype   (comp symbol str (py/get-attr builtins "type")))
+
+
+(defmulti pydafy
+  "Turn a Python object into Clojure data.  Metadata of Clojure
+     data will automatically be merged with nav protocol.
+
+     Extend this method to convert a custom Python object into Clojure data.
+     Extend pynav if you would like to nav the resulting Clojure data.
+
+     Note: we don't have a way yet to use a 'python type' as a 'jvm class',
+     so you need to extend with the symbol of the object name. I know it's
+     an ugly hack. Sorry. See examples in libpython-clj.require."
+  pytype)
+
+(defmulti pynav
+  "Nav data from a Python object.
+  
+     Extend this method to nav a custom Python object into Clojure data.
+     Extend pydafy if you would like to datafy a Python object.
+
+     Note: we don't have a way yet to use a 'python type' as a 'jvm class',
+     so you need to extend with the symbol of the object name. I know it's
+     an ugly hack. Sorry. See examples in libpython-clj.require."
+  (fn [coll k v] (pytype coll)))
+
+
+(defmethod pydafy :default [x]
+  (if (metadata/pyclass? x)
+    (metadata/datafy-module x)
+    (throw (ex-info (str "datafy not implemented for " (pytype x))
+                    {:type (pytype x)}))))
+
+
+(defmethod pynav :default [x]
+  (if (metadata/pyclass? x)
+    (metadata/nav-module x)
+    (throw (ex-info (str "nav not implemented for " (pytype x))
+                    {:type (pytype x)}))))
+
+
+(defmethod pydafy 'builtins.module [m]
+  (metadata/datafy-module m))
+
+
+(defmethod pynav 'builtins.module [coll k v]
+  (metadata/nav-module coll k v))
+
+
+(defmethod pydafy 'builtins.dict [x]
+  (py/->jvm x))
+
+
+(defn ^:private py-datafy [item]
+  (let [res (pydafy item)
+        m   (meta res)]
+    (try
+      (with-meta 
+        res
+        (merge
+         {'clj-proto/nav pynav}
+         m))
+      (catch ClassCastException _
+        ;; presumably metadata doesn't work for this type
+        res))))
+
+
+(defn ^:private py-nav [coll k v]
+  (let [res (pynav coll k v)
+        m   (meta res)]
+    (try
+      (with-meta
+        res
+        (merge
+         {'clj-proto/datafy pydafy}
+         m))
+      (catch ClassCastException _
+        ;; presumably metadata doesn't work for this type
+        res))))
+
+
+(defmacro pydatafy [& types]
+  ;; credit: Tom Spoon
+  ;; https://clojurians.zulipchat.com/#narrow/stream/215609-libpython-clj-dev/topic/feature-requests/near/187056819
+  `(do ~@(for [t types]
+           `(extend-type ~t
+              clj-proto/Datafiable
+              (datafy [item#] (py-datafy item#))
+              clj-proto/Navigable
+              (nav [coll# k# v#] (py-nav coll# k# v#))))))
+
+
+(pydatafy PPyObject PBridgeToJVM)
 
