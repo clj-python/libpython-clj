@@ -1,6 +1,9 @@
 build: clean
 		clj -A:javac
 
+install: build
+		clj -A:install
+
 clean:
 		clj -A:clean
 
