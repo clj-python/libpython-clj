@@ -5,7 +5,7 @@
  ;; don't change target/classes (do not remove it from :paths and
  ;; do not rename it, otherwise edit build.clj)
  ;; uncomment java-src if you have java sources.
- :paths     ["src" "java" "resources" "target/classes"]
+ :paths     ["src" "java"]
 
  :deps      {
              org.clojure/clojure {:mvn/version "1.10.1"}
