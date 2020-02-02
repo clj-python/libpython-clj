@@ -5,12 +5,12 @@
  ;; don't change target/classes (do not remove it from :paths and
  ;; do not rename it, otherwise edit build.clj)
  ;; uncomment java-src if you have java sources.
- :paths     ["src" "java"]
+ :paths     ["src" "java" "resources" "target/classes"]
 
  :deps      {
              org.clojure/clojure {:mvn/version "1.10.1"}
              camel-snake-kebab {:mvn/version "0.4.0"}
-             techascent/tech.datatype {:mvn/version "4.73"}
+             techascent/tech.datatype {:mvn/version "4.74"}
              org.clojure/data.json {:mvn/version "0.2.7"}}
 
  :build     {
@@ -19,7 +19,7 @@
 
              :group-id         "cnuernber"
              :artifact-id      "libpython-clj"
-             :artifact-version "1.34-SNAPSHOT"
+             :artifact-version "1.36-SNAPSHOT"
              :description      "libpython bindings to the techascent ecosystem"
              :url              "http://github.com/cnuernber/libpython-clj"
              :scm              {:url "git@github.com:cnuernber/libpython-clj.git"}
