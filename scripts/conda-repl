@@ -6,5 +6,7 @@ source activate pyclj
 ## https://github.com/conda/conda/issues/9500#issuecomment-565753807
 export LD_LIBRARY_PATH="$(python3-config --prefix)/lib"
 
-clojure -A:repl -b 0.0.0.0 -p 2222
+lein update-in :dependencies conj \[nrepl\ \"0.6.0\"\]\
+     -- update-in :plugins conj \[cider/cider-nrepl\ \"0.22.4\"\]\
+     -- repl :headless :host localhost
 
