@@ -30,19 +30,17 @@
                     #'clj.new.templates/*dir*    dir}
       (file-map->files
        data
-       {"deps.edn"                                   (render "deps.edn" data)
+       {"deps.edn"                                            (render "deps.edn" data)
         (format  "src/%s/%s.clj" (:base data) (:suffix data)) (render "core.clj" data)
-        (format  "src/%s/python.clj" (:base data))     (render "python.clj" data)}))))
+        (format  "src/%s/python.clj" (:base data))            (render "python.clj" data)}))))
 
 
 (defn libpython-clj [name]
   (libpython-clj-template! name))
 
 (comment
-  (libpython-clj-template! "mydomain.myapp" :dir "/tmp/data")  
-
-  )
-
-
-
+  (libpython-clj-template!
+   "mydomain.myapp"
+   :dir "/tmp/data"
+   :force? true))
 
