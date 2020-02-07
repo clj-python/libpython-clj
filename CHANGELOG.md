@@ -22,7 +22,14 @@ clj -Sdeps '{:deps
 
 * `deps.edn` now supported in parallel with `project.clj`
 
-## 1.34-SNAPSHOT
+
+## 1.36 
+
+* clojure.core.async upgrade
+
+
+## 1.35
+
 
 * [Examples are now done by gigasquid](https://github.com/gigasquid/libpython-clj-examples)
 
@@ -32,6 +39,10 @@ clj -Sdeps '{:deps
   respective docstrings for details.
   
 * bugfix -- python.str now loaded by `import-python`
+
+
+## 1.34
+ * Skipped due to build system issues.
 
 ## 1.33
 
