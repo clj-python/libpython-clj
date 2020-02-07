@@ -26,10 +26,10 @@
      data
      {"deps.edn"                 (render "deps.edn" data)
       (format "src/%s.clj" base) (render "core.clj" data)
-      "src/python.clj"           (render "python.clj" data)
-      "dev/src/build.clj"        (render "dev/src/build.clj" data)
-      "dev/src/user.clj"         (render "dev/src/user.clj" data)})))
+      "src/python.clj"           (render "python.clj" data)})))
 
 
 (defn libpython-clj [name]
   (libpython-clj-template! name))
+
+
