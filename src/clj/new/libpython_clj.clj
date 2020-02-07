@@ -1,4 +1,4 @@
-(ns libpython-clj.libpython-clj
+(ns clj.new.libpython-clj
   (:require [clj.new.templates :refer [renderer project-name name-to-path ->files]]))
 
 (def render (renderer "libpython_clj"))
