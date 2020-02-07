@@ -1,4 +1,4 @@
-(ns {{base}}.core
+(ns {{base}}.{{suffix}}
     (:require [libpython-clj.python :as py :refer [py. py.- py.. py* py**]]
               {{base}}.python
               [libpython-clj.require :refer [require-python import-python]]))
