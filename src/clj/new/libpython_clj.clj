@@ -25,7 +25,7 @@
     (file-map->files
      data
      {"deps.edn"                 (render "deps.edn" data)
-      (format "src/%s.clj" base) (render "core.clj" data)
+      (format "src/core.clj" base) (render "core.clj" data)
       "src/python.clj"           (render "python.clj" data)})))
 
 
