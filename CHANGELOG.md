@@ -1,5 +1,27 @@
 # Time for a ChangeLog!
 
+## 1.37 
+
+* libpython-clj projects can now be created quickly with 
+
+```bash 
+
+    clj -A:new https://github.com/cnuernber/libpython-clj@<fill-in-sha-after-commit> <project.name>
+```
+   **NOTE**: this assumes you have `clj-new` configured in you `~/.clojure/deps.edn`
+   profile. If you do not, you can use the following:
+   
+```bash 
+clj -Sdeps '{:deps
+              {seancorfield/clj-new
+                {:mvn/version "0.8.6"}}}' \
+  -m clj-new.create \
+  https://github.com/cnuernber/libpython-clj@<fill-in-sha-after-commit> <project.name> \
+  myname/myapp
+```
+
+* `deps.edn` now supported in parallel with `project.clj`
+
 ## 1.34-SNAPSHOT
 
 * [Examples are now done by gigasquid](https://github.com/gigasquid/libpython-clj-examples)
