@@ -40,7 +40,8 @@
        ;; src/cljs/{{base}}
        ))))
 
-(comment
-  (def name "blah.blah")
-  (libpython-clj-template! "blah.blah")
-  )
+
+(defn libpython-clj [name]
+  (libpython-clj-template! name))
+
+
