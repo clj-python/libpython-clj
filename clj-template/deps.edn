@@ -1,0 +1,8 @@
+{
+ :paths ["src"]
+
+ :deps {
+        org.clojure/clojure      {:mvn/version "1.10.1"}
+        seancorfield/clj-new     {:mvn/version "0.8.6"}
+        }
+ }

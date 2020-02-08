@@ -18,7 +18,7 @@
                                   "$2")
                       :sanitized (name-to-path name)}
         {base :base} data]
-    
+
     (println (str  "Generating libpython-clj template for "
                    (:name data) "at") (:sanitized data) ".\n\n"
              "For the latest information, please check out "
@@ -41,6 +41,6 @@
 (comment
   (libpython-clj-template!
    "mydomain.myapp"
-   :dir "/tmp/data"
-   :force? true))
-
+   :dir "testdir"
+   :force? true)
+  )

@@ -2,7 +2,7 @@
 
 ## 1.37 
 
-* libpython-clj projects can now be created quickly with 
+* libpython-clj projects can now be created quickly with:
 
 ```bash 
 
