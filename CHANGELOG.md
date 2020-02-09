@@ -1,6 +1,8 @@
 # Time for a ChangeLog!
 
-## 1.37 
+## 1.37-SNAPSHOT
+
+!! Undergoing work, potentially need a github project !!
 
 * libpython-clj projects can now be created quickly with:
 
