@@ -337,12 +337,12 @@ print(json.dumps(
   "Grab the gil and use the main interpreter using reentrant acquire-gil pathway."
   [& body]
   `(do
-     (let [interp# (ensure-interpreter)
-           ^AtomicLong bound-thread# libpy-base/gil-thread-id
-           thread-id# (libpy-base/current-thread-id)
-           previously-bound-thread-id# (.get bound-thread#)]
+     (let [interp# (ensure-interpreter)]
        (locking interp#
-         (let [gil-state# (when-not (== thread-id# previously-bound-thread-id#)
+         (let [^AtomicLong bound-thread# libpy-base/gil-thread-id
+               previously-bound-thread-id# (.get bound-thread#)
+               thread-id# (libpy-base/current-thread-id)
+               gil-state# (when-not (== thread-id# previously-bound-thread-id#)
                             (acquire-gil!))]
            (try
              ~@body
