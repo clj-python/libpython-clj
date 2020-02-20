@@ -209,8 +209,9 @@
   (with-gil
     (->> (if (or (pyclass? item)
                  (pymodule? item))
-           (-> (vars item)
-               (py-proto/as-map))
+           (->> (vars item)
+                (py-proto/as-map)
+                (into {}))
            (->> (py/dir item)
                 (map (juxt identity #(get-attr item %)))))
          (map (fn [[att-name att-val]]
