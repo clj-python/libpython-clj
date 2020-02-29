@@ -1,4 +1,4 @@
-(defproject clj-python/libpython-clj "1.37"
+(defproject clj-python/libpython-clj "1.38-SNAPSHOT"
   :description "libpython bindings to the techascent ecosystem"
   :url "http://github.com/cnuernber/libpython-clj"
   :license {:name "Eclipse Public License"
