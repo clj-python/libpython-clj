@@ -1,8 +1,9 @@
 # Time for a ChangeLog!
 
-## 1.37-SNAPSHOT
+## 1.37
 
-!! Undergoing work, potentially need a github project !!
+* Fix for metadata generation of sys module that was failing.  This needs a deeper fix.
+* Race condition and stability fix.
 * `deps.edn` now supported in parallel with `project.clj`
 
 
