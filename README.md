@@ -80,6 +80,25 @@ This code is a concrete example that generates an
 
 ## Usage
 
+#### Config namespace
+```clojure
+(ns my-py-clj.config
+  (:require [libpython-clj.python :as py]))
+
+;; When you use conda, it should look like this.
+(py/initialize! :python-executable "/opt/anaconda3/envs/my_env/bin/python3.7"
+                :library-path "/opt/anaconda3/envs/my_env/lib/libpython3.7m.dylib")
+```
+
+#### Update project.clj
+```clojure
+{...
+  ;; This namespace going to run when the REPL is up. 
+  :repl-options {:init-ns my-py-clj.config}
+...}
+```
+
+
 ```clojure
 user> (require '[libpython-clj.require :refer [require-python]])
 ...logging info....
