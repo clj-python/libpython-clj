@@ -2,6 +2,10 @@
 
 ## 1.37
 
+* Update to tech.datatype 4.88 - much faster group-by, lots of small improvements.
+
+## 1.37
+
 * Fix for metadata generation of sys module that was failing.  This needs a deeper fix.
 * Race condition and stability fix.
 * `deps.edn` now supported in parallel with `project.clj`
