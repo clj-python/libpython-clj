@@ -1,5 +1,10 @@
 # Time for a ChangeLog!
 
+
+## 1.38-SNAPSHOT
+
+* `tech.datatype` is upgrade to 5.0 (!!).
+
 ## 1.37
 
 * Update to tech.datatype 4.88 - much faster group-by, lots of small improvements.
