@@ -2,14 +2,10 @@
   (:require [tech.v2.datatype.protocols :as dtype-proto]
             [tech.v2.datatype.operation-provider :as op-provider]
             [tech.v2.tensor :as dtt]
-            [tech.v2.datatype.argtypes :as argtypes]
             [libpython-clj.python.interpreter :as py-interp]
             [libpython-clj.python.protocols :as py-proto]
             [libpython-clj.python.bridge :as py-bridge]
-            [libpython-clj.python.object :as py-object]
-            [libpython-clj.python.interop :as py-interop]
-            [tech.jna :as jna]))
-
+            [libpython-clj.python.interop :as py-interop]))
 
 
 (defmethod py-proto/pyobject->jvm :ndarray
