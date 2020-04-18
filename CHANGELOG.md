@@ -1,4 +1,7 @@
 # Time for a ChangeLog!
+## 1.40
+* `tech.datatype` fixed bug in argsort.
+
 ## 1.39
 * `tech.datatype` upgrade to version that supports datetime types.
 
