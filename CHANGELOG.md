@@ -1,5 +1,6 @@
 # Time for a ChangeLog!
-
+## 1.39
+* `tech.datatype` upgrade to version that supports datetime types.
 
 ## 1.38-SNAPSHOT
 
@@ -16,7 +17,7 @@
 * `deps.edn` now supported in parallel with `project.clj`
 
 
-## 1.36 
+## 1.36
 
 * clojure.core.async upgrade
 
@@ -26,11 +27,11 @@
 
 * [Examples are now done by gigasquid](https://github.com/gigasquid/libpython-clj-examples)
 
-* [datafy/nav](https://clojure.github.io/clojure/branch-master/clojure.datafy-api.html) are now extensible for custom Python objects. 
-  Extend `libpython-clj.require/pydafy` and `libpython-clj.require/pynav` 
-  respectively with the symbol of class you want to extend. See 
+* [datafy/nav](https://clojure.github.io/clojure/branch-master/clojure.datafy-api.html) are now extensible for custom Python objects.
+  Extend `libpython-clj.require/pydafy` and `libpython-clj.require/pynav`
+  respectively with the symbol of class you want to extend. See
   respective docstrings for details.
-  
+
 * bugfix -- python.str now loaded by `import-python`
 
 
@@ -42,33 +43,33 @@
 * Better [windows anaconda support](https://github.com/cnuernber/libpython-clj/pull/67)
   thanks to [orolle](https://github.com/orolle).
 
-* Moved to PyGILState* functions for GIL management.  This mainly due to 
+* Moved to PyGILState* functions for GIL management.  This mainly due to
   [FongHou](https://github.com/cnuernber/libpython-clj/commits?author=FongHou) in
-  PRs [here](https://github.com/cnuernber/libpython-clj/pull/64) and 
+  PRs [here](https://github.com/cnuernber/libpython-clj/pull/64) and
   [here](https://github.com/cnuernber/libpython-clj/pull/65).
 
 * **BREAKING CHANGE** `require-python` now respects prefix lists --
-  unfortunately, the previous syntax was incorrect. 
-  ```clojure 
+  unfortunately, the previous syntax was incorrect.
+  ```clojure
   ;; WRONG (syntax version < 1.33)
-  (require-python '(os math)) 
+  (require-python '(os math))
   ```
-  would be equivalent to 
-  ```clojure 
+  would be equivalent to
+  ```clojure
   ;; (do (require-python 'os) (require-python 'math))
   ```
   the correct syntax for this SHOULD have been
-  ```clojure 
+  ```clojure
   (require-python 'os 'math)
   ```
-  
-  1.33 fixes this mistake, and provides support for prefix lists, 
+
+  1.33 fixes this mistake, and provides support for prefix lists,
   for example:
-  
+
   ```clojure
-  (require-python 
+  (require-python
    '[builtins :as python]
-   '(builtins 
+   '(builtins
      [list :as python.list]
      [dict :as python.dict]
      [tuple :as python.tuple]
@@ -76,9 +77,9 @@
      [frozenset :as python.frozenset]))
   ```
   (**Note**: this is done for you by the function `libpython-clj.require/import-python`)
-  
+
   This fix brought to you by [jjtolton](https://github.com/jjtolton).
-  
+
 
 ## 1.32
 * DecRef now happens cooperatively in python thread.  We used to use separate threads
