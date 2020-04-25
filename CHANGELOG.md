@@ -1,4 +1,7 @@
 # Time for a ChangeLog!
+## 1.41
+ * `tech.datatype` - latest version to work with `tech.ml.dataset`.
+
 ## 1.40
 * `tech.datatype` fixed bug in argsort.
 
