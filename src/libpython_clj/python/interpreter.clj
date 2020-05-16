@@ -9,7 +9,8 @@
             [clojure.java.io :as io]
             [clojure.string :as s]
             [clojure.tools.logging :as log]
-            [clojure.data.json :as json])
+            [clojure.data.json :as json]
+            [clojure.pprint :as pp])
   (:import [libpython_clj.jna JVMBridge PyObject DirectMapped]
            [java.util.concurrent.atomic AtomicLong]
            [com.sun.jna Pointer]
@@ -91,10 +92,11 @@ print(json.dumps(
       (condp (partial =) (keyword platform)
         ;; TODO: not sure what the strings returned by
         ;;   ..: mac and windows are for sys.platform
-        :linux   "libpython%s.%sm.so$"
-        :mac     "libpython%s.%sm.dylib$"
+        :linux   "libpython%s.%sm?.so$"
+        :mac     "libpython%s.%sm?.dylib$"
         :win32   "python%s%s.dll$")
       major minor))))
+
 
 (defn python-library-paths
   "Returns vector of matching python libraries in order of:
@@ -105,6 +107,7 @@ print(json.dumps(
   - installation prefix (executable)
   - default executable location"
   [system-info python-regex]
+  (println system-info)
   (transduce
    (comp
     (map io/file)
@@ -128,7 +131,7 @@ print(json.dumps(
 (comment
   ;; library paths workflow
 
-  (let [executable "python3.7"
+  (let [executable "python3.6"
         system-info (python-system-info executable)
         pyregex (python-library-regex system-info)]
     (python-library-paths system-info pyregex)))
@@ -142,13 +145,28 @@ print(json.dumps(
     (catch Throwable e nil)))
 
 
+(def default-python-executables
+  ["python3" "python3.6" "python3.7" "python3.8" "python3.9" "python"])
+
+
 (defn detect-startup-info
   [{:keys [library-path python-home python-executable]}]
   (log-info
    (str "Detecting startup-info for Python executable: "
         python-executable))
-  (let [executable                 (or python-executable "python3")
-        system-info                (python-system-info executable)
+  (let [executable-seq                (concat
+                                       (when python-executable
+                                         [python-executable])
+                                       default-python-executables)
+        system-info                (->> executable-seq
+                                        (map #(try (python-system-info %)
+                                                   (catch Throwable e
+                                                     nil)))
+                                        (remove nil?)
+                                        (first))
+        _ (when-not system-info
+            (throw (Exception. (format "Python executable was not found.  Tried: %s"
+                                       (vec executable-seq)))))
         python-home                (cond
                                      python-home
                                      python-home
@@ -165,12 +183,21 @@ print(json.dumps(
         libname                    (or library-path
                                        (when (seq lib-version)
                                          (str "python" lib-version "m")))
+        libnames                   (concat [libname]
+                                           ;;Make sure we try without the 'm' suffix
+                                           (when lib-version
+                                             [(str "python" lib-version)]))
         retval
-        {:python-home                python-home
-         :lib-version                lib-version
-         :libname                    libname
-         :java-library-path-addendum java-library-path-addendum}]
-    (log/infof "Startup info detected: %s" retval)
+        (merge
+         system-info
+         {:python-home                python-home
+          :lib-version                lib-version
+          :libname                    libname
+          :libnames                   libnames
+          :java-library-path-addendum java-library-path-addendum})]
+    (log/infof "Startup info detected:\n%s"
+               (with-out-str
+                 (pp/pprint (dissoc retval :libname))))
     retval))
 
 
@@ -185,7 +212,8 @@ print(json.dumps(
 
 ;; Main interpreter booted up during initialize!
 ;; * in the right to indicate atom
-(def main-interpreter* (atom nil))
+(defonce main-interpreter* (atom nil))
+
 (defn main-interpreter
   ^Interpreter []
   @main-interpreter*)
@@ -295,7 +323,6 @@ print(json.dumps(
   (.get ^AtomicLong libpy-base/gil-thread-id))
 
 
-
 (defn ensure-interpreter
   ^Interpreter []
   (let [retval (main-interpreter)]
@@ -355,7 +382,6 @@ print(json.dumps(
 (defonce ^:dynamic *program-name* "")
 
 
-
 (defn- find-python-lib-version
   []
   (let [{:keys [out err exit]} (ignore-shell-errors "python3" "--version")]
@@ -407,24 +433,21 @@ print(json.dumps(
 
 (defn initialize!
   [& {:keys [program-name
-             library-path
-             python-executable]
+             library-path]
       :as options}]
   (when-not (main-interpreter)
     (log-info (str "Executing python initialize with options:" options))
-    (let [{:keys [python-home libname java-library-path-addendum] :as startup-info}
+    (let [{:keys [python-home libnames java-library-path-addendum
+                  executable] :as startup-info}
           (detect-startup-info options)
-          library-names (cond
-                          library-path
-                          [library-path]
-                          libname
-                          (concat
-                           [libname]
-                           (libpy-base/library-names))
-                          :else
-                          (libpy-base/library-names))]
+          library-names (concat
+                         (when library-path
+                           [library-path])
+                         libnames
+                         (libpy-base/library-names))]
       (reset! python-home-wide-ptr* nil)
       (reset! python-path-wide-ptr* nil)
+      (log/infof "Trying python library names %s" (vec library-names))
       (when python-home
         (append-java-library-path! java-library-path-addendum)
         ;;This can never be released if load-library succeeeds
@@ -438,17 +461,19 @@ print(json.dumps(
                                                 @python-home-wide-ptr*
                                                 @python-path-wide-ptr*)))
           (recur library-names)))
-      (setup-direct-mapping!))
-    ;;Set program name
-    (when-let [program-name (or program-name *program-name* "")]
-      (pygc/with-stack-context
-       (libpy/PySys_SetArgv 0 (-> program-name
-                                  (jna/string->wide-ptr)))))
+      (setup-direct-mapping!)
+      ;;Set program name
+      (when-let [program-name (or program-name executable "")]
+        (pygc/with-stack-context
+          (libpy/PySys_SetArgv 0 (-> program-name
+                                     (jna/string->wide-ptr))))))
     (let [type-symbols (libpy/lookup-type-symbols)
           context (do
-                    (libpy-base/set-gil-thread-id! Long/MAX_VALUE (libpy-base/current-thread-id))
+                    (libpy-base/set-gil-thread-id!
+                     Long/MAX_VALUE (libpy-base/current-thread-id))
                     (let [retval (libpy/PyEval_SaveThread)]
-                      (libpy-base/set-gil-thread-id! (libpy-base/current-thread-id) Long/MAX_VALUE)
+                      (libpy-base/set-gil-thread-id!
+                       (libpy-base/current-thread-id) Long/MAX_VALUE)
                       retval))]
       (construct-main-interpreter! context type-symbols))))
 

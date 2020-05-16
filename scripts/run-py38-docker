@@ -1,9 +1,9 @@
 #!/bin/bash
 
-scripts/build-conda-docker
+scripts/build-py38-docker
 
 docker run --rm -it -u $(id -u):$(id -g) \
   -v /$HOME/.m2:/home/$USER/.m2 \
   -v $(pwd)/:/libpython-clj \
   --net=host -w /libpython-clj \
-  docker-conda scripts/conda-repl
+  docker-py38 scripts/py38-repl

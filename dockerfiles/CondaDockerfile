@@ -39,6 +39,9 @@ USER $USERNAME
 RUN conda create -n pyclj python=3.6 && conda install -n pyclj numpy mxnet \
     && echo "source activate pyclj" > /home/$USERNAME/.bashrc
 
+## cause leiningen to install
+RUN lein -v
+
 
 ## To install pip packages into the pyclj environment do
 RUN conda run -n pyclj python3 -mpip install numpy

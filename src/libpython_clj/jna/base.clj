@@ -69,7 +69,7 @@
   (-> (Thread/currentThread)
       (.getId)))
 
-(def gil-thread-id (AtomicLong. Long/MAX_VALUE))
+(defonce gil-thread-id (AtomicLong. Long/MAX_VALUE))
 
 
 (defn set-gil-thread-id!
@@ -106,7 +106,7 @@
           `(.invoke (jna-base/to-typed-fn ~'tvm-fn) ~'fn-args)))))
 
 
-(def size-t-type (type (jna/size-t 0)))
+(defonce size-t-type (type (jna/size-t 0)))
 
 
 (defn find-pylib-symbol
