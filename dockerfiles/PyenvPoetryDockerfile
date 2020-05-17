@@ -1,0 +1,37 @@
+FROM clojure:openjdk-11-tools-deps
+
+RUN apt-get update &&\
+    apt-get install -y curl gcc make zlib1g-dev libbz2-dev libreadline-dev libssl-dev python-openssl
+
+# Install pyenv
+RUN curl https://pyenv.run | bash
+ENV PATH="/root/.pyenv/bin:$PATH"
+RUN eval "$(pyenv init -)"
+
+# Install python
+ARG PYTHON_VERSION=3.7.6
+RUN env PYTHON_CONFIGURE_OPTS="--enable-shared" pyenv install ${PYTHON_VERSION}
+RUN pyenv global ${PYTHON_VERSION}
+ENV PATH="/root/.pyenv/shims:$PATH"
+
+# Install poetry
+RUN curl -sSL https://raw.githubusercontent.com/python-poetry/poetry/master/get-poetry.py | python
+ENV PATH="/root/.poetry/bin:$PATH"
+RUN poetry config virtualenvs.in-project true
+
+# If you don't have pyproject.toml and poetry.lock
+RUN poetry new app
+WORKDIR app
+
+# Install dependencies in virtual environment
+RUN poetry add numpy
+
+# If instead you have application code, deps.edn pyproject.toml and poetry.lock:
+# COPY . /app/
+# RUN poetry install
+
+# Write deps.edn
+RUN echo '{:deps {cnuernber/libpython-clj {:mvn/version "1.44"} nrepl/nrepl {:mvn/version "0.7.0"} org.clojure/tools.deps.alpha {:mvn/version "0.8.677"} cider/cider-nrepl {:mvn/version "0.21.1"}} :aliases {:nREPL {:extra-deps {nrepl/nrepl {:mvn/version "0.7.0"}}}}}' > deps.edn
+
+# To initalize libpython-clj in the REPL:
+# (py/initialize! :python-executable "/root/app/.venv/bin/python" :library-path "/root/.pyenv/versions/3.7.6/lib/libpython3.7m.so")

@@ -1,0 +1,7 @@
+#!/bin/bash
+
+set -e
+
+pushd dockerfiles
+docker build -t docker-pyenv-poetry -f PyenvPoetryDockerfile --build-arg PYTHON_VERSION=3.7.6 .
+popd
