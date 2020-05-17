@@ -1,27 +1,40 @@
 FROM clojure:openjdk-11-tools-deps
 
+# set up user
+ARG USERID
+ARG GROUPID
+ARG USERNAME
+
+RUN groupadd -g $GROUPID $USERNAME
+RUN useradd -u $USERID -g $GROUPID $USERNAME
+RUN mkdir /home/$USERNAME && chown $USERNAME:$USERNAME /home/$USERNAME
+
+# install build depndencies
 RUN apt-get update &&\
-    apt-get install -y curl gcc make zlib1g-dev libbz2-dev libreadline-dev libssl-dev python-openssl
+    apt-get install -y git curl gcc make zlib1g-dev libbz2-dev libreadline-dev libssl-dev python-openssl
 
 # Install pyenv
+ENV PYENV_ROOT="/home/pyenv"
+ENV PATH="$PYENV_ROOT/bin:$PATH"
+ENV PATH="$PYENV_ROOT/shims:$PATH"
 RUN curl https://pyenv.run | bash
-ENV PATH="/root/.pyenv/bin:$PATH"
 RUN eval "$(pyenv init -)"
 
 # Install python
 ARG PYTHON_VERSION=3.7.6
 RUN env PYTHON_CONFIGURE_OPTS="--enable-shared" pyenv install ${PYTHON_VERSION}
 RUN pyenv global ${PYTHON_VERSION}
-ENV PATH="/root/.pyenv/shims:$PATH"
 
 # Install poetry
+ENV POETRY_HOME="/home/poetry" \
+    POETRY_VIRTUALENVS_IN_PROJECT=true
+ENV PATH="$POETRY_HOME/bin:$PATH"
 RUN curl -sSL https://raw.githubusercontent.com/python-poetry/poetry/master/get-poetry.py | python
-ENV PATH="/root/.poetry/bin:$PATH"
-RUN poetry config virtualenvs.in-project true
+
+WORKDIR /home/$USERNAME
 
 # If you don't have pyproject.toml and poetry.lock
-RUN poetry new app
-WORKDIR app
+RUN poetry new /home/$USERNAME
 
 # Install dependencies in virtual environment
 RUN poetry add numpy
@@ -33,5 +46,4 @@ RUN poetry add numpy
 # Write deps.edn
 RUN echo '{:deps {cnuernber/libpython-clj {:mvn/version "1.44"} nrepl/nrepl {:mvn/version "0.7.0"} org.clojure/tools.deps.alpha {:mvn/version "0.8.677"} cider/cider-nrepl {:mvn/version "0.21.1"}} :aliases {:nREPL {:extra-deps {nrepl/nrepl {:mvn/version "0.7.0"}}}}}' > deps.edn
 
-# To initalize libpython-clj in the REPL:
-# (py/initialize! :python-executable "/root/app/.venv/bin/python" :library-path "/root/.pyenv/versions/3.7.6/lib/libpython3.7m.so")
+USER $USERNAME

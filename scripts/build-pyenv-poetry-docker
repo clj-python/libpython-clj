@@ -3,5 +3,5 @@
 set -e
 
 pushd dockerfiles
-docker build -t docker-pyenv-poetry -f PyenvPoetryDockerfile --build-arg PYTHON_VERSION=3.7.6 .
+docker build -t docker-pyenv-poetry -f PyenvPoetryDockerfile --build-arg PYTHON_VERSION=3.7.6 --build-arg USERID=$(id -u) --build-arg GROUPID=$(id -u) --build-arg USERNAME=$USER .
 popd
