@@ -42,8 +42,6 @@ RUN poetry add numpy
 # If instead you have application code, deps.edn pyproject.toml and poetry.lock:
 # COPY . /app/
 # RUN poetry install
-
-# Write deps.edn
-RUN echo '{:deps {cnuernber/libpython-clj {:mvn/version "1.44"} nrepl/nrepl {:mvn/version "0.7.0"} org.clojure/tools.deps.alpha {:mvn/version "0.8.677"} cider/cider-nrepl {:mvn/version "0.21.1"}} :aliases {:nREPL {:extra-deps {nrepl/nrepl {:mvn/version "0.7.0"}}}}}' > deps.edn
+EXPOSE 8888
 
 USER $USERNAME

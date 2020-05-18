@@ -1,3 +1,3 @@
 #!/bin/bash
 
-clojure -R:nREPL -m nrepl.cmdline --middleware '[cider.nrepl/cider-middleware]'
+clojure -R:nREPL -m nrepl.cmdline --port 8888 --middleware '[cider.nrepl/cider-middleware]'
