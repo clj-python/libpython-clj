@@ -31,17 +31,17 @@ ENV POETRY_HOME="/home/poetry" \
 ENV PATH="$POETRY_HOME/bin:$PATH"
 RUN curl -sSL https://raw.githubusercontent.com/python-poetry/poetry/master/get-poetry.py | python
 
-WORKDIR /home/$USERNAME
+WORKDIR /home/$USERNAME/libpython-clj
 
 # If you don't have pyproject.toml and poetry.lock
-RUN poetry new /home/$USERNAME
-
-# Install dependencies in virtual environment
+RUN poetry init --no-interaction
 RUN poetry add numpy
 
-# If instead you have application code, deps.edn pyproject.toml and poetry.lock:
-# COPY . /app/
+# If you have your own pyproject.toml and poetry.lock:
+# COPY pyproject.toml poetry.lock .
 # RUN poetry install
-EXPOSE 8888
+
+# Start nREPL on localhost:8888
+RUN echo '{:bind "0.0.0.0" :port 8888}' > .nrepl.edn
 
 USER $USERNAME

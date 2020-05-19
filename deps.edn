@@ -6,10 +6,11 @@
         camel-snake-kebab        {:mvn/version "0.4.0"}
         techascent/tech.datatype {:mvn/version "5.0-beta-30"}
         org.clojure/data.json    {:mvn/version "0.2.7"}
+        nrepl/nrepl {:mvn/version "0.7.0"}
+        cider/cider-nrepl {:mvn/version "0.21.1"}
         }
  :aliases {:nREPL {:extra-deps {
                                 nrepl/nrepl {:mvn/version "0.7.0"}
-                                cider/cider-nrepl {:mvn/version "0.21.1"}
                                 }
                    }}
  }
