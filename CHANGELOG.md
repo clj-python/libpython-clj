@@ -1,4 +1,7 @@
 # Time for a ChangeLog!
+## 1.45
+ * tech.datatype - 5.0 release
+ 
 ## 1.43
  * `tech.datatype` - latest version to work with `tech.ml.dataset`.
 
