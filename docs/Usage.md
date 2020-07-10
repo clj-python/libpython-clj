@@ -8,6 +8,15 @@ item access is optional and happens via the `__getitem__` and `__setitem__` attr
 This is important to realize in that the code below doesn't look like python because we are
 referencing the item and attribute systems by name and not via '.' or '[]'.
 
+This would result in the following analogous code (full example [further on](#dataframe-access-full-example)):
+
+```python
+table.loc[row_date]
+```
+
+```clojure
+(get-item (get-attr table :loc) row-date)
+```
 
 ### Installation
 
@@ -216,6 +225,31 @@ user> (att-type-map ones-ary)
 }
 ```
 
+### DataFrame access full example
+
+Here's how to create Pandas DataFrame and accessing its rows via `loc` in both Python and Clojure:
+
+```python
+# Python
+import numpy as np
+import pandas as pan
+
+dates = pan.date_range("1/1/2000", periods=8)
+table = pan.DataFrame(np.random.randn(8, 4), index=dates, columns=["A", "B", "C", "D"])
+row_date = pan.date_range(start="2000-01-01", end="2000-01-01")
+table.loc[row_date]
+```
+
+```clojure
+; Clojure
+(require-python '[numpy :as np])
+(require-python '[pandas :as pan])
+
+(def dates (pan/date_range "1/1/2000" :periods 8))
+(def table (pan/DataFrame (call-attr np/random :randn 8 4) :index dates :columns ["A" "B" "C" "D"]))
+(def row-date (pan/date_range :start "2000-01-01" :end "2000-01-01"))
+(get-item (get-attr table :loc) row-date)
+```
 
 ### Errors
 
