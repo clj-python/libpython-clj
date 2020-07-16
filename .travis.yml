@@ -1,4 +1,5 @@
 language: clojure
+dist: bionic
 lein: 2.9.1
 sudo: required
 before_install:
