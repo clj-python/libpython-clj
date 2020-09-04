@@ -114,7 +114,35 @@
 
   (is (set? (datafy (python/frozenset [1 2 3])))))
 
-
-
 (deftest import-python-test
   (is (= :ok (libpython-clj.require/import-python))))
+
+(require-python '[socket :bind-ns true])
+(require-python 'socket.SocketIO)
+(deftest metadata-test
+  (testing "metadata generation"
+    ;; module meta
+    (let [{line :line file :file} (meta #'socket)]
+      (is (= 1 line)
+          "Modules have line numbers")
+      (is (string? file)
+          "Modules have file paths"))
+    ;; class meta
+    (let [{line :line file :file} (meta #'socket/SocketIO)]
+      (is (int? line)
+          "Classes have line numbers")
+      (is (string? file)
+          "Classes have file paths"))
+    ;; function meta
+    (let [{line :line file :file} (meta #'socket/_intenum_converter)]
+      (is (int? line)
+          "Functions have line numbers")
+      (is (string? file)
+          "Functions have file paths"))
+    ;; method meta
+    (let [{line :line file :file} (meta #'socket.SocketIO/readable)]
+      (is (int? line)
+          "Methods have line numbers")
+      (is (string? file)
+          "Methods have file paths"))))
+
