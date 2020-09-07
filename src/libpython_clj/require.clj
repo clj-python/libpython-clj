@@ -127,7 +127,9 @@
                                   " to something without periods."))))        
         (intern
          (symbol (str *ns*))
-         (symbol import-name)
+         (with-meta (symbol import-name)
+           {:file (metadata/find-file pyobj)
+            :line 1})
          pyobj)))
     
     (when (or (not existing-py-ns?) reload?)

@@ -17,6 +17,8 @@
 (def inspect (as-jvm (import-module "inspect") {}))
 (def argspec (get-attr inspect "getfullargspec"))
 (def py-source (get-attr inspect "getsource"))
+(def py-sourcelines (get-attr inspect "getsourcelines"))
+(def py-file (get-attr inspect "getfile"))
 (def types (import-module "types"))
 (def fn-type
   (call-attr builtins "tuple"
@@ -42,10 +44,24 @@
 (def importlib (py/import-module "importlib"))
 (def importlib_util (import-module "importlib.util"))
 (def reload-module (py/get-attr importlib "reload"))
+
 (defn findspec [x]
   (let [-findspec
         (-> importlib_util (get-attr "find_spec"))]
     (-findspec x)))
+
+
+(defn find-lineno [x]
+  (try 
+    (-> x py-sourcelines last)
+    (catch Exception _
+      nil)))
+
+(defn find-file [x]
+  (try
+    (py-file x)
+    (catch Exception _
+      nil)))
 
 (defn py-fn-argspec [f]
   (if-let [spec (try (when-not (pyclass? f)
@@ -155,10 +171,6 @@
          (recur argspec' defaults' arglists))))))
 
 
-(defn py-class-argspec [class]
-  (let [constructor (py/get-attr class "__init__")]
-    (py-fn-argspec constructor)))
-
 
 (defn py-fn-metadata [fn-name x {:keys [no-arglists?]}]
   (let [fn-argspec (pyargspec x)
@@ -190,14 +202,18 @@
 
 (defn base-pyobj-map
   [item]
-  (merge {:type (py/python-type item)
-          :doc (doc item)
-          :str (.toString item)
-          :flags (pyobj-flags item)}
-         (when (has-attr? item "__module__")
-           {:module (get-attr item "__module__")})
-         (when (has-attr? item "__name__")
-           {:name (get-attr item "__name__")})))
+  (cond-> {:type  (py/python-type item)
+           :doc   (doc item)
+           :str   (.toString item)
+           :flags (pyobj-flags item)
+           :line  (find-lineno item)
+           :file  (find-file item)}
+    (has-attr? item "__module__")
+    (assoc :module (get-attr item "__module__"))
+    (has-attr? item "__name__")
+    (assoc :name (get-attr item "__name__"))
+    (and (find-lineno item) (find-file item))
+    (assoc :line (find-lineno item) :file (find-file item))))
 
 
 (defn scalar?
@@ -280,10 +296,15 @@
 
 (defn metadata-map->py-obj
   [metadata-map]
-  (case (:type metadata-map)
-    :module (import-module (:name metadata-map))
-    :type (-> (import-module (:module metadata-map))
-              (get-attr (:name metadata-map)))))
+  (try
+    (case  (:type metadata-map)
+      :module (import-module (:name metadata-map))
+      :type   (-> (import-module (:module metadata-map))
+                  (get-attr (:name metadata-map))))
+    (catch Exception _
+      ;; metatypes -- e.g. socket.SocketIO
+      (-> (import-module (:module metadata-map))
+          (get-attr (:name metadata-map))))))
 
 
 (defn get-or-create-namespace!
