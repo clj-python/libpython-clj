@@ -1,0 +1,9 @@
+#!/bin/bash
+
+scripts/build-py39-docker
+
+docker run --rm -it -u $(id -u):$(id -g) \
+  -v /$HOME/.m2:/home/$USER/.m2 \
+  -v $(pwd)/:/libpython-clj \
+  --net=host -w /libpython-clj \
+  docker-py39 scripts/py38-repl

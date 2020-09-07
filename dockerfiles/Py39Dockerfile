@@ -1,0 +1,35 @@
+# We will use Ubuntu for our image
+FROM ubuntu:latest
+
+# Updating Ubuntu packages
+
+ARG CLOJURE_TOOLS_VERSION=1.10.1.507
+
+RUN apt-get -qq update \
+    && apt install -y software-properties-common \
+    && add-apt-repository -y ppa:deadsnakes/ppa
+
+RUN apt-get -qq update && apt-get -qq -y install curl wget bzip2 openjdk-8-jdk-headless python3.9 libpython3.9 python3-pip python3-distutils\
+    && curl -o install-clojure https://download.clojure.org/install/linux-install-${CLOJURE_TOOLS_VERSION}.sh \
+    && chmod +x install-clojure \
+    && ./install-clojure && rm install-clojure \
+    && wget https://raw.githubusercontent.com/technomancy/leiningen/stable/bin/lein \
+    && chmod a+x lein \
+    && mv lein /usr/bin \
+    && apt-get -qq -y autoremove \
+    && apt-get autoclean \
+    && rm -rf /var/lib/apt/lists/* /var/log/dpkg.log
+
+
+ARG USERID
+ARG GROUPID
+ARG USERNAME
+
+RUN groupadd -g $GROUPID $USERNAME
+RUN useradd -u $USERID -g $GROUPID $USERNAME
+RUN mkdir /home/$USERNAME && chown $USERNAME:$USERNAME /home/$USERNAME
+USER $USERNAME
+
+# Install leiningen during build process
+RUN lein -v
+# RUN python3.9 -mpip install numpy

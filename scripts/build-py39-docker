@@ -1,0 +1,7 @@
+#!/bin/bash
+
+set -e
+
+pushd dockerfiles
+docker build -t docker-py39 -f Py39Dockerfile --build-arg USERID=$(id -u) --build-arg GROUPID=$(id -u) --build-arg USERNAME=$USER .
+popd
