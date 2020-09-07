@@ -292,7 +292,7 @@
                 METH_O
                 METH_STATIC
                 METH_VARARGS
-                PyCFunction_New
+                PyCFunction_NewEx
                 PyInstanceMethod_New)
 
 

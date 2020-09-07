@@ -444,11 +444,12 @@ Object's refcount is bad.  Crash is imminent"
     ;;This is a nice little tidbit, cfunction_new
     ;;steals the reference.
     (let [py-self (when py-self (incref (->python py-self)))]
-      (-> (libpy/PyCFunction_New (method-def-data->method-def
-                                  {:name method-name
-                                   :doc documentation
-                                   :function cfunc})
-                                 py-self)
+      (-> (libpy/PyCFunction_NewEx (method-def-data->method-def
+                                    {:name method-name
+                                     :doc documentation
+                                     :function cfunc})
+                                   py-self
+                                   nil)
           (wrap-pyobject)))))
 
 

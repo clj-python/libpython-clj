@@ -51,11 +51,12 @@
 ;; #endif
 
 
-(def-pylib-fn PyCFunction_New
+(def-pylib-fn PyCFunction_NewEx
   "Create a new callable from an item."
   Pointer
   [method-def (partial jna/ensure-type PyMethodDef)]
-  [self as-pyobj])
+  [self as-pyobj]
+  [module as-pyobj])
 
 
 (def-pylib-fn PyInstanceMethod_New
