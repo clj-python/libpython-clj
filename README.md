@@ -1,9 +1,13 @@
-# libpython-clj
+# JNA libpython bindings to the tech ecosystem.
 
-JNA libpython bindings to the tech ecosystem.
+### Version Info
 
 [![Clojars Project](https://img.shields.io/clojars/v/clj-python/libpython-clj.svg)](https://clojars.org/clj-python/libpython-clj)
 [![travis integration](https://travis-ci.com/clj-python/libpython-clj.svg?branch=master)](https://travis-ci.com/clj-python/libpython-clj)
+
+ - Note - Please avoid deprecated versions such as `[cnuernber/libpython-clj "1.36"]` (***note name change***).
+
+## libpython-clj features
 
 * Bridge between JVM objects and Python objects easily; use Python in your Java and
   use some Java in your Python.
