@@ -163,7 +163,7 @@
 
 (defn run-simple-string
   "Run a string expression returning a map of
-  {:globals :locals :result}.
+  {:globals :locals}.
   This uses the global __main__ dict under the covers so it matches the behavior
   of the cpython implementation with the exception of returning the various maps
   used.
