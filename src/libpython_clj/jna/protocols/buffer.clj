@@ -8,7 +8,7 @@
                      *python-library*]
              :as libpy-base]
             [tech.jna :as jna]
-            [tech.v2.datatype :as dtype])
+            [tech.v3.datatype :as dtype])
   (:import [com.sun.jna Pointer]
            [libpython_clj.jna PyBuffer]))
 

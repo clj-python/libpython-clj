@@ -36,11 +36,9 @@
             [libpython-clj.python.gc :as pygc]
             [clojure.stacktrace :as st]
             [tech.jna :as jna]
-            [tech.v2.datatype :as dtype]
-            [tech.v2.datatype.protocols :as dtype-proto]
-            [tech.v2.datatype.casting :as casting]
-            [tech.resource :as resource]
-            [tech.v2.tensor]
+            [tech.v3.datatype :as dtype]
+            [tech.v3.datatype.protocols :as dtype-proto]
+            [tech.v3.datatype.casting :as casting]
             [clojure.tools.logging :as log])
   (:import [com.sun.jna Pointer CallbackReference]
            [com.sun.jna.ptr PointerByReference]
@@ -52,10 +50,10 @@
             CFunction$NoArgFunction
             PyMethodDef]
            [java.nio.charset StandardCharsets]
-           [tech.v2.datatype ObjectIter ObjectReader]
-           [tech.v2.datatype.typed_buffer TypedBuffer]
-           [tech.v2.tensor.protocols PTensor]
            [java.util RandomAccess Map Set Map$Entry]
+           [tech.v3.datatype ObjectReader NDBuffer Buffer]
+           [tech.v3.datatype.array_buffer ArrayBuffer]
+           [tech.v3.datatype.native_buffer NativeBuffer]
            [clojure.lang Symbol Keyword
             IPersistentMap
             IPersistentVector
@@ -464,7 +462,7 @@ Object's refcount is bad.  Crash is imminent"
           n-items (long (libpy/PyObject_Length tuple))]
       (reify ObjectReader
         (lsize [_] n-items)
-        (read [_ idx]
+        (readObject [_ idx]
           (with-gil
             (libpy/PyTuple_GetItem tuple idx)))))))
 
@@ -660,9 +658,11 @@ Object's refcount is bad.  Crash is imminent"
   (->python [item options] item)
   PyObject
   (->python [item options] (.getPointer item))
-  PTensor
+  NDBuffer
   (->python [item options] (py-proto/as-numpy item options))
-  TypedBuffer
+  ArrayBuffer
+  (->python [item options] (py-proto/as-numpy item options))
+  NativeBuffer
   (->python [item options] (py-proto/as-numpy item options))
   Object
   (->python [item options]
@@ -911,17 +911,17 @@ Object's refcount is bad.  Crash is imminent"
                                item-conversion-fn
                                item-conversion-fn)]))))
             cur-item-store (atom (next-fn nil))]
-        (reify ObjectIter
+        (reify
           jna/PToPtr
           (is-jna-ptr-convertible? [item] true)
           (->ptr-backing-store [item] py-iter)
+
+          java.util.Iterator
           (hasNext [obj-iter]
             (not (nil? @cur-item-store)))
           (next [obj-iter]
             (-> (swap-vals! cur-item-store next-fn)
-                ffirst))
-          (current [obj-iter]
-            (first @cur-item-store)))))))
+                ffirst)))))))
 
 
 (defn python->jvm-iterable

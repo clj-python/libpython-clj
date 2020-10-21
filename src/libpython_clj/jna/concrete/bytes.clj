@@ -8,7 +8,7 @@
                      size-t-type
                      *python-library*]
              :as libpy-base]
-            [tech.v2.datatype :as dtype]
+            [tech.v3.datatype :as dtype]
             [tech.jna :as jna])
   (:import [com.sun.jna Pointer]))
 
@@ -45,7 +45,7 @@
    success, and NULL on failure. If v is NULL, the contents of the bytes object are
    uninitialized."
   Pointer
-  [v dtype/as-nio-buffer]
+  [v dtype/->nio-buffer]
   [len jna/size-t])
 
 

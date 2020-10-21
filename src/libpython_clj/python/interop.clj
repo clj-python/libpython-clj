@@ -4,7 +4,6 @@
   type or function, something that requires knowledge of the C structures behind
   everything that knowledge should be encoded in this file."
   (:require [libpython-clj.jna :as libpy]
-            [libpython-clj.jna.base :as libpy-base]
             [libpython-clj.python.logging
              :refer [log-error log-warn log-info]]
             [libpython-clj.python.interpreter
@@ -22,7 +21,7 @@
             [clojure.stacktrace :as st]
             [tech.jna :as jna]
             ;;need memset
-            [tech.v2.datatype.nio-buffer :as nio-buf]
+            [tech.v3.datatype.native-buffer :as native-buffer]
             [tech.resource :as resource]
             [libpython-clj.python.object
              :refer [wrap-pyobject incref-wrap-pyobject
@@ -225,7 +224,7 @@
          ;;We allocate our memory manually here else the system will gc the
          ;;type object memory when the type goes out of scope.
          new-mem (jna/malloc-untracked type-obj-size)
-         _ (nio-buf/memset new-mem 0 type-obj-size)
+         _ (.setMemory (native-buffer/unsafe) (Pointer/nativeValue new-mem) type-obj-size (unchecked-byte 0))
          new-type (PyTypeObject. new-mem)]
      (set! (.tp_name new-type) type-name-ptr)
      (set! (.tp_init new-type) tp_init)

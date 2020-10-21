@@ -165,11 +165,6 @@ incomplete especially if the object has no 'keys' attribute."))
     "Never return nil.  Copy or otherwise, numpy or bust."))
 
 
-(defprotocol PPyObjectBridgeToTensor
-  (as-tensor [item]
-    "Return a tech.v2.tensor object from the item that shares the data backing store."))
-
-
 (defmulti pyobject->jvm
   (fn [pyobj]
     (python-type pyobj)))

@@ -43,20 +43,21 @@
             [libpython-clj.python.gc :as pygc]
             [clojure.stacktrace :as st]
             [tech.jna :as jna]
-            [tech.v2.tensor :as dtt]
-            [tech.v2.datatype.casting :as casting]
-            [tech.v2.datatype.functional :as dtype-fn]
-            [tech.v2.datatype :as dtype]
+            [tech.v3.tensor :as dtt]
+            [tech.v3.datatype.protocols :as dtype-proto]
+            [tech.v3.datatype.casting :as casting]
+            [tech.v3.datatype.functional :as dtype-fn]
+            [tech.v3.datatype.argops :as argops]
+            [tech.v3.datatype :as dtype]
             [clojure.set :as c-set]
             [clojure.tools.logging :as log])
   (:import [java.util Map RandomAccess List Map$Entry Iterator UUID]
            [java.util.concurrent ConcurrentHashMap ConcurrentLinkedQueue]
            [clojure.lang IFn Symbol Keyword Seqable
             Fn MapEntry Range LongRange]
-           [tech.v2.datatype ObjectReader ObjectWriter ObjectMutable
-            ObjectIter MutableRemove]
-           [tech.v2.datatype.typed_buffer TypedBuffer]
-           [tech.v2.tensor.protocols PTensor]
+           [tech.v3.datatype NDBuffer ObjectBuffer]
+           [tech.v3.datatype.array_buffer ArrayBuffer]
+           [tech.v3.datatype.native_buffer NativeBuffer]
            [com.sun.jna Pointer]
            [tech.resource GCReference]
            [java.io Writer]
@@ -440,28 +441,23 @@
       (bridge-pyobject
        pyobj
        interpreter
-       ObjectReader
+       ObjectBuffer
        (lsize [reader]
               (long (py-call "__len__")))
-       (read [reader idx]
+       (readObject [reader idx]
              (py-call "__getitem__" idx))
        (sort [reader obj-com]
              (when-not (= nil obj-com)
                (throw (ex-info "Python lists do not support comparators" {})))
              (py-call "sort"))
-       ObjectWriter
-       (write [writer idx value]
+       (writeObject [writer idx value]
               (py-call "__setitem__" idx value))
        (remove [writer ^int idx]
                (py-call "__delitem__" idx))
-       ObjectMutable
-       (insert [mutable idx value]
-               (py-call "insert" idx value))
-       (append [mutable value]
-               (py-call "append" value))
-       MutableRemove
-       (mremove [mutable idx]
-                (py-call "__delitem__" idx))))))
+       (add [mutable idx value]
+            (py-call "insert" idx value))
+       (add [mutable value]
+            (.add mutable (.size mutable) value))))))
 
 
 
@@ -706,10 +702,10 @@
            py-proto/PPyObjectBridgeToList
            (as-list [item]
                     (generic-python-as-list pyobj))
-           py-proto/PPyObjectBridgeToTensor
+           dtype-proto/PToTensor
            (as-tensor [item]
                       (-> (numpy->desc item)
-                          dtt/buffer-descriptor->tensor))))))))
+                          dtt/nd-buffer-descriptor->tensor))))))))
 
 
 (defmethod pyobject-as-jvm :default
@@ -1041,12 +1037,12 @@
       (jvm-list-as-python item)
       :else
       (jvm-iterable-as-python item)))
-  TypedBuffer
-  (as-python [item options]
-    (py-proto/as-numpy item options))
-  PTensor
-  (as-python [item options]
-    (py-proto/as-numpy item options))
+  NDBuffer
+  (as-python [item options] (py-proto/as-numpy item options))
+  ArrayBuffer
+  (as-python [item options] (py-proto/as-numpy item options))
+  NativeBuffer
+  (as-python [item options] (py-proto/as-numpy item options))
   Iterator
   (as-python [item options]
     (jvm-iterator-as-python item))
@@ -1085,7 +1081,7 @@
           np-ctypes (-> (pyinterop/import-module "numpy.ctypeslib")
                         as-jvm)
           dtype-size (casting/numeric-byte-width datatype)
-          max-stride-idx (dtype-fn/argmax strides)
+          max-stride-idx (argops/argmax strides)
           buffer-len (* (long (dtype/get-value shape max-stride-idx))
                         (long (dtype/get-value strides max-stride-idx)))
           n-elems (quot buffer-len dtype-size)
@@ -1112,12 +1108,11 @@
 (extend-type Object
   py-proto/PJvmToNumpy
   (->numpy [item options]
-    (-> (dtt/ensure-buffer-descriptor item)
+    (-> (dtt/ensure-nd-buffer-descriptor item)
         descriptor->numpy))
   py-proto/PJvmToNumpyBridge
   (as-numpy [item options]
-    (when-let [desc (-> (dtt/ensure-tensor item)
-                        dtype/as-buffer-descriptor)]
+    (when-let [desc (dtt/ensure-nd-buffer-descriptor item)]
       (descriptor->numpy desc))))
 
 

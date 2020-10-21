@@ -1,5 +1,5 @@
 (ns libpython-clj.python
-  (:require [tech.parallel.utils :refer [export-symbols]]
+  (:require [tech.v3.datatype.export-symbols :refer [export-symbols]]
             [libpython-clj.python.interop :as pyinterop]
             [libpython-clj.python.interpreter :as pyinterp]
             [libpython-clj.python.object :as pyobj]
@@ -39,8 +39,7 @@
                 call-attr-kw
                 len
                 as-map
-                as-list
-                as-tensor)
+                as-list)
 
 
 (export-symbols libpython-clj.python.object
