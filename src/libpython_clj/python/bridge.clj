@@ -531,16 +531,16 @@
                     (as-list)
                     vec)
           strides (-> (get-attr ctypes "strides")
-                    (as-list)
-                    vec)
+                      (as-list)
+                      vec)
           long-addr (get-attr ctypes "data")
           hash-ary {:ctypes-map ctypes}
-          ptr-val (-> (Pointer. long-addr)
-                      (pygc/track #(get hash-ary :ctypes-map)))]
-      {:ptr ptr-val
-       :datatype np-dtype
-       :shape shape
-       :strides strides})))
+          ptr-val long-addr]
+      (-> {:ptr ptr-val
+           :elemwise-datatype np-dtype
+           :shape shape
+           :strides strides}
+          (pygc/track #(get hash-ary :ctypes-map))))))
 
 
 (defmethod py-proto/python-obj-iterator :default
@@ -1072,7 +1072,7 @@
 
 
 (defn descriptor->numpy
-  [{:keys [ptr shape strides datatype] :as buffer-desc}]
+  [{:keys [ptr shape strides elemwise-datatype] :as buffer-desc}]
   (with-gil
     (let [stride-tricks (-> (pyinterop/import-module "numpy.lib.stride_tricks")
                             as-jvm)
@@ -1080,19 +1080,19 @@
                      as-jvm)
           np-ctypes (-> (pyinterop/import-module "numpy.ctypeslib")
                         as-jvm)
-          dtype-size (casting/numeric-byte-width datatype)
+          dtype-size (casting/numeric-byte-width elemwise-datatype)
           max-stride-idx (argops/argmax strides)
           buffer-len (* (long (dtype/get-value shape max-stride-idx))
                         (long (dtype/get-value strides max-stride-idx)))
           n-elems (quot buffer-len dtype-size)
-          lvalue (Pointer/nativeValue ^Pointer ptr)
+          lvalue (long ptr)
           void-p (call-attr ctypes "c_void_p" lvalue)
           actual-ptr (call-attr
                       ctypes "cast" void-p
                       (call-attr
                        ctypes "POINTER"
                        (py-proto/get-attr ctypes
-                                          (datatype->ptr-type-name datatype))))
+                                          (datatype->ptr-type-name elemwise-datatype))))
 
           initial-buffer (call-attr
                           np-ctypes "as_array"
@@ -1112,8 +1112,9 @@
         descriptor->numpy))
   py-proto/PJvmToNumpyBridge
   (as-numpy [item options]
-    (when-let [desc (dtt/ensure-nd-buffer-descriptor item)]
-      (descriptor->numpy desc))))
+    (when (dtype-proto/convertible-to-native-buffer? item)
+      (when-let [desc (dtt/ensure-nd-buffer-descriptor item)]
+        (descriptor->numpy desc)))))
 
 
 (defn ->numpy
