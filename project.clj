@@ -19,7 +19,9 @@
                       :output-path "docs"
                       :doc-paths ["topics"]
                       :source-uri "https://github.com/clj-python/libpython-clj/blob/master/{filepath}#L{line}"
-                      :namespaces [libpython-clj.python]}}}
+                      :namespaces [libpython-clj.python
+                                   libpython-clj.require
+                                   libpython-clj.python.np-array]}}}
   :java-source-paths ["java"]
   :aliases {"codox" ["with-profile" "codox,dev" "codox"]}
 
