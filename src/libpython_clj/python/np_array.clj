@@ -1,4 +1,7 @@
 (ns libpython-clj.python.np-array
+  "Bindings for deeper intergration of numpy into the tech.v3.datatype system.  This allows somewhat more
+  seamless usage of numpy arrays in datatype and tensor functionality such as enabling
+  the tech.v3.tensor/ensure-tensor call to work with numpy arrays (as zero copying when possible)."
   (:require [tech.v3.datatype.protocols :as dtype-proto]
             [tech.v3.tensor :as dtt]
             [libpython-clj.python.interpreter :as py-interp]
@@ -71,45 +74,41 @@
         (py-bridge/numpy->desc item))))))
 
 
-(def np-mod
+(def np-mod*
+  "Delay that dereferences to the python numpy module"
   (py-bridge/pydelay
    (-> (py-interop/import-module "numpy")
        (py-proto/as-jvm {}))))
 
 
-(defn- dispatch-unary-op
-  [op lhs options]
-  (if (keyword? op)
-    (if (= op :-)
-      (py-proto/call-attr lhs "__neg__")
-      (py-proto/call-attr @np-mod (name op) lhs))
-    (throw (Exception. "Unimplemented"))))
+(comment
 
+  ;;Dispatch table for what tech.v3.datatype.functional methods are found in the numpy module.
 
-(defn- dispatch-binary-op
-  [op lhs rhs options]
-  (case op
-    :max (py-proto/call-attr @np-mod "max" lhs rhs)
-    :min (py-proto/call-attr @np-mod "min" lhs rhs)
-    :+ (py-proto/call-attr @np-mod "add" lhs rhs)
-    :- (py-proto/call-attr @np-mod "subtract" lhs rhs)
-    :div (py-proto/call-attr @np-mod "divide" lhs rhs)
-    :* (py-proto/call-attr @np-mod "multiply" lhs rhs)
-    :pow (py-proto/call-attr @np-mod "power" lhs rhs)
-    :quot (py-proto/call-attr @np-mod "floor_divide" lhs rhs)
-    :rem (py-proto/call-attr @np-mod "mod" lhs rhs)
-    :bit-and (py-proto/call-attr @np-mod "bitwise_and" lhs rhs)
-    :bit-flip (py-proto/call-attr @np-mod "bitwise_not" lhs rhs)
-    :bit-or (py-proto/call-attr @np-mod "bitwise_or" lhs rhs)
-    :bit-xor (py-proto/call-attr @np-mod "bitwise_xor" lhs rhs)
-    :bit-shift-left (py-proto/call-attr @np-mod "left_shift" lhs rhs)
-    :bit-shift-right (py-proto/call-attr @np-mod "right_shift" lhs rhs)
-    :and (py-proto/call-attr @np-mod "logical_and" lhs rhs)
-    :or (py-proto/call-attr @np-mod "logical_or" lhs rhs)
-    :not (py-proto/call-attr @np-mod "logical_not" lhs rhs)
-    :xor (py-proto/call-attr @np-mod "logical_xor" lhs rhs)
-    :< (py-proto/call-attr @np-mod "less" lhs rhs)
-    :<= (py-proto/call-attr @np-mod "less_equal" lhs rhs)
-    :eq (py-proto/call-attr @np-mod "equal" lhs rhs)
-    :> (py-proto/call-attr @np-mod "greater" lhs rhs)
-    :>= (py-proto/call-attr @np-mod "greater_equal" lhs rhs)))
+  (defn- dispatch-binary-op
+    [op lhs rhs options]
+    (case op
+      :max (py-proto/call-attr @np-mod "max" lhs rhs)
+      :min (py-proto/call-attr @np-mod "min" lhs rhs)
+      :+ (py-proto/call-attr @np-mod "add" lhs rhs)
+      :- (py-proto/call-attr @np-mod "subtract" lhs rhs)
+      :div (py-proto/call-attr @np-mod "divide" lhs rhs)
+      :* (py-proto/call-attr @np-mod "multiply" lhs rhs)
+      :pow (py-proto/call-attr @np-mod "power" lhs rhs)
+      :quot (py-proto/call-attr @np-mod "floor_divide" lhs rhs)
+      :rem (py-proto/call-attr @np-mod "mod" lhs rhs)
+      :bit-and (py-proto/call-attr @np-mod "bitwise_and" lhs rhs)
+      :bit-flip (py-proto/call-attr @np-mod "bitwise_not" lhs rhs)
+      :bit-or (py-proto/call-attr @np-mod "bitwise_or" lhs rhs)
+      :bit-xor (py-proto/call-attr @np-mod "bitwise_xor" lhs rhs)
+      :bit-shift-left (py-proto/call-attr @np-mod "left_shift" lhs rhs)
+      :bit-shift-right (py-proto/call-attr @np-mod "right_shift" lhs rhs)
+      :and (py-proto/call-attr @np-mod "logical_and" lhs rhs)
+      :or (py-proto/call-attr @np-mod "logical_or" lhs rhs)
+      :not (py-proto/call-attr @np-mod "logical_not" lhs rhs)
+      :xor (py-proto/call-attr @np-mod "logical_xor" lhs rhs)
+      :< (py-proto/call-attr @np-mod "less" lhs rhs)
+      :<= (py-proto/call-attr @np-mod "less_equal" lhs rhs)
+      :eq (py-proto/call-attr @np-mod "equal" lhs rhs)
+      :> (py-proto/call-attr @np-mod "greater" lhs rhs)
+      :>= (py-proto/call-attr @np-mod "greater_equal" lhs rhs))))

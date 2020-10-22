@@ -1,4 +1,6 @@
 (ns libpython-clj.python
+  "Base low-level namespace for accessing Python via Clojure.  Higher level interfaces
+   are found in libpython-clj.require specifically require-python and import-python."
   (:require [tech.v3.datatype.export-symbols :refer [export-symbols]]
             [libpython-clj.python.interop :as pyinterop]
             [libpython-clj.python.interpreter :as pyinterp]
