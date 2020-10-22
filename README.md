@@ -6,6 +6,8 @@
 [![travis integration](https://travis-ci.com/clj-python/libpython-clj.svg?branch=master)](https://travis-ci.com/clj-python/libpython-clj)
 
  - Note - Please avoid deprecated versions such as `[cnuernber/libpython-clj "1.36"]` (***note name change***).
+ 
+ * [API Documentation](https://clj-python.github.io/libpython-clj/)
 
 ## libpython-clj features
 
