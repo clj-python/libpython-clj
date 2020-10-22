@@ -8,7 +8,7 @@
                      *python-library*]
              :as libpy-base]
             [tech.jna :as jna]
-            [tech.v2.datatype :as dtype])
+            [tech.v3.datatype :as dtype])
   (:import [com.sun.jna Pointer]
            [com.sun.jna.ptr PointerByReference
             LongByReference IntByReference]
@@ -27,7 +27,7 @@
   Signature:
   PyObject* (const char *s, Py_ssize_t size, const char *encoding, const char *errors)"
   ^Pointer [s size encoding errors]
-  (DirectMapped/PyUnicode_Decode (dtype/as-nio-buffer s)
+  (DirectMapped/PyUnicode_Decode (dtype/->nio-buffer s)
                                  (jna/size-t size)
                                  (str encoding)
                                  (str errors)))

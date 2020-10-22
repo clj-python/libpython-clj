@@ -1,9 +1,9 @@
 (ns libpython-clj.python-test
   (:require [libpython-clj.python :as py :refer [py. py.. py.- py* py**]]
             [libpython-clj.jna :as libpy]
-            [tech.v2.datatype :as dtype]
-            [tech.v2.datatype.functional :as dfn]
-            [tech.v2.tensor :as dtt]
+            [tech.v3.datatype :as dtype]
+            [tech.v3.datatype.functional :as dfn]
+            [tech.v3.tensor :as dtt]
             [tech.jna :as jna]
             [clojure.test :refer :all])
   (:import [java.io StringWriter]
@@ -69,27 +69,28 @@
 
 (deftest numpy-and-back
   (let [jvm-tens (dtt/->tensor (->> (range 9)
-                                    (partition 3)))]
+                                    (partition 3))
+                               :datatype :float64)]
     ;;zero-copy can't work on jvm datastructures with current JNA tech.
     ;;IT would require 'pinning' which isn't yet available.
     (is (nil? (py/as-numpy jvm-tens)))
     (let [py-tens (py/->numpy jvm-tens)]
       (is (= [[0.0 1.0 2.0] [3.0 4.0 5.0] [6.0 7.0 8.0]]
-             (-> (py/as-tensor py-tens)
+             (-> (dtt/as-tensor py-tens)
                  dtt/->jvm)))
       ;;This operation is in-place
       (let [py-trans (py/call-attr py-tens "transpose" [1 0])]
         (is (= [[0.0 1.0 2.0] [3.0 4.0 5.0] [6.0 7.0 8.0]]
-               (-> (py/as-tensor py-tens)
+               (-> (dtt/as-tensor py-tens)
                    dtt/->jvm)))
         (is (= [[0.0 3.0 6.0] [1.0 4.0 7.0] [2.0 5.0 8.0]]
-               (-> (py/as-tensor py-trans)
+               (-> (dtt/as-tensor py-trans)
                    dtt/->jvm)))
         ;;But they are sharing backing store, so mutation will travel both
         ;;ways.  Creepy action at a distance indeed
-        (dtype/copy! [5 6 7] (py/as-tensor py-trans))
+        (dtype/copy! [5 6 7] (nth (dtt/as-tensor py-trans) 0))
         (is (= [[5.0 1.0 2.0] [6.0 4.0 5.0] [7.0 7.0 8.0]]
-               (-> (py/as-tensor py-tens)
+               (-> (dtt/as-tensor py-tens)
                    dtt/->jvm))))
       (let [main-module (py/add-module "__main__")
             ^Map globals (-> (py/module-dict main-module)
@@ -100,7 +101,7 @@
                ;;zero copy almost always works the other way, however.  So there is
                ;;py/->tensor available.  Copying the numpy object will allow the
                ;;zero copy pathway to work.
-               (-> (py/as-tensor py-tens)
+               (-> (dtt/as-tensor py-tens)
                    dtt/->jvm)))))))
 
 (deftest numpy-scalars
@@ -128,7 +129,7 @@
 
 (deftest simple-print-crashed
   (let [numpy (py/import-module "numpy")]
-    (println (py/as-tensor (py/call-attr numpy "ones" [3 3])))))
+    (println (dtt/as-tensor (py/call-attr numpy "ones" [3 3])))))
 
 (deftest true-false-list
   (is (= [false true]
@@ -237,11 +238,11 @@
         linspace (py/$. np linspace)]
 
     (is (dfn/equals [2.000 2.250 2.500 2.750 3.000]
-                    (py/as-tensor (linspace 2 3 :num 5))))
+                    (dtt/as-tensor (linspace 2 3 :num 5))))
     (is (dfn/equals [2.000 2.250 2.500 2.750 3.000]
-                    (py/as-tensor (py/c$ linspace 2 3 :num 5))))
+                    (dtt/as-tensor (py/c$ linspace 2 3 :num 5))))
     (is (dfn/equals [2.000 2.250 2.500 2.750 3.000]
-                    (py/as-tensor (py/a$ np linspace 2 3 :num 5))))))
+                    (dtt/as-tensor (py/a$ np linspace 2 3 :num 5))))))
 
 (deftest syntax-sugar
   (py/initialize!)
@@ -356,7 +357,7 @@ class Foo:
                                      [4 5 6]]))]
       (is (dfn/equals (dtt/->tensor [[1 2 3]
                                      [4 5 6]])
-                      (py/as-tensor ary-data))))))
+                      (dtt/as-tensor ary-data))))))
 
 (deftest python-tuple-equals
   (testing "Python tuples have nice equal semantics."
@@ -374,7 +375,7 @@ class Foo:
   (let [ary-data (-> (py/import-module "numpy")
                      (py/$a array (range 10)))]
     (is (dfn/equals (dtt/->tensor (range 10))
-                    (py/as-tensor ary-data)))))
+                    (dtt/as-tensor ary-data)))))
 
 (deftest false-is-always-py-false
   (let [py-false (libpy/Py_False)

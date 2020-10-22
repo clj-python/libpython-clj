@@ -1,12 +1,6 @@
 (ns libpython-clj.jna
-  (:require [tech.v2.datatype :as dtype]
-            [tech.jna :as jna]
-            [tech.jna.base :as jna-base]
-            [tech.v2.datatype.typecast :as typecast]
-            [camel-snake-kebab.core :refer [->kebab-case]]
-            [tech.parallel.utils :refer [export-symbols]]
+  (:require [tech.v3.datatype.export-symbols :refer [export-symbols]]
             [libpython-clj.jna.base :as libpy-base]
-            [libpython-clj.jna.base]
             [libpython-clj.jna.interpreter :as jnainterp]
             [libpython-clj.jna.protocols.object]
             [libpython-clj.jna.protocols.iterator]
