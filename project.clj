@@ -12,7 +12,7 @@
              :codox
              {:dependencies [[codox-theme-rdash "0.1.2"]]
               :plugins [[lein-codox "0.10.7"]]
-              :codox {:project {:name "tech.ml.dataset"}
+              :codox {:project {:name "libpython-clj"}
                       :metadata {:doc/format :markdown}
                       :themes [:rdash]
                       :source-paths ["src"]
