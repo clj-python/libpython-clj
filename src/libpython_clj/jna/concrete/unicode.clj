@@ -7,8 +7,9 @@
                      find-pylib-symbol
                      *python-library*]
              :as libpy-base]
-            [tech.jna :as jna]
-            [tech.v3.datatype :as dtype])
+            [tech.v3.jna :as jna]
+            [tech.v3.datatype :as dtype]
+            [tech.v3.datatype.nio-buffer :as nio-buffer])
   (:import [com.sun.jna Pointer]
            [com.sun.jna.ptr PointerByReference
             LongByReference IntByReference]
@@ -27,7 +28,7 @@
   Signature:
   PyObject* (const char *s, Py_ssize_t size, const char *encoding, const char *errors)"
   ^Pointer [s size encoding errors]
-  (DirectMapped/PyUnicode_Decode (dtype/->nio-buffer s)
+  (DirectMapped/PyUnicode_Decode (nio-buffer/->nio-buffer s)
                                  (jna/size-t size)
                                  (str encoding)
                                  (str errors)))

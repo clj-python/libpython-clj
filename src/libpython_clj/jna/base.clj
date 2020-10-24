@@ -1,6 +1,6 @@
 (ns libpython-clj.jna.base
-  (:require [tech.jna :as jna]
-            [tech.jna.base :as jna-base])
+  (:require [tech.v3.jna :as jna]
+            [tech.v3.jna.base :as jna-base])
   (:import [com.sun.jna Pointer NativeLibrary]
            [libpython_clj.jna PyObject]
            [java.util.concurrent.atomic AtomicLong]))
@@ -110,6 +110,6 @@
 
 
 (defn find-pylib-symbol
-  [sym-name]
+  ^Pointer [sym-name]
   (.getGlobalVariableAddress ^NativeLibrary (jna-base/load-library *python-library*)
                              sym-name))

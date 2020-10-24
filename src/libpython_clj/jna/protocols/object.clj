@@ -8,8 +8,6 @@
                      size-t-type
                      *python-library*]
              :as libpy-base]
-            [tech.jna.base :as jna-base]
-            [tech.jna :as jna]
             [camel-snake-kebab.core :refer [->kebab-case]])
   (:import [com.sun.jna Pointer Native NativeLibrary]
            [com.sun.jna.ptr PointerByReference]

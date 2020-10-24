@@ -6,7 +6,7 @@
   :dependencies [[org.clojure/clojure    "1.10.2-alpha2"]
                  [camel-snake-kebab      "0.4.0"]
                  [cnuernber/dtype-next   "6.00-alpha-11"]
-                 [techascent/tech.jna    "4.01"]
+                 [techascent/tech.jna    "4.02"]
                  [org.clojure/data.json  "1.0.0"]]
   :profiles {:dev {:dependencies [[criterium "0.4.5"]]}
              :codox

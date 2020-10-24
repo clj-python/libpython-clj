@@ -19,10 +19,10 @@
               conj-forever!]
              :as pyinterp]
             [clojure.stacktrace :as st]
-            [tech.jna :as jna]
+            [tech.v3.jna :as jna]
             ;;need memset
             [tech.v3.datatype.native-buffer :as native-buffer]
-            [tech.resource :as resource]
+            [tech.v3.resource :as resource]
             [libpython-clj.python.object
              :refer [wrap-pyobject incref-wrap-pyobject
                      incref

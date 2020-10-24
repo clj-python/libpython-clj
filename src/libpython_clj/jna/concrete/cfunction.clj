@@ -8,7 +8,7 @@
                      size-t-type
                      *python-library*]
              :as libpy-base]
-            [tech.jna :as jna])
+            [tech.v3.jna :as jna])
   (:import [com.sun.jna CallbackReference Pointer Callback]
            [libpython_clj.jna
             CFunction$KeyWordFunction

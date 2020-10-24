@@ -7,8 +7,8 @@
                      size-t-type
                      *python-library*]
              :as libpy-base]
-            [tech.jna :as jna]
-            [tech.v3.datatype :as dtype])
+            [tech.v3.jna :as jna]
+            [tech.v3.datatype.nio-buffer :as nio-buffer])
   (:import [com.sun.jna Pointer]
            [libpython_clj.jna PyBuffer]))
 
@@ -102,7 +102,7 @@
 
    This function fails if len != src->len."
   Integer
-  [buf dtype/as-nio-buffer]
+  [buf nio-buffer/as-nio-buffer]
   [src (partial jna/ensure-type PyBuffer)]
   [len jna/size-t]
   [order byte])

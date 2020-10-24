@@ -35,7 +35,7 @@
             [libpython-clj.jna :as libpy]
             [libpython-clj.python.gc :as pygc]
             [clojure.stacktrace :as st]
-            [tech.jna :as jna]
+            [tech.v3.jna :as jna]
             [tech.v3.datatype :as dtype]
             [tech.v3.datatype.protocols :as dtype-proto]
             [tech.v3.datatype.casting :as casting]

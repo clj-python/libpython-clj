@@ -4,7 +4,7 @@
             [libpython-clj.python.gc :as pygc]
             [libpython-clj.python.logging
              :refer [log-error log-warn log-info]]
-            [tech.jna :as jna]
+            [tech.v3.jna :as jna]
             [clojure.java.shell :refer [sh]]
             [clojure.java.io :as io]
             [clojure.string :as s]
@@ -464,9 +464,8 @@ print(json.dumps(
       (setup-direct-mapping!)
       ;;Set program name
       (when-let [program-name (or program-name executable "")]
-        (pygc/with-stack-context
-          (libpy/PySys_SetArgv 0 (-> program-name
-                                     (jna/string->wide-ptr))))))
+        (libpy/PySys_SetArgv 0 (-> program-name
+                                   (jna/string->wide-ptr)))))
     (let [type-symbols (libpy/lookup-type-symbols)
           context (do
                     (libpy-base/set-gil-thread-id!

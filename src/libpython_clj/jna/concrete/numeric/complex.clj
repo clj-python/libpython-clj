@@ -6,7 +6,7 @@
                      ensure-pydict
                      find-pylib-symbol]
              :as libpy-base]
-            [tech.jna :as jna])
+            [tech.v3.jna :as jna])
   (:import [com.sun.jna Pointer]
            [libpython_clj.jna PyComplex PyComplex$ByValue
             PyObject]))
