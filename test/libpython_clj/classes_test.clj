@@ -1,8 +1,6 @@
 (ns libpython-clj.classes-test
   (:require [libpython-clj.python :as py]
-            [libpython-clj.jna :as pylib]
             [clojure.test :refer :all]
-            [clojure.pprint :as pp]
             [clojure.edn :as edn]))
 
 
