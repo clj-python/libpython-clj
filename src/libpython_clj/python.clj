@@ -10,7 +10,7 @@
             [libpython-clj.jna :as libpy]
             ;;Protocol implementations purely for nd-ness
             [libpython-clj.python.np-array]
-            [tech.jna :as jna])
+            [tech.v3.jna :as jna])
   (:import [com.sun.jna Pointer]
            [com.sun.jna.ptr PointerByReference]
            [java.lang.reflect Field]

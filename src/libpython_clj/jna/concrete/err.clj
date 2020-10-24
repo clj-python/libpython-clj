@@ -8,9 +8,11 @@
                      find-pylib-symbol
                      *python-library*]
              :as libpy-base]
-            [tech.jna :as jna])
+            [tech.v3.jna :as jna])
   (:import [com.sun.jna Pointer]
            [libpython_clj.jna PyObject PyTypeObject DirectMapped]))
+
+(set! *warn-on-reflection* true)
 
 
 (defn PyErr_Occurred

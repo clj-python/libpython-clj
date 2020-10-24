@@ -5,8 +5,7 @@
                      ensure-pytuple
                      ensure-pydict
                      find-pylib-symbol]
-             :as libpy-base]
-            [tech.jna :as jna])
+             :as libpy-base])
   (:import [com.sun.jna Pointer]
            [libpython_clj.jna PyObject]))
 

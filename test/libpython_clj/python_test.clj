@@ -4,7 +4,7 @@
             [tech.v3.datatype :as dtype]
             [tech.v3.datatype.functional :as dfn]
             [tech.v3.tensor :as dtt]
-            [tech.jna :as jna]
+            [tech.v3.jna :as jna]
             [clojure.test :refer :all])
   (:import [java.io StringWriter]
            [java.util Map List]

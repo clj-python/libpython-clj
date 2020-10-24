@@ -60,8 +60,6 @@ def getmultidata():
 ;;related things causes immediate failure.  Unless you feel like being pedantic,
 ;;this isn't necessary.  The python library automatically switches to normal gc-only
 ;;mode if a resource context is open.
-(alter-var-root #'tech.resource.stack/*resource-context*
-                (constantly nil))
 
 (deftest forever-test
   (doseq [items (take 10 (partition 999 (get-data)))]
