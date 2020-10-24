@@ -8,6 +8,11 @@
  - Note - Please avoid deprecated versions such as `[cnuernber/libpython-clj "1.36"]` (***note name change***).
  
  * [API Documentation](https://clj-python.github.io/libpython-clj/)
+ * This library, which has received the efforts of many excellent people, is built mainly upon
+   [cnuernber/dtype-next](https://github.com/cnuernber/dtype-next/) and 
+   [techascent/tech.jna](https://github.com/techascent/tech.jna).  It supports zerocopy transfer
+   of data to/from numpy, dynamically creating Clojure namespaces from Python modules, and has
+   a deep intergration with the Clojure language.
 
 ## libpython-clj features
 
