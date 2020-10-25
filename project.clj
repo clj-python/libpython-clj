@@ -5,7 +5,7 @@
             :url  "http://www.eclipse.org/legal/epl-v10.html"}
   :dependencies [[org.clojure/clojure    "1.10.2-alpha2"]
                  [camel-snake-kebab      "0.4.0"]
-                 [cnuernber/dtype-next   "6.00-alpha-12"]
+                 [cnuernber/dtype-next   "6.00-alpha-13"]
                  [techascent/tech.jna    "4.04"]
                  [org.clojure/data.json  "1.0.0"]]
   :profiles {:dev {:dependencies [[criterium "0.4.5"]]}
