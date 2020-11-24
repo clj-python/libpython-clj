@@ -123,7 +123,7 @@ user> test-ary
  [3 4]]
 ```
 
-We have a [document](docs/Usage.md) on all the features but beginning usage is
+We have a [document](topics/Usage.md) on all the features but beginning usage is
 pretty simple.  Import your modules, use the things from Clojure.  We have put
 effort into making sure things like sequences and ranges transfer between the two
 languages.
@@ -152,8 +152,8 @@ our test [docker containers](dockerfiles/CondaDockerfile).
 * Clojure Conj 2019 [video](https://www.youtube.com/watch?v=vQPW16_jixs) and
   [slides](https://docs.google.com/presentation/d/1uegYhpS6P2AtEfhpg6PlgBmTSIPqCXvFTWcGYG_Qk2o/edit?usp=sharing).
 * [development discussion forum](https://clojurians.zulipchat.com/#narrow/stream/215609-libpython-clj-dev)
-* [design documentation](docs/design.md)
-* [scope and garbage collection docs](https://github.com/cnuernber/libpython-clj/blob/master/docs/scopes-and-gc.md)
+* [design documentation](topics/design.md)
+* [scope and garbage collection docs](topics/scopes-and-gc.md)
 * [examples](https://github.com/gigasquid/libpython-clj-examples)
 * [docker setup](https://github.com/scicloj/docker-hub)
 * [pandas bindings (!!)](https://github.com/alanmarazzi/panthera)
@@ -167,7 +167,7 @@ our test [docker containers](dockerfiles/CondaDockerfile).
 
 New to Clojure or the JVM?  Try remixing the nextjournal entry and playing around
 there.  For more resources on learning and getting more comfortable with Clojure,
-we have an [introductory document](docs/new-to-clojure.md).
+we have an [introductory document](topics/new-to-clojure.md).
 
 
 ## Resources
