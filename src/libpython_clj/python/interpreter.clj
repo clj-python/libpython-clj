@@ -94,6 +94,7 @@ print(json.dumps(
         ;;   ..: mac and windows are for sys.platform
         :linux   "libpython%s.%sm?.so$"
         :mac     "libpython%s.%sm?.dylib$"
+        :darwin  "libpython%s.%sm?.dylib$"
         :win32   "python%s%s.dll$")
       major minor))))
 
