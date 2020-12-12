@@ -142,9 +142,13 @@ the `libpython3.Xm.so` shared library so for example if we are loading python
 3.6 we look for `libpython3.6m.so` on Linux or `libpython3.6m.dylib` on the Mac.
 
 This pathway has allowed us support Conda albeit with some work.  For examples
-using Conda, check out the facial rec repository above or look into how we
+using Conda, check out the facial rec repository a)bove or look into how we
 [build](scripts/build-conda-docker)
 our test [docker containers](dockerfiles/CondaDockerfile).
+
+## Community
+
+We like to talk about libpython-clj on [Zulip](https://clojurians.zulipchat.com/#streams/215609/libpython-clj-dev) as the conversations are persistent and searchable.
 
 
 ## Further Information
