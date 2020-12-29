@@ -1,4 +1,4 @@
-# JNA libpython bindings to the tech ecosystem.
+# JNA libpython bindings to Clojure.
 
 ### Version Info
 
