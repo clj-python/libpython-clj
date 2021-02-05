@@ -3,9 +3,9 @@
   :url "http://github.com/cnuernber/libpython-clj"
   :license {:name "Eclipse Public License"
             :url  "http://www.eclipse.org/legal/epl-v10.html"}
-  :dependencies [[org.clojure/clojure    "1.10.2-alpha2"]
+  :dependencies [[org.clojure/clojure    "1.10.2" :scope "provided"]
                  [camel-snake-kebab      "0.4.0"]
-                 [cnuernber/dtype-next   "6.00-beta-11"]
+                 [cnuernber/dtype-next   "6.00"]
                  [techascent/tech.jna    "4.04"]
                  [org.clojure/data.json  "1.0.0"]]
   :profiles {:dev {:dependencies [[criterium "0.4.5"]]}
