@@ -9,6 +9,9 @@
                  [techascent/tech.jna    "4.04"]
                  [org.clojure/data.json  "1.0.0"]]
   :profiles {:dev {:dependencies [[criterium "0.4.5"]]}
+             :jdk-16 {:jvm-opts ["--add-modules" "jdk.incubator.foreign"
+                                 "-Dforeign.restricted=permit"
+                                 "-Djava.library.path=/usr/lib/x86_64-linux-gnu"]}
              :codox
              {:dependencies [[codox-theme-rdash "0.1.2"]]
               :plugins [[lein-codox "0.10.7"]]

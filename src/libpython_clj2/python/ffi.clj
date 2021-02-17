@@ -33,7 +33,8 @@ Required for some python modules"}
    :PyGILState_Ensure {:rettype :size-t
                        :doc "Ensure this thread owns the python GIL.
 Each call must be matched with PyGILState_Release"}
-   :PyGILState_Check {:rettype :size-t}
+   :PyGILState_Check {:rettype :size-t
+                      :doc "Return 1 if gil is held, 0 otherwise"}
    :PyGILState_Release {:rettype :void
                         :argtypes [['modhdl :size-t]]
                         :doc "Release the GIL state."}
@@ -44,7 +45,8 @@ Each call must be matched with PyGILState_Release"}
                         :argtypes [['modname :string]]
                         :doc "Add a python module"}
    :PyModule_GetDict {:rettype :pointer
-                      :argtypes [['module :pointer]]}})
+                      :argtypes [['module :pointer]]
+                      :doc "Get the module dictionary"}})
 
 
 (def python-lib-def (dt-ffi/define-library python-library-fns))
@@ -154,10 +156,10 @@ Each call must be matched with PyGILState_Release"}
   [& body]
   `(let [[gil-state# prev-id#]
         (locking #'gil-thread-id
-          (let [prev-id# (.get #'gil-thread-id)
+          (let [prev-id# (.get gil-thread-id)
                 thread-id# (-> (Thread/currentThread)
                                (.getId))]
-            (when-not #(== prev-id# thread-id#)
+            (when-not (== prev-id# thread-id#)
               (.set gil-thread-id thread-id#)
               [(PyGILState_Ensure) prev-id#])))]
     (try
@@ -168,6 +170,7 @@ Each call must be matched with PyGILState_Release"}
           (locking #'gil-thread-id
             (PyGILState_Release gil-state#)
             (.set gil-thread-id prev-id#)))))))
+
 
 (def start-symbol-table
   {:py-single-input 256
