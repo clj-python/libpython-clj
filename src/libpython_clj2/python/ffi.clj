@@ -30,13 +30,13 @@
 Required for some python modules"}
    :PyEval_SaveThread {:rettype :pointer
                        :doc "Release the GIL on the current thread"}
-   :PyGILState_Ensure {:rettype :size-t
+   :PyGILState_Ensure {:rettype :int32
                        :doc "Ensure this thread owns the python GIL.
 Each call must be matched with PyGILState_Release"}
-   :PyGILState_Check {:rettype :size-t
+   :PyGILState_Check {:rettype :int32
                       :doc "Return 1 if gil is held, 0 otherwise"}
    :PyGILState_Release {:rettype :void
-                        :argtypes [['modhdl :size-t]]
+                        :argtypes [['modhdl :int32]]
                         :doc "Release the GIL state."}
    :PyImport_ImportModule {:rettype :pointer
                            :argtypes [['modname :string]]
