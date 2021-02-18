@@ -3,10 +3,12 @@
   (:require [tech.v3.datatype.ffi :as dt-ffi]
             [tech.v3.datatype.struct :as dt-struct]
             [tech.v3.datatype.errors :as errors]
+            [tech.v3.datatype.native-buffer :as native-buffer]
             [tech.v3.resource :as resource]
             [libpython-clj.python.gc :as pygc]
             [clojure.tools.logging :as log])
-  (:import [java.util.concurrent.atomic AtomicLong]))
+  (:import [java.util.concurrent.atomic AtomicLong]
+           [tech.v3.datatype.ffi Pointer]))
 
 
 (def python-library-fns
@@ -38,6 +40,13 @@ Each call must be matched with PyGILState_Release"}
    :PyGILState_Release {:rettype :void
                         :argtypes [['modhdl :int32]]
                         :doc "Release the GIL state."}
+   :PyObject_GetAttrString {:rettype :pointer
+                            :argtypes [['obj :pointer]
+                                       ['attname :string]]
+                            :doc "Return an attribute via string name"}
+   :PyUnicode_AsUTF8 {:rettype :pointer
+                      :argtypes [['obj :pointer]]
+                      :doc "convert a python unicode object to a utf8 encoded string"}
    :PyImport_ImportModule {:rettype :pointer
                            :argtypes [['modname :string]]
                            :doc "Import a python module"}
@@ -48,12 +57,30 @@ Each call must be matched with PyGILState_Release"}
                       :argtypes [['module :pointer]]
                       :doc "Get the module dictionary"}})
 
+(def size-t-type (dt-ffi/size-t-type))
+
 
 (def python-lib-def (dt-ffi/define-library python-library-fns))
+(def pyobject-struct-type (dt-struct/define-datatype!
+                            :pyobject [{:name :ob_refcnt :datatype size-t-type}
+                                       {:name :ob_type :datatype size-t-type}]))
+
+(def ^{:tag 'long} pytype-offset
+  (first (dt-struct/offset-of pyobject-struct-type :ob_type)))
+
+(defn ptr->struct
+  [struct-type ptr-type]
+  (let [n-bytes (:datatype-size (dt-struct/get-struct-def struct-type))
+        src-ptr (dt-ffi/->pointer ptr-type)
+        nbuf (native-buffer/wrap-address (.address src-ptr)
+                                         n-bytes
+                                         src-ptr)]
+    (dt-struct/inplace-new-struct struct-type nbuf)))
 
 
 (defonce ^:private library* (atom nil))
-(defonce ^:private library-path* (atom "python3.8"))
+(defonce ^:private library-path* (atom nil))
+
 
 
 (defn set-library!
@@ -170,6 +197,34 @@ Each call must be matched with PyGILState_Release"}
           (locking #'gil-thread-id
             (PyGILState_Release gil-state#)
             (.set gil-thread-id prev-id#)))))))
+
+
+(comment
+  (do
+    (initialize! "python3.8")
+    (def test-module (with-gil (PyImport_AddModule "__main__")))
+    )
+  )
+
+
+(defn pyobject-type
+  ^Pointer [pobj]
+  (if (= :int32 (dt-ffi/size-t-type))
+    (Pointer. (.getInt (native-buffer/unsafe)
+                       (+ (.address (dt-ffi/->pointer pobj)) pytype-offset)))
+    (Pointer. (.getLong (native-buffer/unsafe)
+                        (+ (.address (dt-ffi/->pointer pobj)) pytype-offset)))))
+
+
+(defn pytype-name
+  ^String [type-pyobj]
+  (with-gil
+    (if-let [obj-name (PyObject_GetAttrString type-pyobj "__name__")]
+      (-> (PyUnicode_AsUTF8 obj-name)
+          (dt-ffi/c->string))
+      (do
+        (log/warn "Failed to get typename for object")
+        "failed-typename-lookup"))))
 
 
 (def start-symbol-table
