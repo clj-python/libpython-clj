@@ -1,0 +1,13 @@
+PyObject size: 8
+PyTypeObject size: 204
+type.tp_basicsize: 16
+type.tp_as_number: 48
+type.tp_as_buffer: 80
+type.tp_finalize: 196
+py_hash_t: 4
+Py_TPFLAGS_DEFAULT: 262144
+PyObject details
+object size: 8
+ob_refcnt offset: 0
+ob_type   offset: 4
+gilstate size: 4
