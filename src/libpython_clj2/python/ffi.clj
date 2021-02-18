@@ -6,8 +6,11 @@
             [tech.v3.datatype.native-buffer :as native-buffer]
             [tech.v3.resource :as resource]
             [libpython-clj.python.gc :as pygc]
+            [camel-snake-kebab.core :as csk]
             [clojure.tools.logging :as log])
   (:import [java.util.concurrent.atomic AtomicLong]
+           [java.util.concurrent ConcurrentHashMap]
+           [java.util.function Function]
            [tech.v3.datatype.ffi Pointer]))
 
 
@@ -225,6 +228,20 @@ Each call must be matched with PyGILState_Release"}
       (do
         (log/warn "Failed to get typename for object")
         "failed-typename-lookup"))))
+
+
+(def ^{:tag ConcurrentHashMap} type-addr->typename-kwd (ConcurrentHashMap.))
+
+
+(defn pyobj-type-kwd
+  [pyobject]
+  (let [pytype (pyobject-type pyobject)]
+    (.computeIfAbsent type-addr->typename-kwd
+                      (.address pytype)
+                      (reify Function
+                        (apply [this type-addr]
+                          (-> (pytype-name pytype)
+                              (csk/->kebab-case-keyword)))))))
 
 
 (def start-symbol-table

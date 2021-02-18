@@ -1,4 +1,4 @@
-(ns libpython-clj.python.info
+(ns libpython-clj2.python.info
   (:require [clojure.java.shell :as sh]
             [clojure.data.json :as json]
             [clojure.tools.logging :as log])
