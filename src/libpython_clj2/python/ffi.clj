@@ -76,7 +76,28 @@ Each call must be matched with PyGILState_Release"}
                         :doc "Add a python module"}
    :PyModule_GetDict {:rettype :pointer
                       :argtypes [['module :pointer]]
-                      :doc "Get the module dictionary"}})
+                      :doc "Get the module dictionary"}
+   :PyObject_Dir {:rettype :pointer
+                  :argtypes [['pyobj :pointer]]
+                  :doc "Get a python sequence of string attribute names"}
+   :PyMapping_Check {:rettype :int32
+                     :argtypes [['pyobj :pointer]]
+                     :doc "Check if this object implements the mapping protocol"}
+   :PyMapping_Items {:rettype :pointer
+                     :argtypes [['pyobj :pointer]]
+                     :doc "Get an iterable of tuples of this map."}
+   :PySequence_Check {:rettype :int32
+                      :argtypes [['pyobj :pointer]]
+                      :doc "Check if this object implements the sequence protocol"}
+   :PySequence_Length {:rettype :size-t
+                       :argtypes [['pyobj :pointer]]
+                       :doc "Get the length of a sequence"}
+   :PySequence_GetItem {:rettype :pointer
+                        :argtypes [['pyobj :pointer]
+                                   ['idx :size-t]]
+                        :doc "Get a specific item from a sequence"}
+   :PyErr_Clear {:rettype :void}})
+
 
 (defonce size-t-type (dt-ffi/size-t-type))
 
@@ -117,6 +138,15 @@ Each call must be matched with PyGILState_Release"}
   (reset! library-impl* (dt-ffi/load-library libpath))
   (reset! library* (dt-ffi/instantiate-library python-lib-def libpath))
   (reset! library-path* libpath))
+
+
+(defn reset-library!
+  []
+  (when @library-path*
+    (reset! library* (dt-ffi/instantiate-library python-lib-def @library-path*))))
+
+;;Useful for repling around
+(reset-library!)
 
 
 (defn library-loaded? [] (not (nil? @library*)))
@@ -255,14 +285,6 @@ Each call must be matched with PyGILState_Release"}
             (.set gil-thread-id prev-id#)))))))
 
 
-(comment
-  (do
-    (initialize! "python3.8" nil nil)
-    (def test-module (with-gil (PyImport_AddModule "__main__")))
-    )
-  )
-
-
 (defn pyobject-type
   ^Pointer [pobj]
   (if (= :int32 (dt-ffi/size-t-type))
@@ -281,12 +303,17 @@ Each call must be matched with PyGILState_Release"}
               (+ (.address (dt-ffi/->pointer pobj)) pyrefcnt-offset))))
 
 
+(defn pystr->str
+  ^String [pyobj]
+  (-> (PyUnicode_AsUTF8 pyobj)
+      (dt-ffi/c->string)))
+
+
 (defn pytype-name
   ^String [type-pyobj]
   (with-gil
     (if-let [obj-name (PyObject_GetAttrString type-pyobj "__name__")]
-      (-> (PyUnicode_AsUTF8 obj-name)
-          (dt-ffi/c->string))
+      (pystr->str obj-name)
       (do
         (log/warn "Failed to get typename for object")
         "failed-typename-lookup"))))
@@ -398,6 +425,23 @@ Object's refcount is bad.  Crash is imminent"
   (when pyobj
     (Py_IncRef pyobj)
     (wrap-pyobject pyobj)))
+
+
+(defmacro with-decref
+  [vardefs & body]
+  (let [n-vars (count vardefs)]
+    `(let [~'obj-data (object-array ~n-vars)]
+       (try
+         (let [~@(mapcat (fn [[idx [varsym varform]]]
+                           [varsym `(let [vardata# ~varform]
+                                      (aset ~'obj-data vardata#)
+                                      vardata#)])
+                         (map-indexed vector (partition 2 vardefs)))]
+           ~@body)
+         (finally
+           (doseq [idx# (range ~n-vars)]
+             (when-let [pyobj#  (aget ~'obj-data idx#)]
+               (Py_DecRef pyobj#))))))))
 
 
 (def start-symbol-table

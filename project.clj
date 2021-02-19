@@ -8,7 +8,8 @@
                  [cnuernber/dtype-next   "6.02-SNAPSHOT"]
                  [techascent/tech.jna    "4.04"]
                  [org.clojure/data.json  "1.0.0"]]
-  :profiles {:dev {:dependencies [[criterium "0.4.5"]]}
+  :profiles {:dev {:dependencies [[criterium "0.4.5"]
+                                  [ch.qos.logback/logback-classic "1.1.3"]]}
              :jdk-16 {:jvm-opts ["--add-modules" "jdk.incubator.foreign"
                                  "-Dforeign.restricted=permit"
                                  "-Djava.library.path=/usr/lib/x86_64-linux-gnu"]}
