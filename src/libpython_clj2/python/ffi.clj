@@ -96,7 +96,22 @@ Each call must be matched with PyGILState_Release"}
                         :argtypes [['pyobj :pointer]
                                    ['idx :size-t]]
                         :doc "Get a specific item from a sequence"}
-   :PyErr_Clear {:rettype :void}})
+   :PyErr_Clear {:rettype :void
+                 :doc "Clear the current outstanding error"}
+   :PyFloat_AsDouble {:rettype :float64
+                     :argtypes [['pyobj :pointer]]
+                       :doc "Get a double value from a python float"}
+   :PyFloat_FromDouble {:rettype :pointer
+                       :argtypes [['data :float64]]
+                       :doc "Get a pyobject form a long."}
+
+   :PyLong_AsLongLong {:rettype :int64
+                       :argtypes [['pyobj :pointer]]
+                       :doc "Get the long value from a python integer"}
+   :PyLong_FromLongLong {:rettype :pointer
+                         :argtypes [['data :int64]]
+                         :doc "Get a pyobject form a long."}
+   })
 
 
 (defonce size-t-type (dt-ffi/size-t-type))

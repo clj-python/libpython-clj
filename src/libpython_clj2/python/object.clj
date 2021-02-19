@@ -53,10 +53,23 @@
   (py-ffi/pystr->str pyobj))
 
 
+(defmethod py-proto/->jvm :int
+  [pyobj & [options]]
+  (py-ffi/PyLong_AsLongLong pyobj))
+
+
+(defmethod py-proto/->jvm :float
+  [pyobj & [options]]
+  (py-ffi/PyFloat_AsDouble pyobj))
+
+
+
 (defmethod py-proto/->jvm :default
   [pyobj & [options]]
   (py-ffi/with-gil
     (cond
+      (= :none-type (py-ffi/pyobject-type-kwd pyobj))
+      nil
       ;;Things could implement mapping and sequence logically so mapping
       ;;takes precedence
       (= 1 (py-ffi/PyMapping_Check pyobj))
@@ -75,4 +88,8 @@
       (python->jvm-copy-persistent-vector pyobj)
       :else
       {:type (py-ffi/pyobject-type-kwd pyobj)
-       :value (dt-ffi/->pointer pyobj)})))
+       ;;Create a new GC root as the old reference is released.
+       :value (let [new-obj (py-ffi/wrap-pyobject
+                             (Pointer. (.address (dt-ffi/->pointer pyobj))))]
+                (py-ffi/Py_IncRef new-obj)
+                new-obj)})))

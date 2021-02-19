@@ -2,6 +2,7 @@
   (:require [libpython-clj2.python.info :as py-info]
             [libpython-clj2.python.ffi :as py-ffi]
             [libpython-clj2.dechunk-map :refer [dechunk-map]]
+            [libpython-clj2.python.object]
             [libpython-clj.python.windows :as win]
             [tech.v3.datatype.ffi :as dtype-ffi]
             [clojure.tools.logging :as log]))
@@ -9,13 +10,13 @@
 
 
 (defn initialize!
-    "Initialize the python library.  If library path is provided, then the system
+    "Initialize the python library.  If library path is not provided, then the system
   attempts to execute a simple python program and have python return system info.
 
 
   Returns either `:ok` in which case the initialization completed successfully or
   `:already-initialized` in which case we detected that python has already been
-  initialized vi Py_IsInitialized? and we do nothing more.
+  initialized via `Py_IsInitialized` and we do nothing more.
 
   Options:
 
