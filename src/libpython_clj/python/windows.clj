@@ -1,6 +1,5 @@
 (ns libpython-clj.python.windows
-  (:require [libpython-clj.python.interop :refer [run-simple-string]]
-            [clojure.java.shell :refer [sh]]
+  (:require [clojure.java.shell :refer [sh]]
             [clojure.java.io :as io]
             [clojure.string :as s]))
 
@@ -31,7 +30,8 @@
       "path = '" quoted "';\n"
       "os.environ['PATH'] = path;\n")))
 
-(defn setup-windows-conda! [windows-conda-activate-bat]
+(defn setup-windows-conda! [windows-conda-activate-bat
+                            run-simple-string]
   "Setup python PATH environment variable like in anaconda to be able to load native dlls for numpy etc. like anaconda does."
   (let [echo-bat (create-echo-path-bat!)]
     (->> (get-windows-anaconda-env-path
@@ -40,4 +40,3 @@
          generate-python-set-env-path
          run-simple-string)
     (delete-echo-path-bat! echo-bat)))
-

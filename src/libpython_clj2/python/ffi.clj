@@ -1,6 +1,7 @@
 (ns libpython-clj2.python.ffi
   "Low level bindings to the python shared library system."
-  (:require [tech.v3.datatype.ffi :as dt-ffi]
+  (:require [tech.v3.datatype :as dtype]
+            [tech.v3.datatype.ffi :as dt-ffi]
             [tech.v3.datatype.struct :as dt-struct]
             [tech.v3.datatype.errors :as errors]
             [tech.v3.datatype.native-buffer :as native-buffer]
@@ -11,7 +12,10 @@
   (:import [java.util.concurrent.atomic AtomicLong]
            [java.util.concurrent ConcurrentHashMap]
            [java.util.function Function]
-           [tech.v3.datatype.ffi Pointer]))
+           [tech.v3.datatype.ffi Pointer Library]))
+
+
+(set! *warn-on-reflection* true)
 
 
 (def python-library-fns
@@ -20,6 +24,7 @@
                      :doc "Initialize the python shared library"}
    :Py_IsInitialized {:rettype :int32
                       :doc "Return 1 if library is initalized, 0 otherwise"}
+
    :PyRun_SimpleString {:rettype :int32
                         :argtypes [['argstr :string]]
                         :doc "Low-level run a simple python string."}
@@ -29,10 +34,15 @@
                              ['globals :pointer]
                              ['locals :pointer]]
                   :doc "Run a string setting the start type, globals and locals"}
-   :PySys_SetArgv {:rettype :void
-                   :argtypes [['argc :int32] ['argv :pointer]]
+   :PySys_SetArgvEx {:rettype :void
+                     :argtypes [['argc :int32]
+                                ['argv-wide-ptr-ptr :pointer]
+                                ['update :int32]]
                    :doc "Set the argv/argc for the interpreter.
 Required for some python modules"}
+   :Py_SetProgramName {:rettype :void
+                       :argtypes [['program-name-wideptr :pointer]]
+                       :doc "Set the program name"}
    :PyEval_SaveThread {:rettype :pointer
                        :doc "Release the GIL on the current thread"}
    :PyGILState_Ensure {:rettype :int32
@@ -43,6 +53,14 @@ Each call must be matched with PyGILState_Release"}
    :PyGILState_Release {:rettype :void
                         :argtypes [['modhdl :int32]]
                         :doc "Release the GIL state."}
+   :Py_IncRef {:rettype :void
+               :argtypes [['pyobj :pointer]]
+               :doc "Increment the reference count on a pyobj"}
+
+   :Py_DecRef {:rettype :void
+               :argtypes [['pyobj :pointer]]
+               :doc "Decrement the reference count on a pyobj"}
+
    :PyObject_GetAttrString {:rettype :pointer
                             :argtypes [['obj :pointer]
                                        ['attname :string]]
@@ -60,16 +78,20 @@ Each call must be matched with PyGILState_Release"}
                       :argtypes [['module :pointer]]
                       :doc "Get the module dictionary"}})
 
-(def size-t-type (dt-ffi/size-t-type))
+(defonce size-t-type (dt-ffi/size-t-type))
 
 
 (def python-lib-def (dt-ffi/define-library python-library-fns))
-(def pyobject-struct-type (dt-struct/define-datatype!
-                            :pyobject [{:name :ob_refcnt :datatype size-t-type}
-                                       {:name :ob_type :datatype size-t-type}]))
+(defonce pyobject-struct-type (dt-struct/define-datatype!
+                                :pyobject [{:name :ob_refcnt :datatype size-t-type}
+                                           {:name :ob_type :datatype size-t-type}]))
 
 (def ^{:tag 'long} pytype-offset
   (first (dt-struct/offset-of pyobject-struct-type :ob_type)))
+
+
+(def ^{:tag 'long} pyrefcnt-offset
+  (first (dt-struct/offset-of pyobject-struct-type :ob_refcnt)))
 
 (defn ptr->struct
   [struct-type ptr-type]
@@ -80,7 +102,7 @@ Each call must be matched with PyGILState_Release"}
                                          src-ptr)]
     (dt-struct/inplace-new-struct struct-type nbuf)))
 
-
+(defonce ^:private library-impl* (atom nil))
 (defonce ^:private library* (atom nil))
 (defonce ^:private library-path* (atom nil))
 
@@ -91,11 +113,17 @@ Each call must be matched with PyGILState_Release"}
   (when @library*
     (log/warnf "Python library is being reinitialized to (%s).  Is this what you want?"
                libpath))
+
+  (reset! library-impl* (dt-ffi/load-library libpath))
   (reset! library* (dt-ffi/instantiate-library python-lib-def libpath))
   (reset! library-path* libpath))
 
 
 (defn library-loaded? [] (not (nil? @library*)))
+
+(defn current-library
+  ^Library []
+  @library*)
 
 
 (defn- find-pylib-fn
@@ -167,14 +195,39 @@ Each call must be matched with PyGILState_Release"}
 (define-pylib-functions)
 
 
+(defonce ^{:tag ConcurrentHashMap
+           :private true}
+  forever-map (ConcurrentHashMap.))
+
+
+(defn retain-forever
+  [item-key item-val]
+  (.put forever-map item-key item-val)
+  item-val)
+
+
 (defn initialize!
-  [libpath & [{:keys [signals?]
-               :or {signals? true}}]]
+  [libpath python-home & [{:keys [signals? program-name]
+                           :or {signals? true
+                                program-name ""}}]]
   (set-library! libpath)
   (when-not (= 1 (Py_IsInitialized))
     (log/debug "Initializing Python C Layer")
-    (Py_InitializeEx (if signals? 1 0))
-    (PyEval_SaveThread))
+    (let [program-name (retain-forever :program-name
+                                       (-> (or program-name "")
+                                           (dt-ffi/string->c :utf-16)))
+          wide-ptr (retain-forever
+                    :program-name-ptr-ptr
+                    (dtype/make-container :native-heap :int64
+                                          [(.address (dtype/as-native-buffer
+                                                      program-name))]))]
+      (Py_SetProgramName program-name)
+      (Py_InitializeEx (if signals? 1 0))
+      (PySys_SetArgvEx 0 wide-ptr 0)
+      ;;return value ignored :-)
+      ;;This releases the GIL until further processing and allows with-gil to work
+      ;;correctly.
+      (PyEval_SaveThread)))
   :ok)
 
 
@@ -204,7 +257,7 @@ Each call must be matched with PyGILState_Release"}
 
 (comment
   (do
-    (initialize! "python3.8")
+    (initialize! "python3.8" nil nil)
     (def test-module (with-gil (PyImport_AddModule "__main__")))
     )
   )
@@ -219,6 +272,15 @@ Each call must be matched with PyGILState_Release"}
                         (+ (.address (dt-ffi/->pointer pobj)) pytype-offset)))))
 
 
+(defn pyobject-refcount
+  ^long [pobj]
+  (if (= :int32 (dt-ffi/size-t-type))
+    (.getInt (native-buffer/unsafe)
+             (+ (.address (dt-ffi/->pointer pobj)) pyrefcnt-offset))
+    (.getLong (native-buffer/unsafe)
+              (+ (.address (dt-ffi/->pointer pobj)) pyrefcnt-offset))))
+
+
 (defn pytype-name
   ^String [type-pyobj]
   (with-gil
@@ -230,10 +292,10 @@ Each call must be matched with PyGILState_Release"}
         "failed-typename-lookup"))))
 
 
-(def ^{:tag ConcurrentHashMap} type-addr->typename-kwd (ConcurrentHashMap.))
+(defonce ^{:tag ConcurrentHashMap} type-addr->typename-kwd (ConcurrentHashMap.))
 
 
-(defn pyobj-type-kwd
+(defn pyobject-type-kwd
   [pyobject]
   (let [pytype (pyobject-type pyobject)]
     (.computeIfAbsent type-addr->typename-kwd
@@ -242,6 +304,100 @@ Each call must be matched with PyGILState_Release"}
                         (apply [this type-addr]
                           (-> (pytype-name pytype)
                               (csk/->kebab-case-keyword)))))))
+
+
+(def ^{:doc "Dereferences to the value of the py-none symbol"
+       :tag Pointer}
+  py-none* (delay (.findSymbol (current-library) "_Py_NoneStruct")))
+
+(defn py-none
+  ^Pointer []
+  @py-none*)
+
+(def ^{:doc "Dereferences to the value of the py-true symbol"
+       :tag Pointer}
+  py-true* (delay (.findSymbol (current-library) "_Py_TrueStruct")))
+
+(defn py-true
+  ^Pointer []
+  @py-true*)
+
+
+(def ^{:doc "Dereferences to the value of the py-false symbol"
+       :tag Pointer}
+  py-false* (delay (.findSymbol (current-library) "_Py_FalseStruct")))
+
+(defn py-false
+  ^Pointer []
+  @py-false*)
+
+
+
+
+(def object-reference-logging (atom false))
+
+
+(defn check-error-throw
+  []
+  )
+
+(defmacro check-gil
+  []
+  `(errors/when-not-error
+    (= 1 (PyGILState_Check))
+    "GIL is not captured"))
+
+
+(defn- wrap-obj-ptr
+  "This must be called with the GIL captured"
+  [pyobj ^Pointer pyobjptr]
+  (let [addr (.address pyobjptr)]
+    (when @object-reference-logging
+      (log/infof "tracking object  - 0x%x:%4d:%s"
+                 addr
+                 (pyobject-refcount pyobj)
+                 (name (pyobject-type-kwd pyobjptr))))
+    (pygc/track pyobj
+                ;;we know the GIL is captured in this method
+                #(try
+                   ;;Intentionally overshadow pyobj.  We cannot access it here.
+                   (let [pyobjptr (Pointer. addr)]
+                     (when @object-reference-logging
+                       (let [refcount (pyobject-refcount pyobjptr)
+                             typename (name (pyobject-type-kwd pyobjptr))]
+                         (if (< refcount 1)
+                           (log/errorf "Fatal error -- releasing object - 0x%x:%4d:%s
+Object's refcount is bad.  Crash is imminent"
+                                       pyobjptr
+                                       refcount
+                                       typename)
+                           (log/infof (format "releasing object - 0x%x:%4d:%s"
+                                              addr
+                                              refcount
+                                              typename)))))
+                     (Py_DecRef pyobjptr))
+                   (catch Throwable e
+                     (log/error e "Exception while releasing object"))))))
+
+
+(defn wrap-pyobject
+  ^Pointer [pyobj & [skip-error-check?]]
+  (check-gil)
+  (when-let [^Pointer pyobjptr (when pyobj (dt-ffi/->pointer pyobj))]
+    (if-not (= (py-none) pyobjptr)
+      (wrap-obj-ptr pyobj pyobjptr)
+      ;;Py_None is handled separately
+      (do
+        (Py_DecRef pyobjptr)
+        (when-not skip-error-check? (check-error-throw))
+        nil))))
+
+
+(defn incref-wrap-pyobject
+  ^Pointer [pyobj]
+  (when pyobj
+    (Py_IncRef pyobj)
+    (wrap-pyobject pyobj)))
 
 
 (def start-symbol-table
@@ -286,11 +442,12 @@ Each call must be matched with PyGILState_Release"}
   [program & {:keys [globals locals]}]
   (with-gil
     (let [main-mod (PyImport_AddModule "__main__")
-          globals (or globals (PyModule_GetDict main-mod))
+          globals (or globals (incref-wrap-pyobject (PyModule_GetDict main-mod)))
           locals (or locals globals)
-          retval (PyRun_String (str program)
-                               (start-symbol :py-file-input)
-                               globals locals)]
+          retval (wrap-pyobject
+                  (PyRun_String (str program)
+                                (start-symbol :py-file-input)
+                                globals locals))]
       {:globals globals
        :locals locals
        :retval retval})))

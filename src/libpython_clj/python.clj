@@ -231,7 +231,7 @@
   "Initialize the python library.  If library path is provided, then the python
   :library-path Library path of the python library to use.
   :program-name - optional but will show up in error messages from python.
-  :no-io-redirect - there if you don't want python stdout and stderr redirection
+  :no-io-redirect? - there if you don't want python stdout and stderr redirection
      to *out* and *err*."
   [& {:keys [program-name
              library-path
@@ -249,8 +249,9 @@
     (when-not no-io-redirect?
       (pyinterop/setup-std-writer #'*err* "stderr")
       (pyinterop/setup-std-writer #'*out* "stdout"))
-    (if-not (nil? windows-anaconda-activate-bat)
-      (win/setup-windows-conda! windows-anaconda-activate-bat)))
+    (when-not (nil? windows-anaconda-activate-bat)
+      (win/setup-windows-conda! windows-anaconda-activate-bat
+                                run-simple-string)))
   :ok)
 
 
