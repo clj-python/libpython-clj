@@ -96,8 +96,6 @@ Each call must be matched with PyGILState_Release"}
                         :argtypes [['pyobj :pointer]
                                    ['idx :size-t]]
                         :doc "Get a specific item from a sequence"}
-   :PyErr_Clear {:rettype :void
-                 :doc "Clear the current outstanding error"}
    :PyFloat_AsDouble {:rettype :float64
                      :argtypes [['pyobj :pointer]]
                        :doc "Get a double value from a python float"}
@@ -111,7 +109,14 @@ Each call must be matched with PyGILState_Release"}
    :PyLong_FromLongLong {:rettype :pointer
                          :argtypes [['data :int64]]
                          :doc "Get a pyobject form a long."}
-   })
+   :PyDict_Next {:rettype :int32
+                 :argtypes [['pyobj :pointer]
+                            ['ppos :pointer]
+                            ['pkey :pointer]
+                            ['pvalue :pointer]]
+                 :doc "Get the next value from a dictionary"}
+   :PyErr_Clear {:rettype :void
+                 :doc "Clear the current python error"}})
 
 
 (defonce size-t-type (dt-ffi/size-t-type))

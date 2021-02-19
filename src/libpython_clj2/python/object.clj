@@ -63,6 +63,26 @@
   (py-ffi/PyFloat_AsDouble pyobj))
 
 
+(defmethod py-proto/->jvm :dict
+  [pyobj & [options]]
+  (py-ffi/with-gil
+    (let [ppos (dt-ffi/make-ptr :size-t 0)
+          pkey (dt-ffi/make-ptr :pointer 0)
+          pvalue (dt-ffi/make-ptr :pointer 0)
+          retval (java.util.ArrayList.)]
+      ;;Dictionary iteration doesn't appear to be reentrant so we have
+      ;;to do 2 passes.
+      (loop [next-retval (py-ffi/PyDict_Next pyobj ppos pkey pvalue)]
+        (if (not= 0 next-retval)
+          (do
+            (.add retval [(Pointer. (long (pkey 0)))
+                          (Pointer. (long (pvalue 0)))])
+            (recur (py-ffi/PyDict_Next pyobj ppos pkey pvalue)))
+          (->> retval
+               (map (fn [[k v]]
+                      [(py-proto/->jvm k) (py-proto/->jvm v)]))
+               (into {})))))))
+
 
 (defmethod py-proto/->jvm :default
   [pyobj & [options]]

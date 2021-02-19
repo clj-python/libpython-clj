@@ -54,6 +54,8 @@
     (python-type item)))
 
 
-(defprotocol PBridgeToJVM
-  (as-jvm [item options]
-    "Return a pyobject implementation that wraps the python object."))
+(defmulti as-jvm
+  "Proxy an object in-place to the JVM."
+  (fn [item & [options]]
+
+    ))
