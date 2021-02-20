@@ -8,7 +8,8 @@
             [tech.v3.resource :as resource]
             [libpython-clj.python.gc :as pygc]
             [camel-snake-kebab.core :as csk]
-            [clojure.tools.logging :as log])
+            [clojure.tools.logging :as log]
+            [clojure.string :as s])
   (:import [java.util.concurrent.atomic AtomicLong]
            [java.util.concurrent ConcurrentHashMap]
            [java.util.function Function]
@@ -16,6 +17,9 @@
 
 
 (set! *warn-on-reflection* true)
+
+
+(declare wrap-pyobject)
 
 
 (def python-library-fns
@@ -56,15 +60,25 @@ Each call must be matched with PyGILState_Release"}
    :Py_IncRef {:rettype :void
                :argtypes [['pyobj :pointer]]
                :doc "Increment the reference count on a pyobj"}
-
    :Py_DecRef {:rettype :void
                :argtypes [['pyobj :pointer]]
                :doc "Decrement the reference count on a pyobj"}
-
-   :PyObject_GetAttrString {:rettype :pointer
-                            :argtypes [['obj :pointer]
-                                       ['attname :string]]
-                            :doc "Return an attribute via string name"}
+   :PyErr_Occurred {:rettype :pointer
+                    :doc "Return the current in-flight exception without clearing it."}
+   :PyErr_Fetch {:rettype :void
+                 :argtypes [['type :pointer]
+                            ['value :pointer]
+                            ['tb :pointer]]
+                 :doc "Fetch and clear the current exception information"}
+   :PyErr_NormalizeException {:rettype :void
+                              :argtypes [['type :pointer]
+                                         ['value :pointer]
+                                         ['tb :pointer]]
+                              :doc "Normalize a python exception."}
+   :PyException_SetTraceback {:rettype :int32
+                              :argtypes [['val :pointer]
+                                         ['tb :pointer]]
+                              :doc "Set the traceback on the exception object"}
    :PyUnicode_AsUTF8 {:rettype :pointer
                       :argtypes [['obj :pointer]]
                       :doc "convert a python unicode object to a utf8 encoded string"}
@@ -80,6 +94,40 @@ Each call must be matched with PyGILState_Release"}
    :PyObject_Dir {:rettype :pointer
                   :argtypes [['pyobj :pointer]]
                   :doc "Get a python sequence of string attribute names"}
+   :PyObject_HasAttr {:rettype :int32
+                      :argtypes [['o :pointer]
+                                 ['attr_name :pointer]]
+                      :doc "Return 1 if object has an attribute"}
+   :PyObject_HasAttrString {:rettype :int32
+                            :argtypes [['o :pointer]
+                                       ['attr_name :string]]
+                            :doc "Return 1 if object has an attribute"}
+   :PyObject_GetAttr {:rettype :pointer
+                      :argtypes [['o :pointer]
+                                 ['attr_name :pointer]]
+                      :doc "get an attribute from an object"}
+   :PyObject_GetAttrString {:rettype :pointer
+                            :argtypes [['o :pointer]
+                                       ['attr_name :string]]
+                            :doc "get an attribute from an object"}
+   :PyObject_SetAttr {:rettype :int32
+                      :argtypes [['o :pointer]
+                                 ['attr_name :pointer]
+                                 ['v :pointer]]
+                      :doc "Set an attribute on a python object"}
+   :PyObject_Call {:rettype :pointer
+                   :argtypes [['callable :pointer]
+                              ['args :pointer]
+                              ['kwargs :pointer?]]
+                   :doc "Call a callable object"}
+   :PyObject_CallObject {:rettype :pointer
+                   :argtypes [['callable :pointer]
+                              ['args :pointer?]]
+                   :doc "Call a callable object with no kwargs.  args may be nil"}
+   :PyObject_SetAttrString {:rettype :int32
+                            :argtypes [['o :pointer]
+                                       ['attr_name :string]
+                                       ['v :pointer]]}
    :PyMapping_Check {:rettype :int32
                      :argtypes [['pyobj :pointer]]
                      :doc "Check if this object implements the mapping protocol"}
@@ -115,6 +163,14 @@ Each call must be matched with PyGILState_Release"}
                             ['pkey :pointer]
                             ['pvalue :pointer]]
                  :doc "Get the next value from a dictionary"}
+   :PyTuple_New {:rettype :pointer
+                 :argtypes [['len :size-t]]
+                 :doc "Create a new uninitialized tuple"}
+   :PyTuple_SetItem {:rettype :int32
+                     :argtypes [['tuple :pointer]
+                                ['idx :size-t]
+                                ['pvalue :pointer]]
+                     :doc "Insert a reference to object o at position pos of the tuple pointed to by p. Return 0 on success. If pos is out of bounds, return -1 and set an IndexError exception."}
    :PyErr_Clear {:rettype :void
                  :doc "Clear the current python error"}})
 
@@ -143,7 +199,7 @@ Each call must be matched with PyGILState_Release"}
                                          src-ptr)]
     (dt-struct/inplace-new-struct struct-type nbuf)))
 
-(defonce ^:private library-impl* (atom nil))
+
 (defonce ^:private library* (atom nil))
 (defonce ^:private library-path* (atom nil))
 
@@ -155,7 +211,6 @@ Each call must be matched with PyGILState_Release"}
     (log/warnf "Python library is being reinitialized to (%s).  Is this what you want?"
                libpath))
 
-  (reset! library-impl* (dt-ffi/load-library libpath))
   (reset! library* (dt-ffi/instantiate-library python-lib-def libpath))
   (reset! library-path* libpath))
 
@@ -165,7 +220,7 @@ Each call must be matched with PyGILState_Release"}
   (when @library-path*
     (reset! library* (dt-ffi/instantiate-library python-lib-def @library-path*))))
 
-;;Useful for repling around
+;;Useful for repling around - this regenerates the library function bindings
 (reset-library!)
 
 
@@ -245,6 +300,37 @@ Each call must be matched with PyGILState_Release"}
 (define-pylib-functions)
 
 
+(defmacro check-gil
+  "Maybe the most important insurance policy"
+  []
+  `(errors/when-not-error
+    (= 1 (PyGILState_Check))
+    "GIL is not captured"))
+
+
+(defmacro with-decref
+  [vardefs & body]
+  (let [n-vars (count vardefs)]
+    (if (= 2 n-vars)
+      `(let ~vardefs
+         (try
+           ~@body
+           (finally
+             (Py_DecRef ~(first vardefs)))))
+      `(let [~'obj-data (object-array ~n-vars)]
+         (try
+           (let [~@(mapcat (fn [[idx [varsym varform]]]
+                             [varsym `(let [vardata# ~varform]
+                                        (aset ~'obj-data ~idx vardata#)
+                                        vardata#)])
+                           (map-indexed vector (partition 2 vardefs)))]
+             ~@body)
+           (finally
+             (dotimes [idx# ~n-vars]
+               (when-let [pyobj#  (aget ~'obj-data idx#)]
+                 (Py_DecRef pyobj#)))))))))
+
+
 (defonce ^{:tag ConcurrentHashMap
            :private true}
   forever-map (ConcurrentHashMap.))
@@ -254,6 +340,28 @@ Each call must be matched with PyGILState_Release"}
   [item-key item-val]
   (.put forever-map item-key item-val)
   item-val)
+
+
+(defonce format-exc-pyfn* (atom nil))
+
+
+(defn- init-exc-formatter
+  []
+  (check-gil)
+  (let [tback-mod (PyImport_ImportModule "traceback")
+        format-fn (PyObject_GetAttrString tback-mod "format_exception")]
+    ;;the tback module cannot be removed from memory and it always has a reference
+    ;;to format-fn so we drop our reference.
+    (Py_DecRef tback-mod)
+    (Py_DecRef format-fn)
+    (reset! format-exc-pyfn* format-fn)))
+
+
+(defn- exc-formatter
+  []
+  (when-not @format-exc-pyfn*
+    (init-exc-formatter))
+  @format-exc-pyfn*)
 
 
 (defn initialize!
@@ -325,6 +433,7 @@ Each call must be matched with PyGILState_Release"}
 
 (defn pystr->str
   ^String [pyobj]
+  (check-gil)
   (-> (PyUnicode_AsUTF8 pyobj)
       (dt-ffi/c->string)))
 
@@ -379,20 +488,57 @@ Each call must be matched with PyGILState_Release"}
   @py-false*)
 
 
+(defn make-tuple
+  "Low-level make tuple fn.  Args must all by python objects."
+  [& args]
+  (check-gil)
+  (let [args (vec args)
+        argcount (count args)
+        tuple (PyTuple_New argcount)]
+    (dotimes [idx argcount]
+      (Py_IncRef (args idx))
+      (PyTuple_SetItem tuple idx (args idx)))
+    tuple))
 
 
-(def object-reference-logging (atom false))
+(defn check-error-str
+  "Function assumes python stdout and stderr have been redirected"
+  []
+  (check-gil)
+  (when-not (= nil (PyErr_Occurred))
+    (let [type (dt-ffi/make-ptr :pointer 0)
+          value (dt-ffi/make-ptr :pointer 0)
+          tb (dt-ffi/make-ptr :pointer 0)]
+      (PyErr_Fetch type value tb)
+      (PyErr_NormalizeException type value tb)
+      (let [type (Pointer. (type 0))
+            value (Pointer. (value 0))
+            tb (Pointer. (tb 0))
+            tb (if (.isNil tb) (py-none) tb)]
+        (try
+          (with-decref [argtuple (make-tuple type value tb)
+                        exc-str-tuple (PyObject_CallObject (exc-formatter) argtuple)]
+            (->> (range (PySequence_Length exc-str-tuple))
+                 (map (fn [idx]
+                        (with-decref [strdata (PySequence_GetItem exc-str-tuple idx)]
+                          (pystr->str strdata))))
+                 (s/join)))
+          ;;Apparently we own the reference meaning it is a new reference and we need
+          ;;to release those references.
+          (finally
+            (Py_DecRef type)
+            (Py_DecRef value)
+            (when-not (= tb (py-none))
+              (Py_DecRef tb))))))))
 
 
 (defn check-error-throw
   []
-  )
+  (when-let [error-str (check-error-str)]
+    (throw (Exception. ^String error-str))))
 
-(defmacro check-gil
-  []
-  `(errors/when-not-error
-    (= 1 (PyGILState_Check))
-    "GIL is not captured"))
+
+(def object-reference-logging (atom false))
 
 
 (defn- wrap-obj-ptr
@@ -446,22 +592,6 @@ Object's refcount is bad.  Crash is imminent"
     (Py_IncRef pyobj)
     (wrap-pyobject pyobj)))
 
-
-(defmacro with-decref
-  [vardefs & body]
-  (let [n-vars (count vardefs)]
-    `(let [~'obj-data (object-array ~n-vars)]
-       (try
-         (let [~@(mapcat (fn [[idx [varsym varform]]]
-                           [varsym `(let [vardata# ~varform]
-                                      (aset ~'obj-data vardata#)
-                                      vardata#)])
-                         (map-indexed vector (partition 2 vardefs)))]
-           ~@body)
-         (finally
-           (doseq [idx# (range ~n-vars)]
-             (when-let [pyobj#  (aget ~'obj-data idx#)]
-               (Py_DecRef pyobj#))))))))
 
 
 (def start-symbol-table

@@ -42,7 +42,7 @@
           libname (->> (concat (when library-path [library-path]) (:libnames info))
                        (dechunk-map identity)
                        (filter #(try
-                                  (boolean (dtype-ffi/load-library %))
+                                  (boolean (dtype-ffi/library-loadable? %))
                                   (catch Throwable e false)))
                        (first))]
       (log/infof "Loading python library: %s" libname)

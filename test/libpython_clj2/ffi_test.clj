@@ -19,3 +19,10 @@
   (let [main-mod (py-ffi/with-gil (py-ffi/PyImport_AddModule "__main__"))
         dirdata (py-proto/dir main-mod)]
     (is (>= 7 (count dirdata)))))
+
+
+(deftest error-handling
+  (py-ffi/with-gil
+    (let [pystr-result (py-ffi/run-simple-string "data = 1 +")
+          err-str (py-ffi/check-error-str)]
+      (is (not= 0 (count err-str))))))
