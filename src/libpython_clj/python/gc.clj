@@ -29,19 +29,21 @@
 
 (defn track
   [item dispose-fn]
-  (let [ptr-val (GCReference. item (reference-queue) (fn [ptr-val]
-                                                       (.remove (ptr-set) ptr-val)
-                                                       (dispose-fn)))
-        ^ConcurrentLinkedDeque stack-context (stack-context)]
-    ;;We have to keep track of the pointer.  If we do not the pointer gets gc'd then
-    ;;it will not be put on the reference queue when the object itself is gc'd.
-    ;;Nice little gotcha there.
-    (if stack-context
-      (.add stack-context ptr-val)
-      ;;Ensure we don't lose track of the weak reference.  If it gets cleaned up
-      ;;the gc system will fail.
-      (.add (ptr-set) ptr-val))
-    item))
+  (let [stack-context (stack-context)]
+    (if (= stack-context :disabled)
+      item
+      (let [ptr-val (GCReference. item (reference-queue) (fn [ptr-val]
+                                                           (.remove (ptr-set) ptr-val)
+                                                           (dispose-fn)))]
+        ;;We have to keep track of the pointer.  If we do not the pointer gets gc'd then
+        ;;it will not be put on the reference queue when the object itself is gc'd.
+        ;;Nice little gotcha there.
+        (if stack-context
+          (.add ^ConcurrentLinkedDeque stack-context ptr-val)
+          ;;Ensure we don't lose track of the weak reference.  If it gets cleaned up
+          ;;the gc system will fail.
+          (.add (ptr-set) ptr-val))
+        item))))
 
 
 (defn clear-reference-queue
@@ -65,3 +67,9 @@
        ~@body
        (finally
          (clear-stack-context)))))
+
+
+(defmacro with-disabled-gc
+  [& body]
+  `(with-bindings {#'*stack-gc-context* :disabled}
+     ~@body))

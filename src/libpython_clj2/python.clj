@@ -2,7 +2,7 @@
   (:require [libpython-clj2.python.info :as py-info]
             [libpython-clj2.python.ffi :as py-ffi]
             [libpython-clj2.dechunk-map :refer [dechunk-map]]
-            [libpython-clj2.python.object]
+            [libpython-clj2.python.pyjvm-copy]
             [libpython-clj.python.windows :as win]
             [tech.v3.datatype.ffi :as dtype-ffi]
             [clojure.tools.logging :as log]))
@@ -28,8 +28,8 @@
   * `:python-home` - Python home directory.  The system first uses this variable, then
      the environment variable PYTHON_HOME, and finally information returned from
      python system info.
-  * `:signals?` - defaults to false - true if you want python to initialized signas.
-     Be aware that the JVM itself uses quite a few signals (SIGSEGV, for instance)
+  * `:signals?` - defaults to false - true if you want python to initialized signals.
+     Be aware that the JVM itself uses quite a few signals - SIGSEGV, for instance -
      during it's normal course of operation.  For more information see:
        * [used signals](https://docs.oracle.com/javase/10/troubleshoot/handle-signals-and-exceptions.htm#JSTGD356)
        * [signal-chaining](https://docs.oracle.com/javase/8/docs/technotes/guides/vm/signal-chaining.html)"

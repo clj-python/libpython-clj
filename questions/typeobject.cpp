@@ -39,4 +39,14 @@ int main(int c, char** v)
     offsetof(PyObject, ob_type),
     sizeof(PyGILState_STATE));
 
+
+    printf(
+    "PyMethodDef details\n"
+    "object size: %ld\n"
+    "ml_flags offset: %ld\n"
+    "ml_doc   offset: %ld\n",
+    sizeof(PyMethodDef),
+    offsetof(PyMethodDef, ml_flags),
+    offsetof(PyMethodDef, ml_doc));
+
 }

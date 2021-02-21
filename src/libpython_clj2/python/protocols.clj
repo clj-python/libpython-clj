@@ -1,4 +1,7 @@
 (ns libpython-clj2.python.protocols
+  "Internal protocols to libpython-clj.  Implementations of these protocols should
+  expect the GIL to be captured so they themselves **d not** need to capture
+  the GIL."
   (:require [libpython-clj2.python.ffi :as py-ffi]))
 
 
@@ -9,10 +12,12 @@
 
 (defn python-type
   "Return a keyword that describes the python datatype of this object."
-  [item]
-  (if item
-    (py-ffi/pyobject-type-kwd item)
-    :none-type))
+  ([item]
+   (if item
+     (py-ffi/pyobject-type-kwd item)
+     :none-type))
+  ([item options]
+   (python-type item)))
 
 
 (defmulti pyobject-as-jvm
@@ -20,11 +25,28 @@
   python-type)
 
 
+(defprotocol PCopyToPython
+  (->python [item options]
+    "Copy this item into a python representation.  Must never return nil.
+Items may fallback to as-python if copying is untenable."))
+
+
 (defprotocol PBridgeToPython
   (as-python [item options]
     "Aside from atom types, this means the object represented by a zero copy python
     mirror.  May return nil.  This convertible to pointers get converted
     to numpy implementations that share the backing store."))
+
+
+(defprotocol PCopyToJVM
+  (->jvm [item options]
+    "Copy the python object into the jvm leaving no references.  This not copying
+are converted into a {:type :pyobject-address} pairs."))
+
+
+(defprotocol PBridgeToJVM
+  (as-jvm [item options]
+    "Return a pyobject implementation that wraps the python object."))
 
 
 (defprotocol PPyDir
@@ -48,14 +70,11 @@
   (set-item! [item item-name item-value] "Set an item of to a value"))
 
 
-(defmulti ->jvm
-  "Copy a python object to the jvm."
-  (fn [item & [options]]
-    (python-type item)))
+(defmulti pyobject->jvm
+  "Copy a python object to the jvm based on its python type"
+  python-type)
 
 
-(defmulti as-jvm
-  "Proxy an object in-place to the JVM."
-  (fn [item & [options]]
-
-    ))
+(defmulti pyobject-as-jvm
+  "Bridge a python object to the jvm based on its python type"
+  python-type)

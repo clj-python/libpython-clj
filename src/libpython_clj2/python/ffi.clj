@@ -19,7 +19,7 @@
 (set! *warn-on-reflection* true)
 
 
-(declare wrap-pyobject)
+(declare wrap-pyobject py-none pystr->str)
 
 
 (def python-library-fns
@@ -75,6 +75,12 @@ Each call must be matched with PyGILState_Release"}
                                          ['value :pointer]
                                          ['tb :pointer]]
                               :doc "Normalize a python exception."}
+   :PyErr_Clear {:rettype :void
+                 :doc "Clear the current python error"}
+   :PyErr_SetString {:rettype :void
+                     :argtypes [['ex-type :pointer]
+                                ['data :string]]
+                     :doc "Raise an exception with a message"}
    :PyException_SetTraceback {:rettype :int32
                               :argtypes [['val :pointer]
                                          ['tb :pointer]]
@@ -110,11 +116,27 @@ Each call must be matched with PyGILState_Release"}
                             :argtypes [['o :pointer]
                                        ['attr_name :string]]
                             :doc "get an attribute from an object"}
+   :PyObject_SetAttrString {:rettype :int32
+                            :argtypes [['o :pointer]
+                                       ['attr_name :string]
+                                       ['v :pointer]]}
    :PyObject_SetAttr {:rettype :int32
                       :argtypes [['o :pointer]
                                  ['attr_name :pointer]
                                  ['v :pointer]]
                       :doc "Set an attribute on a python object"}
+   :PyObject_GetItem {:rettype :pointer
+                      :argtypes [['o :pointer]
+                                 ['args :pointer]]
+                      :doc "Get an item from a python object"}
+   :PyObject_SetItem {:rettype :int32
+                      :argtypes [['o :pointer]
+                                 ['args :pointer]
+                                 ['val :pointer]]
+                      :doc "Set an item on a python object"}
+   :PyCallable_Check {:rettype :int32
+                      :argtypes [['o :pointer]]
+                      :doc "Return 1 if this is a callable object"}
    :PyObject_Call {:rettype :pointer
                    :argtypes [['callable :pointer]
                               ['args :pointer]
@@ -124,10 +146,6 @@ Each call must be matched with PyGILState_Release"}
                    :argtypes [['callable :pointer]
                               ['args :pointer?]]
                    :doc "Call a callable object with no kwargs.  args may be nil"}
-   :PyObject_SetAttrString {:rettype :int32
-                            :argtypes [['o :pointer]
-                                       ['attr_name :string]
-                                       ['v :pointer]]}
    :PyMapping_Check {:rettype :int32
                      :argtypes [['pyobj :pointer]]
                      :doc "Check if this object implements the mapping protocol"}
@@ -157,6 +175,13 @@ Each call must be matched with PyGILState_Release"}
    :PyLong_FromLongLong {:rettype :pointer
                          :argtypes [['data :int64]]
                          :doc "Get a pyobject form a long."}
+   :PyDict_New {:rettype :pointer
+                :doc "Create a new dictionary"}
+   :PyDict_SetItem {:rettype :int32
+                    :argtypes [['dict :pointer]
+                               ['k :pointer]
+                               ['v :pointer]]
+                    :doc "Insert val into the dictionary p with a key of key. key must be hashable; if it isn’t, TypeError will be raised. Return 0 on success or -1 on failure. This function does not steal a reference to val."}
    :PyDict_Next {:rettype :int32
                  :argtypes [['pyobj :pointer]
                             ['ppos :pointer]
@@ -171,8 +196,31 @@ Each call must be matched with PyGILState_Release"}
                                 ['idx :size-t]
                                 ['pvalue :pointer]]
                      :doc "Insert a reference to object o at position pos of the tuple pointed to by p. Return 0 on success. If pos is out of bounds, return -1 and set an IndexError exception."}
-   :PyErr_Clear {:rettype :void
-                 :doc "Clear the current python error"}})
+   :PyTuple_Size {:rettype :size-t
+                  :argtypes [['o :pointer]]
+                  :doc "return the length of a tuple"}
+   :PyTuple_GetItem {:rettype :pointer
+                     :argtypes [['o :pointer]
+                                ['idx :size-t]]
+                     :doc "return a borrowed reference to item at idx"}
+   :PyList_New {:rettype :pointer
+                :argtypes [['len :size-t]]
+                :doc "create a new list"}
+   :PyList_SetItem {:rettype :int32
+                    :argtypes [['l :pointer]
+                               ['idx :size-t]
+                               ['v :pointer]]
+                    :doc "Set the item at index index in list to item. Return 0 on success. If index is out of bounds, return -1 and set an IndexError exception.  This function steals the reference to v"}
+   :PySet_New {:rettype :pointer
+               :argtypes [['items :pointer]]
+               :doc "Create a new set"}
+   :PyUnicode_FromString {:rettype :pointer
+                          :argtypes [['data :string]]
+                          :doc "Create a python unicode object from a string"}
+   :PyCFunction_NewEx {:rettype :pointer
+                       :argtypes [['method-def :pointer]
+                                  ['self :pointer?]
+                                  ['module :pointer?]]}})
 
 
 (defonce size-t-type (dt-ffi/size-t-type))
@@ -225,6 +273,7 @@ Each call must be matched with PyGILState_Release"}
 
 
 (defn library-loaded? [] (not (nil? @library*)))
+
 
 (defn current-library
   ^Library []
@@ -389,28 +438,72 @@ Each call must be matched with PyGILState_Release"}
   :ok)
 
 
-(defonce ^{:tag AtomicLong} gil-thread-id (AtomicLong. Long/MAX_VALUE))
+(defn make-tuple
+  "Low-level make tuple fn.  Args must all by python objects and after this
+  call the tuple *own the objects*!!!"
+  [& args]
+  (let [args (vec args)
+        argcount (count args)
+        tuple (PyTuple_New argcount)]
+    (dotimes [idx argcount]
+      (PyTuple_SetItem tuple idx (args idx)))
+    tuple))
+
+
+(defn check-error-str
+  "Function assumes python stdout and stderr have been redirected"
+  []
+  (check-gil)
+  (when-not (= nil (PyErr_Occurred))
+    (let [type (dt-ffi/make-ptr :pointer 0)
+          value (dt-ffi/make-ptr :pointer 0)
+          tb (dt-ffi/make-ptr :pointer 0)]
+      (PyErr_Fetch type value tb)
+      (PyErr_NormalizeException type value tb)
+      (let [type (Pointer. (type 0))
+            value (Pointer. (value 0))
+            tb (Pointer. (tb 0))
+            tb (if (.isNil tb)
+                 ;;because the tuple steals the reference
+                 (do (Py_IncRef (py-none))
+                     (py-none))
+                 tb)]
+        ;;The tuple steals the references so we do not have to dereference their
+        ;;data at the end of this function as long as we dereferece the tuple.
+        (with-decref [argtuple (make-tuple type value tb)
+                      exc-str-tuple (PyObject_CallObject (exc-formatter) argtuple)]
+          (->> (range (PySequence_Length exc-str-tuple))
+               (map (fn [idx]
+                      (with-decref [strdata (PySequence_GetItem exc-str-tuple idx)]
+                        (pystr->str strdata))))
+               (s/join)))))))
+
+
+(defn check-error-throw
+  []
+  (when-let [error-str (check-error-str)]
+    (throw (Exception. ^String error-str))))
+
+(defmacro with-error-check
+  [& body]
+  `(let [retval# (do ~@body)]
+     (check-error-throw)
+     retval#))
 
 
 (defmacro with-gil
   "Grab the gil and use the main interpreter using reentrant acquire-gil pathway."
   [& body]
-  `(let [[gil-state# prev-id#]
-        (locking #'gil-thread-id
-          (let [prev-id# (.get gil-thread-id)
-                thread-id# (-> (Thread/currentThread)
-                               (.getId))]
-            (when-not (== prev-id# thread-id#)
-              (.set gil-thread-id thread-id#)
-              [(PyGILState_Ensure) prev-id#])))]
-    (try
-      ~@body
-      (finally
-        (when gil-state#
-          (pygc/clear-reference-queue)
-          (locking #'gil-thread-id
-            (PyGILState_Release gil-state#)
-            (.set gil-thread-id prev-id#)))))))
+  `(let [gil-state# (when-not (== 1 (long (PyGILState_Check)))
+                      (PyGILState_Ensure))]
+     (try
+       (let [retval# (do ~@body)]
+         (check-error-throw)
+         retval#)
+       (finally
+         (when gil-state#
+           (pygc/clear-reference-queue)
+           (PyGILState_Release gil-state#))))))
 
 
 (defn pyobject-type
@@ -488,54 +581,26 @@ Each call must be matched with PyGILState_Release"}
   @py-false*)
 
 
-(defn make-tuple
-  "Low-level make tuple fn.  Args must all by python objects."
-  [& args]
-  (check-gil)
-  (let [args (vec args)
-        argcount (count args)
-        tuple (PyTuple_New argcount)]
-    (dotimes [idx argcount]
-      (Py_IncRef (args idx))
-      (PyTuple_SetItem tuple idx (args idx)))
-    tuple))
+(def ^{:doc "Dereferences to the value of the PyRange_Type symbol"
+       :tag Pointer}
+  py-range-type* (delay (.findSymbol (current-library) "PyRange_Type")))
+
+(defn py-range-type
+  ^Pointer []
+  @py-range-type*)
 
 
-(defn check-error-str
-  "Function assumes python stdout and stderr have been redirected"
-  []
-  (check-gil)
-  (when-not (= nil (PyErr_Occurred))
-    (let [type (dt-ffi/make-ptr :pointer 0)
-          value (dt-ffi/make-ptr :pointer 0)
-          tb (dt-ffi/make-ptr :pointer 0)]
-      (PyErr_Fetch type value tb)
-      (PyErr_NormalizeException type value tb)
-      (let [type (Pointer. (type 0))
-            value (Pointer. (value 0))
-            tb (Pointer. (tb 0))
-            tb (if (.isNil tb) (py-none) tb)]
-        (try
-          (with-decref [argtuple (make-tuple type value tb)
-                        exc-str-tuple (PyObject_CallObject (exc-formatter) argtuple)]
-            (->> (range (PySequence_Length exc-str-tuple))
-                 (map (fn [idx]
-                        (with-decref [strdata (PySequence_GetItem exc-str-tuple idx)]
-                          (pystr->str strdata))))
-                 (s/join)))
-          ;;Apparently we own the reference meaning it is a new reference and we need
-          ;;to release those references.
-          (finally
-            (Py_DecRef type)
-            (Py_DecRef value)
-            (when-not (= tb (py-none))
-              (Py_DecRef tb))))))))
+(def ^{:doc "Dereferences to the value of the base python exception type"
+       :tag Pointer}
+  py-exc-type* (delay (.findSymbol (current-library) "PyExc_Exception")))
 
 
-(defn check-error-throw
-  []
-  (when-let [error-str (check-error-str)]
-    (throw (Exception. ^String error-str))))
+(defn py-exc-type
+  ^Pointer []
+  @py-exc-type*)
+
+
+
 
 
 (def object-reference-logging (atom false))
@@ -543,7 +608,7 @@ Each call must be matched with PyGILState_Release"}
 
 (defn- wrap-obj-ptr
   "This must be called with the GIL captured"
-  [pyobj ^Pointer pyobjptr]
+  [pyobj ^Pointer pyobjptr gc-data]
   (let [addr (.address pyobjptr)]
     (when @object-reference-logging
       (log/infof "tracking object  - 0x%x:%4d:%s"
@@ -554,7 +619,9 @@ Each call must be matched with PyGILState_Release"}
                 ;;we know the GIL is captured in this method
                 #(try
                    ;;Intentionally overshadow pyobj.  We cannot access it here.
-                   (let [pyobjptr (Pointer. addr)]
+                   (let [pyobjptr (Pointer. addr)
+                         ;;reference gc data
+                         gc-data (identity gc-data)]
                      (when @object-reference-logging
                        (let [refcount (pyobject-refcount pyobjptr)
                              typename (name (pyobject-type-kwd pyobjptr))]
@@ -574,11 +641,12 @@ Object's refcount is bad.  Crash is imminent"
 
 
 (defn wrap-pyobject
-  ^Pointer [pyobj & [skip-error-check?]]
+  ^Pointer [pyobj & [{:keys [skip-error-check?
+                             gc-data]}]]
   (check-gil)
   (when-let [^Pointer pyobjptr (when pyobj (dt-ffi/->pointer pyobj))]
     (if-not (= (py-none) pyobjptr)
-      (wrap-obj-ptr pyobj pyobjptr)
+      (wrap-obj-ptr pyobj pyobjptr gc-data)
       ;;Py_None is handled separately
       (do
         (Py_DecRef pyobjptr)
@@ -614,8 +682,8 @@ Object's refcount is bad.  Crash is imminent"
 
 
 (defn run-simple-string
-  "Run a simple string returning boolean 1 or 0.  Note this will never
-  return the result of the expression:
+  "Run a simple string.  Results are only visible if they are saved in the
+  global or local context.
 
   https://mail.python.org/pipermail/python-list/1999-April/018011.html
 

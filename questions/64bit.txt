@@ -11,3 +11,7 @@ object size: 16
 ob_refcnt offset: 0
 ob_type   offset: 8
 gilstate size: 4
+PyMethodDef details
+object size: 32
+ml_flags offset: 16
+ml_doc   offset: 24

@@ -44,7 +44,6 @@ Items may fallback to as-python if copying is untenable."))
     to numpy implementations that share the backing store."))
 
 
-
 (defprotocol PCopyToJVM
   (->jvm [item options]
     "Copy the python object into the jvm leaving no references.  This not copying
