@@ -2,6 +2,7 @@
   (:require [libpython-clj2.python.ffi :as py-ffi]
             [libpython-clj2.python :as py]
             [libpython-clj2.python.protocols :as py-proto]
+            [libpython-clj2.python.fn :as py-fn]
             [clojure.test :refer [deftest is]]))
 
 
@@ -23,6 +24,10 @@
 
 (deftest error-handling
   (py-ffi/with-gil
-    (let [pystr-result (py-ffi/run-simple-string "data = 1 +")
-          err-str (py-ffi/check-error-str)]
-      (is (not= 0 (count err-str))))))
+    (is (thrown? Exception (py-ffi/run-simple-string "data = 1 +")))))
+
+
+(deftest clj-fn
+  (py-ffi/with-gil
+    (let [pfn (py-fn/clj-fn->py-callable #(+ %1 %2))]
+      (is (= 3 (py-proto/->jvm (py-fn/call pfn 1 2) nil))))))

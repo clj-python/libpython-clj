@@ -2,7 +2,7 @@
   (:require [libpython-clj2.python.info :as py-info]
             [libpython-clj2.python.ffi :as py-ffi]
             [libpython-clj2.dechunk-map :refer [dechunk-map]]
-            [libpython-clj2.python.pyjvm-copy]
+            [libpython-clj2.python.copy]
             [libpython-clj.python.windows :as win]
             [tech.v3.datatype.ffi :as dtype-ffi]
             [clojure.tools.logging :as log]))

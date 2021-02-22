@@ -422,7 +422,7 @@ Each call must be matched with PyGILState_Release"}
     (log/debug "Initializing Python C Layer")
     (let [program-name (retain-forever :program-name
                                        (-> (or program-name "")
-                                           (dt-ffi/string->c :utf-16)))
+                                           (dt-ffi/string->c {:encoding :utf-16})))
           wide-ptr (retain-forever
                     :program-name-ptr-ptr
                     (dtype/make-container :native-heap :int64
