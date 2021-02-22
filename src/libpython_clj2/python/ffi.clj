@@ -70,6 +70,11 @@ Each call must be matched with PyGILState_Release"}
                             ['value :pointer]
                             ['tb :pointer]]
                  :doc "Fetch and clear the current exception information"}
+   :PyErr_Restore {:rettype :void
+                   :argtypes [['type :pointer]
+                              ['value :pointer]
+                              ['tb :pointer]]
+                   :doc "Restore the current error state"}
    :PyErr_NormalizeException {:rettype :void
                               :argtypes [['type :pointer]
                                          ['value :pointer]
@@ -134,6 +139,21 @@ Each call must be matched with PyGILState_Release"}
                                  ['args :pointer]
                                  ['val :pointer]]
                       :doc "Set an item on a python object"}
+   :PyObject_IsTrue {:rettype :int32
+                     :argtypes [['o :pointer]]
+                     :doc "Check if a python object is true"}
+   :PyObject_IsInstance {:rettype :int32
+                         :argtypes [['inst :pointer]
+                                    ['cls :pointer]]
+                         :doc "Check if this object is an instance of this class"}
+   :PyObject_Hash {:rettype :size-t
+                   :argtypes [['o :pointer]]
+                   :doc "Get the hash value of a python object"}
+   :PyObject_RichCompareBool {:rettype :int32
+                              :argtypes [['lhs :pointer]
+                                         ['rhs :pointer]
+                                         ['opid :int32]]
+                              :doc "Compare two python objects"}
    :PyCallable_Check {:rettype :int32
                       :argtypes [['o :pointer]]
                       :doc "Return 1 if this is a callable object"}
@@ -484,11 +504,18 @@ Each call must be matched with PyGILState_Release"}
   (when-let [error-str (check-error-str)]
     (throw (Exception. ^String error-str))))
 
+
 (defmacro with-error-check
   [& body]
   `(let [retval# (do ~@body)]
      (check-error-throw)
      retval#))
+
+
+(defn check-py-method-return
+  [^long retval]
+  (when-not (= 0 retval)
+    (check-error-throw)))
 
 
 (defmacro with-gil
@@ -594,13 +621,23 @@ Each call must be matched with PyGILState_Release"}
        :tag Pointer}
   py-exc-type* (delay (.findSymbol (current-library) "PyExc_Exception")))
 
+(def ^{:doc "Dereferences to the value of the base python stopIteration type"
+       :tag Pointer}
+  py-exc-stopiter-type* (delay (.findSymbol (current-library) "PyExc_StopIteration")))
 
-(defn py-exc-type
+
+(defn py-exc-stopiter-type
   ^Pointer []
-  @py-exc-type*)
+  @py-exc-stopiter-type*)
 
 
+(def ^{:doc "Dereferences to the value of the PyType_Type symbol"
+       :tag Pointer}
+  py-type-type* (delay (.findSymbol (current-library) "PyType_Type")))
 
+(defn py-type-type
+  ^Pointer []
+  @py-type-type*)
 
 
 (def object-reference-logging (atom false))

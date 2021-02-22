@@ -63,6 +63,16 @@
   (py-ffi/PyFloat_AsDouble pyobj))
 
 
+(defn pyobj-true?
+  [pyobj]
+  (= 1 (py-ffi/PyObject_IsTrue pyobj)))
+
+
+(defmethod py-proto/pyobject->jvm :bool
+  [pyobj & [options]]
+  (pyobj-true? pyobj))
+
+
 (defmethod py-proto/pyobject->jvm :tuple
   [pyobj & [options]]
   (let [n-elems (py-ffi/PyTuple_Size pyobj)]

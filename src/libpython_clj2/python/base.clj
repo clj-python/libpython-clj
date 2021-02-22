@@ -2,7 +2,8 @@
   "Shared basic functionality and wrapper functions"
   (:require [libpython-clj2.python.protocols :as py-proto]
             [libpython-clj2.python.ffi :as py-ffi]
-            [tech.v3.datatype.ffi :as dt-ffi])
+            [tech.v3.datatype.ffi :as dt-ffi]
+            [camel-snake-kebab.core :as csk])
   (:import [tech.v3.datatype.ffi Pointer]))
 
 
@@ -139,3 +140,30 @@
   (set-item! [item item-name item-value]
     (let [item-val (->python item-value)]
       (py-ffi/PyObject_SetAttr item (->python item-name) item-val))))
+
+
+(def bool-fn-table
+  (->> {"Py_LT" 0
+        "Py_LE" 1
+        "Py_EQ" 2
+        "Py_NE" 3
+        "Py_GT" 4
+        "Py_GE" 5}
+       (map (fn [[k v]]
+              [(csk/->kebab-case-keyword k) v]))
+       (into {})))
+
+
+(defn hash-code
+  ^long [py-inst]
+  (py-ffi/with-gil
+    (long (py-ffi/PyObject_Hash py-inst))))
+
+
+(defn equals?
+  "Returns true of the python equals operator returns 1."
+  [lhs rhs]
+  (py-ffi/with-gil
+    (= 1 (py-ffi/PyObject_RichCompareBool (->python lhs)
+                                          (->python rhs)
+                                          (bool-fn-table :py-eq)))))

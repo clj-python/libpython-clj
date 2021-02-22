@@ -5,10 +5,12 @@
             [libpython-clj2.python.base :as py-base]
             [libpython-clj2.python.protocols :as py-proto]
             [libpython-clj2.python.copy :as py-copy]
+            [libpython-clj.python.gc :as pygc]
             [tech.v3.datatype.ffi :as dt-ffi]
             [tech.v3.datatype.struct :as dt-struct]
             [clojure.tools.logging :as log]
-            [clojure.stacktrace :as st]))
+            [clojure.stacktrace :as st])
+  (:import [tech.v3.datatype.ffi Pointer]))
 
 (set! *warn-on-reflection* true)
 
@@ -80,19 +82,40 @@
    (clj-fn->py-callable ifn nil)))
 
 
+(defn simplify-or-wrap
+  [^Pointer pyobj]
+  (if-not (.isNil pyobj)
+    (if (= pyobj (py-ffi/py-none))
+      (do (py-ffi/Py_DecRef pyobj)
+          nil)
+      (case (py-ffi/pyobject-type-kwd pyobj)
+        :int (py-ffi/with-decref [pyobj pyobj]
+               (py-ffi/PyLong_AsLongLong pyobj))
+        :float (py-ffi/with-decref [pyobj pyobj]
+                 (py-ffi/PyFloat_AsDouble pyobj))
+        :string (py-ffi/with-decref [pyobj pyobj]
+                  (py-ffi/pystr->str))
+        ;;maybe copy, maybe bridge - in any case we have to decref the item
+        :else (py-ffi/wrap-pyobject pyobj)))
+    (py-ffi/check-error-throw)))
+
+
 (defn call-py-fn
   [callable arglist kw-arg-map]
   (py-ffi/with-gil
-    (-> (cond
-          (seq kw-arg-map)
-          (py-ffi/PyObject_Call callable
-                                (py-copy/->py-tuple arglist)
-                                (py-copy/->py-dict kw-arg-map))
-          (seq arglist)
-          (py-ffi/PyObject_CallObject callable (py-copy/->py-tuple arglist))
-          :else
-          (py-ffi/PyObject_CallObject callable nil))
-        (py-ffi/wrap-pyobject))))
+    ;;Release objects marshalled just for this call immediately
+    (let [retval
+          (pygc/with-stack-context
+            (cond
+              (seq kw-arg-map)
+              (py-ffi/PyObject_Call callable
+                                    (py-copy/->py-tuple arglist)
+                                    (py-copy/->py-dict kw-arg-map))
+              (seq arglist)
+              (py-ffi/PyObject_CallObject callable (py-copy/->py-tuple arglist))
+              :else
+              (py-ffi/PyObject_CallObject callable nil)))]
+      (simplify-or-wrap retval))))
 
 
 (defn call
