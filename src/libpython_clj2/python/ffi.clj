@@ -5,6 +5,7 @@
             [tech.v3.datatype.struct :as dt-struct]
             [tech.v3.datatype.errors :as errors]
             [tech.v3.datatype.native-buffer :as native-buffer]
+            [tech.v3.datatype.protocols :as dt-proto]
             [tech.v3.resource :as resource]
             [libpython-clj.python.gc :as pygc]
             [camel-snake-kebab.core :as csk]
@@ -72,8 +73,8 @@ Each call must be matched with PyGILState_Release"}
                  :doc "Fetch and clear the current exception information"}
    :PyErr_Restore {:rettype :void
                    :argtypes [['type :pointer]
-                              ['value :pointer]
-                              ['tb :pointer]]
+                              ['value :pointer?]
+                              ['tb :pointer?]]
                    :doc "Restore the current error state"}
    :PyErr_NormalizeException {:rettype :void
                               :argtypes [['type :pointer]
@@ -617,9 +618,22 @@ Each call must be matched with PyGILState_Release"}
   @py-range-type*)
 
 
+(defn- deref-ptr-ptr
+  ^Pointer [^Pointer val]
+  (Pointer. (case (dt-ffi/size-t-type)
+              :int32 (.getInt (native-buffer/unsafe) (.address val))
+              :int64 (.getLong (native-buffer/unsafe) (.address val)))))
+
+
 (def ^{:doc "Dereferences to the value of the base python exception type"
        :tag Pointer}
   py-exc-type* (delay (.findSymbol (current-library) "PyExc_Exception")))
+
+
+(defn py-exc-type
+  ^Pointer []
+  (deref-ptr-ptr @py-exc-type*))
+
 
 (def ^{:doc "Dereferences to the value of the base python stopIteration type"
        :tag Pointer}
@@ -628,12 +642,13 @@ Each call must be matched with PyGILState_Release"}
 
 (defn py-exc-stopiter-type
   ^Pointer []
-  @py-exc-stopiter-type*)
+  (deref-ptr-ptr @py-exc-stopiter-type*))
 
 
 (def ^{:doc "Dereferences to the value of the PyType_Type symbol"
        :tag Pointer}
   py-type-type* (delay (.findSymbol (current-library) "PyType_Type")))
+
 
 (defn py-type-type
   ^Pointer []

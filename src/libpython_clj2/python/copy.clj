@@ -328,6 +328,8 @@
       (->py-list item)))
   Set
   (->python [item opts] (->py-set item))
+  Pointer
+  (->python [item opts] item)
   Object
   (->python [item opts]
     (cond
@@ -339,6 +341,6 @@
       (instance? Iterable item)
       (py-proto/->python (vec item) opts)
       (instance? IFn item)
-      (throw (Exception. "Unable to convert functions at this time."))
+      (errors/throwf "Unable to convert functions at this time.")
       :else
-      (throw (Exception. "Unable to convert object")))))
+      (errors/throwf "Unable to convert object: %s" item))))

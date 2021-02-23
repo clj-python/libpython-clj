@@ -7,8 +7,18 @@
             [tech.v3.datatype.errors :as errors]
             [tech.v3.datatype.ffi :as dt-ffi])
   (:import [java.util Map]
-           [clojure.lang IFn MapEntry]
-           [tech.v3.datatype.ffi Pointer]))
+           [clojure.lang IFn MapEntry Fn]
+           [tech.v3.datatype.ffi Pointer]
+           [tech.v3.datatype ObjectBuffer]))
+
+
+(extend-protocol py-proto/PBridgeToPython
+  Object
+  (as-python [obj opts]
+    (py-proto/->python obj opts))
+  Pointer
+  (as-python [ptr opts]
+    (py-proto/pyobject-as-jvm ptr opts)))
 
 
 (defmethod py-proto/pyobject-as-jvm :int
@@ -100,20 +110,24 @@
                     (with-gil
                       (let [retval (py-ffi/PyObject_CallObject py-next-fn nil)]
                         (if (and (nil? retval) (py-ffi/PyErr_Occurred))
-                          (let [type (dt-ffi/make-ptr :pointer 0)
-                                value (dt-ffi/make-ptr :pointer 0)
-                                tb (dt-ffi/make-ptr :pointer 0)
-                                _ (py-ffi/PyErr_Fetch type value tb)]
-                            (if (= (Pointer. (type 0)) (py-ffi/py-exc-stopiter-type))
-                              (do
-                                (py-ffi/Py_DecRef (type 0))
-                                (when-not (== 0 (long (value 0)))
-                                  (py-ffi/Py_DecRef (value 0)))
-                                (when-not (== 0 (long (tb 0)))
-                                  (py-ffi/Py_DecRef (tb 0)))
-                                ::iteration-finished)
-                              (do (py-ffi/PyErr_Restore type value tb)
-                                  (py-ffi/check-error-throw))))
+                          (pygc/with-stack-context
+                            (let [type (dt-ffi/make-ptr :pointer 0)
+                                  value (dt-ffi/make-ptr :pointer 0)
+                                  tb (dt-ffi/make-ptr :pointer 0)
+                                  _ (py-ffi/PyErr_Fetch type value tb)]
+                              (if (= (Pointer. (type 0)) (py-ffi/py-exc-stopiter-type))
+                                (do
+                                  (py-ffi/Py_DecRef (Pointer. (type 0)))
+                                  (when-not (== 0 (long (value 0)))
+                                    (py-ffi/Py_DecRef (Pointer. (value 0))))
+                                  (when-not (== 0 (long (tb 0)))
+                                    (py-ffi/Py_DecRef (Pointer. (tb 0))))
+                                  ::iteration-finished)
+                                (do
+                                  (py-ffi/PyErr_Restore (Pointer. (type 0))
+                                                        (Pointer. (value 0))
+                                                        (Pointer. (tb 0)))
+                                  (py-ffi/check-error-throw)))))
                           [(cond-> (py-ffi/wrap-pyobject retval)
                              item-conversion-fn
                              item-conversion-fn)]))))
@@ -236,9 +250,10 @@
        (containsKey [item k] (boolean (py-call "__contains__" k)))
        (entrySet
         [this]
-        (->> (.iterator this)
-             iterator-seq
-             set))
+        (py-ffi/with-gil
+          (->> (.iterator this)
+               iterator-seq
+               set)))
        (get [this obj-key]
             (py-call "__getitem__" obj-key))
        (getOrDefault [item obj-key obj-default-value]
@@ -257,7 +272,9 @@
        (size [this]
              (int (py-call "__len__")))
        (values [this]
-               (py-call "values"))
+               (py-ffi/with-gil
+                 (-> (py-call "values")
+                     (vec))))
        Iterable
        (iterator
         [this]
@@ -276,3 +293,129 @@
                 (let [arglist (vec arglist)]
                   (case (count arglist)
                     1 (.get this (first arglist)))))))))
+
+
+(defmethod py-proto/pyobject-as-jvm :dict
+  [pyobj & [opts]]
+  (generic-python-as-map pyobj))
+
+
+(defn generic-python-as-list
+  [pyobj]
+  (with-gil
+    (let [dict-atts #{"__len__" "__getitem__" "__setitem__" "__iter__" "__contains__"
+                      "__eq__" "__hash__" "clear" "insert" "pop" "append"
+                      "__delitem__" "sort"}
+          dict-att-map (->> (py-proto/dir pyobj)
+                            (filter dict-atts)
+                            (map (juxt identity (partial py-proto/get-attr pyobj)))
+                            (into {}))
+          py-call (fn [fn-name & args]
+                    (with-gil (call-impl-fn fn-name dict-att-map args)))]
+      (bridge-pyobject
+       pyobj
+       ObjectBuffer
+       (lsize [reader]
+              (long (py-call "__len__")))
+       (readObject [reader idx]
+             (py-call "__getitem__" idx))
+       (sort [reader obj-com]
+             (when-not (= nil obj-com)
+               (throw (ex-info "Python lists do not support comparators" {})))
+             (py-call "sort"))
+       (writeObject [writer idx value]
+              (py-call "__setitem__" idx value))
+       (remove [writer ^int idx]
+               (py-call "__delitem__" idx))
+       (add [mutable idx value]
+            (py-call "insert" idx value))
+       (add [mutable value]
+            (.add mutable (.size mutable) value))))))
+
+
+(defmethod py-proto/pyobject-as-jvm :list
+  [pyobj & [opts]]
+  (generic-python-as-list pyobj))
+
+
+(defmethod py-proto/pyobject-as-jvm :tuple
+  [pyobj & [opts]]
+  (generic-python-as-list pyobj))
+
+
+;;utility fn to generate IFn arities
+(defn- emit-args
+  [bodyf varf]
+   (let [argify (fn [n argfn bodyf]
+                  (let [raw  `[~'this ~@(map #(symbol (str "arg" %))
+                                             (range n))]]
+                    `~(bodyf (argfn raw))))]
+     (concat (for [i (range 21)]
+               (argify i identity bodyf))
+             [(argify 21 (fn [xs]
+                          `[~@(butlast xs) ~'arg20-obj-array])
+                     varf)])))
+
+;;Python specific interop wrapper for IFn invocations.
+(defn- emit-py-args []
+  (emit-args    (fn [args] `(~'invoke [~@args]
+                             (py-ffi/with-gil
+                               (-> (py-fn/cfn ~@args)
+                                   (py-proto/as-jvm nil)))))
+                (fn [args]
+                  `(~'invoke [~@args]
+                    (py-ffi/with-gil
+                      (-> (apply py-fn/cfn ~@(butlast args) ~(last args))
+                          (py-proto/as-jvm nil)))))))
+
+
+(defmacro bridge-callable-pyobject
+  "Like bridge-pyobject, except it populates the implementation of IFn
+   for us, where all arg permutations are supplied, as well as applyTo,
+   and the function invocation is of the form
+   (invoke [this arg] (with-gil (cfn this arg))).
+   If caller supplies an implementation for clojure.lang.IFn or aliased
+   Fn, the macro will use that instead (allowing more control but
+   requiring caller to specify implementations for all desired arities)."
+  [pyobj interpreter & body]
+  (let [fn-specs (when-not (some #{'IFn 'clojure.lang.IFn} body)
+                   `(~'IFn
+                     ~@(emit-py-args)
+                     (~'applyTo [~'this ~'arglist]
+                      (~'with-gil
+                       (~'apply py-fn/cfn ~'this ~'arglist)))))]
+    `(bridge-pyobject ~pyobj ~interpreter
+                      ~@fn-specs
+                      ~@body)))
+
+
+(defn python-obj-iterator
+  [pyobj]
+  (py-ffi/with-gil
+    (py-ffi/with-decref [iter-attr (py-ffi/PyObject_GetAttrString pyobj "__iter__")]
+      (when-not iter-attr (py-ffi/check-error-throw))
+      (python->jvm-iterator iter-attr py-base/as-python))))
+
+
+(defn generic-python-as-jvm
+  "Given a generic pyobject, wrap it in a read-only map interface
+  where the keys are the attributes."
+  [pyobj]
+  (with-gil
+    (if (= :none-type (py-ffi/pyobject-type-kwd pyobj))
+      nil
+      (if (py-proto/callable? pyobj)
+        (bridge-callable-pyobject
+         pyobj
+         Iterable
+         (iterator [this] (python-obj-iterator pyobj))
+         Fn)
+        (bridge-pyobject
+         pyobj
+         Iterable
+         (iterator [this] (python-obj-iterator pyobj)))))))
+
+
+(defmethod py-proto/pyobject-as-jvm :default
+  [pyobj & [opts]]
+  (generic-python-as-jvm pyobj))

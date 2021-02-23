@@ -96,7 +96,7 @@
         :string (py-ffi/with-decref [pyobj pyobj]
                   (py-ffi/pystr->str))
         ;;maybe copy, maybe bridge - in any case we have to decref the item
-        :else (py-ffi/wrap-pyobject pyobj)))
+        (py-ffi/wrap-pyobject pyobj)))
     (py-ffi/check-error-throw)))
 
 
