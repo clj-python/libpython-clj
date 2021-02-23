@@ -1,4 +1,4 @@
-(ns libpython-clj2.python.bridge
+(ns libpython-clj2.python.bridge-as-jvm
   (:require [libpython-clj2.python.protocols :as py-proto]
             [libpython-clj2.python.base :as py-base]
             [libpython-clj2.python.fn :as py-fn]
@@ -196,14 +196,23 @@
          (set-item! [item# item-name# item-value#]
            (with-gil
              (py-proto/set-item! pyobj# item-name# (py-base/as-python item-value#))))
+         py-proto/PyCall
+         (call [callable# arglist# kw-arg-map#]
+           (with-gil
+             (-> (py-fn/call-kw pyobj# arglist# kw-arg-map#)
+                 (py-base/as-jvm))))
          Object
          (toString [this#]
            (with-gil
              (pygc/with-stack-context
                (if (= 1 (py-ffi/PyObject_IsInstance pyobj# (py-ffi/py-type-type)))
                  (format "%s.%s"
-                         (py-base/->jvm (py-proto/get-attr pyobj# "__module__"))
-                         (py-base/->jvm (py-proto/get-attr pyobj# "__name__")))
+                         (if (py-proto/has-attr? pyobj# "__module__")
+                           (py-base/->jvm (py-proto/get-attr pyobj# "__module__"))
+                           "__no_module__")
+                         (if (py-proto/has-attr? pyobj# "__name__")
+                           (py-base/->jvm (py-proto/get-attr pyobj# "__name__"))
+                           "__unnamed__"))
                  (py-base/->jvm (py-fn/call-attr pyobj# "__str__"))))))
          (equals [this# other#]
            (boolean
@@ -223,7 +232,7 @@
 (defn call-impl-fn
   [fn-name att-map args]
   (if-let [py-fn (get att-map fn-name)]
-    (-> (py-fn/call-py-fn py-fn (map py-base/as-python args) nil)
+    (-> (py-fn/call-kw py-fn (map py-base/as-python args) nil)
         (py-base/as-jvm))
     (throw (UnsupportedOperationException.
             (format "Python object has no attribute: %s"
@@ -359,14 +368,10 @@
 ;;Python specific interop wrapper for IFn invocations.
 (defn- emit-py-args []
   (emit-args    (fn [args] `(~'invoke [~@args]
-                             (py-ffi/with-gil
-                               (-> (py-fn/cfn ~@args)
-                                   (py-proto/as-jvm nil)))))
+                             (py-fn/cfn ~@args)))
                 (fn [args]
                   `(~'invoke [~@args]
-                    (py-ffi/with-gil
-                      (-> (apply py-fn/cfn ~@(butlast args) ~(last args))
-                          (py-proto/as-jvm nil)))))))
+                    (apply py-fn/cfn ~@(butlast args) ~(last args))))))
 
 
 (defmacro bridge-callable-pyobject
@@ -382,8 +387,7 @@
                    `(~'IFn
                      ~@(emit-py-args)
                      (~'applyTo [~'this ~'arglist]
-                      (~'with-gil
-                       (~'apply py-fn/cfn ~'this ~'arglist)))))]
+                      (~'apply py-fn/cfn ~'this ~'arglist))))]
     `(bridge-pyobject ~pyobj ~interpreter
                       ~@fn-specs
                       ~@body)))

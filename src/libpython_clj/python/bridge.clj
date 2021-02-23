@@ -1006,6 +1006,7 @@
   [pyobj]
   (->jvm pyobj))
 
+
 (extend-protocol py-proto/PBridgeToPython
   Number
   (as-python [item options] (->python item))

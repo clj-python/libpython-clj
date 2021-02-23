@@ -29,5 +29,5 @@
 
 (deftest clj-fn
   (py-ffi/with-gil
-    (let [pfn (py-fn/clj-fn->py-callable #(+ %1 %2))]
-      (is (= 3 (py-proto/->jvm (py-fn/call pfn 1 2) nil))))))
+    (let [pfn (py-fn/make-tuple-fn #(+ %1 %2))]
+      (is (= 3 (py-fn/call pfn 1 2))))))

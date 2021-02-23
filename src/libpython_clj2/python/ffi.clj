@@ -87,6 +87,9 @@ Each call must be matched with PyGILState_Release"}
                      :argtypes [['ex-type :pointer]
                                 ['data :string]]
                      :doc "Raise an exception with a message"}
+   :PyErr_SetNone {:rettype :void
+                   :argtypes [['ex-type :pointer]]
+                   :doc "Raise an exception with no message"}
    :PyException_SetTraceback {:rettype :int32
                               :argtypes [['val :pointer]
                                          ['tb :pointer]]
@@ -241,7 +244,11 @@ Each call must be matched with PyGILState_Release"}
    :PyCFunction_NewEx {:rettype :pointer
                        :argtypes [['method-def :pointer]
                                   ['self :pointer?]
-                                  ['module :pointer?]]}})
+                                  ['module :pointer?]]}
+   :PyInstanceMethod_New {:rettype :pointer
+                          :argtypes [['pyfn :pointer]]
+                          :doc "Mark a python function as being an instance method."}
+   })
 
 
 (defonce size-t-type (dt-ffi/size-t-type))

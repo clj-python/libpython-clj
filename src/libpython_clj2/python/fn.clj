@@ -31,7 +31,7 @@
 (def ^{:tag 'long} METH_NOARGS   0x0004)
 
 
-(defn clj-fn->py-callable
+(defn make-tuple-fn
   ([ifn {:keys [arg-converter
                 result-converter
                 name doc]
@@ -39,52 +39,54 @@
               result-converter py-base/->python-incref
               name "_unamed"
               doc "no documentation provided"}}]
-   (let [fn-inst
-         (dt-ffi/instantiate-foreign-interface
-          tuple-fn-iface
-          (fn [self tuple-args]
-            (try
-              (let [retval
-                    (apply ifn
-                           (->> (range (py-ffi/PyTuple_Size tuple-args))
-                                (map (fn [idx]
-                                       (-> (py-ffi/PyTuple_GetItem tuple-args idx)
-                                           (arg-converter))))))]
-                (if result-converter
-                  (result-converter retval)
-                  retval))
-              (catch Throwable e
-                (log/error e "Error executing clojure function.")
-                (py-ffi/PyErr_SetString
-                 (py-ffi/py-exc-type)
-                 (format "%s:%s" e (with-out-str
-                                     (st/print-stack-trace e))))))))
-         fn-ptr (dt-ffi/foreign-interface-instance->c tuple-fn-iface fn-inst)
-         ;;no resource tracking - we leak the struct
-         method-def (dt-struct/new-struct :pymethoddef {:resource-type nil
-                                                        :container-type :native-heap})
-         name (dt-ffi/string->c name {:resource-type nil})
-         doc (dt-ffi/string->c name {:resource-type nil})]
-     (.put method-def :ml_name (.address (dt-ffi/->pointer name)))
-     (.put method-def :ml_meth (.address (dt-ffi/->pointer fn-ptr)))
-     (.put method-def :ml_flags METH_VARARGS)
-     (.put method-def :ml_doc (.address (dt-ffi/->pointer doc)))
-     ;;the method def cannot ever go out of scope
-     (py-ffi/retain-forever (gensym) {:md method-def
-                                      :name name
-                                      :doc doc
-                                      :fn-ptr fn-ptr
-                                      :fn-inst fn-inst})
-     ;;no self, no module reference
-     (-> (py-ffi/PyCFunction_NewEx method-def nil nil)
-         (py-ffi/wrap-pyobject))))
+   (py-ffi/with-gil
+     (let [arg-converter (or arg-converter identity)
+           fn-inst
+           (dt-ffi/instantiate-foreign-interface
+            tuple-fn-iface
+            (fn [self tuple-args]
+              (try
+                (let [retval
+                      (apply ifn
+                             (->> (range (py-ffi/PyTuple_Size tuple-args))
+                                  (map (fn [idx]
+                                         (-> (py-ffi/PyTuple_GetItem tuple-args idx)
+                                             (arg-converter))))))]
+                  (if result-converter
+                    (result-converter retval)
+                    retval))
+                (catch Throwable e
+                  (log/error e "Error executing clojure function.")
+                  (py-ffi/PyErr_SetString
+                   (py-ffi/py-exc-type)
+                   (format "%s:%s" e (with-out-str
+                                       (st/print-stack-trace e))))))))
+           fn-ptr (dt-ffi/foreign-interface-instance->c tuple-fn-iface fn-inst)
+           ;;no resource tracking - we leak the struct
+           method-def (dt-struct/new-struct :pymethoddef {:resource-type nil
+                                                          :container-type :native-heap})
+           name (dt-ffi/string->c name {:resource-type nil})
+           doc (dt-ffi/string->c name {:resource-type nil})]
+       (.put method-def :ml_name (.address (dt-ffi/->pointer name)))
+       (.put method-def :ml_meth (.address (dt-ffi/->pointer fn-ptr)))
+       (.put method-def :ml_flags METH_VARARGS)
+       (.put method-def :ml_doc (.address (dt-ffi/->pointer doc)))
+       ;;the method def cannot ever go out of scope
+       (py-ffi/retain-forever (gensym) {:md method-def
+                                        :name name
+                                        :doc doc
+                                        :fn-ptr fn-ptr
+                                        :fn-inst fn-inst})
+       ;;no self, no module reference
+       (-> (py-ffi/PyCFunction_NewEx method-def nil nil)
+           (py-ffi/wrap-pyobject)))))
   ([ifn]
-   (clj-fn->py-callable ifn nil)))
+   (make-tuple-fn ifn nil)))
 
 
 (defn simplify-or-wrap
   [^Pointer pyobj]
-  (if-not (.isNil pyobj)
+  (if-not (or (nil? pyobj) (.isNil pyobj))
     (if (= pyobj (py-ffi/py-none))
       (do (py-ffi/Py_DecRef pyobj)
           nil)
@@ -100,7 +102,7 @@
     (py-ffi/check-error-throw)))
 
 
-(defn call-py-fn
+(defn- call-py-fn
   [callable arglist kw-arg-map]
   (py-ffi/with-gil
     ;;Release objects marshalled just for this call immediately
@@ -118,23 +120,29 @@
       (simplify-or-wrap retval))))
 
 
+(extend-type Pointer
+  py-proto/PyCall
+  (call [callable arglist kw-arg-map]
+    (call-py-fn callable arglist kw-arg-map)))
+
+
 (defn call
   "Call a python function with positional args.  For keyword args, see call-kw."
   [callable & args]
-  (call-py-fn callable args nil))
+  (py-proto/call callable args nil))
 
 
 (defn call-kw
   "Call a python function with a vector of positional args and a map of keyword args."
   [callable arglist kw-args]
-  (call-py-fn callable arglist kw-args))
+  (py-proto/call callable arglist kw-args))
 
 
 (defn call-attr
   "Call an object attribute with positional arguments."
   [item att-name & args]
   (-> (py-proto/get-attr item att-name)
-      (call-py-fn args nil)))
+      (py-proto/call args nil)))
 
 
 (defn call-attr-kw
@@ -142,7 +150,7 @@
   map of keyword args."
   [item att-name arglist kw-map]
   (-> (py-proto/get-attr item att-name)
-      (call-py-fn arglist kw-map)))
+      (py-proto/call arglist kw-map)))
 
 (defn args->pos-kw-args
   "Utility function that, given a list of arguments, separates them

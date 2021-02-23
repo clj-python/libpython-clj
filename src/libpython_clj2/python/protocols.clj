@@ -64,6 +64,10 @@ are converted into a {:type :pyobject-address} pairs."))
   (callable? [item] "Return true if object is a python callable object."))
 
 
+(defprotocol PyCall
+  (call [callable arglist kw-arg-map]))
+
+
 (defprotocol PPyItem
   (has-item? [item item-name] "Return true of object has item")
   (get-item [item item-name] "Get an item of a given name from an object")

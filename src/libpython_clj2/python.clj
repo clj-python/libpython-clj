@@ -3,6 +3,7 @@
             [libpython-clj2.python.ffi :as py-ffi]
             [libpython-clj2.dechunk-map :refer [dechunk-map]]
             [libpython-clj2.python.copy]
+            [libpython-clj2.python.bridge-as-jvm]
             [libpython-clj.python.windows :as win]
             [tech.v3.datatype.ffi :as dtype-ffi]
             [clojure.tools.logging :as log]))

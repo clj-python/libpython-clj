@@ -10,9 +10,11 @@
 (defn ->jvm
   "Copying conversion to the jvm."
   ([obj]
-   (py-proto/->jvm obj nil))
+   (when obj
+     (py-proto/->jvm obj nil)))
   ([obj opts]
-   (py-proto/->jvm obj opts)))
+   (when obj
+     (py-proto/->jvm obj opts))))
 
 
 (defn as-jvm
@@ -20,7 +22,8 @@
   ([obj]
    (as-jvm obj nil))
   ([obj opts]
-   (py-proto/as-jvm obj opts)))
+   (when obj
+     (py-proto/as-jvm obj opts))))
 
 
 (defn ->python
@@ -125,7 +128,9 @@
     (let [item-val (->python item-value)]
       (if (stringable? item-name)
         (py-ffi/PyObject_SetAttrString item (stringable item-name) item-val)
-        (py-ffi/PyObject_SetAttr item (->python item-name) item-val))))
+        (py-ffi/PyObject_SetAttr item (->python item-name) item-val)))
+    (py-ffi/check-error-throw)
+    nil)
   py-proto/PPyCallable
   (callable? [item]
     (== 1 (long (py-ffi/PyCallable_Check item))))
@@ -139,7 +144,9 @@
         (py-ffi/wrap-pyobject)))
   (set-item! [item item-name item-value]
     (let [item-val (->python item-value)]
-      (py-ffi/PyObject_SetAttr item (->python item-name) item-val))))
+      (py-ffi/PyObject_SetItem item (->python item-name) item-val)
+      (py-ffi/check-error-throw))
+    nil))
 
 
 (def bool-fn-table
