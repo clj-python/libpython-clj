@@ -53,7 +53,11 @@
                                   (catch Throwable e false)))
                        (first))]
       (log/infof "Loading python library: %s" libname)
-      (py-ffi/initialize! libname (:python-home info) options)
+      (py-ffi/initialize! libname (:python-home info)
+                          (assoc options :program-name
+                                 (or (:program-name options)
+                                     (:executable info)
+                                     "")))
       (when-not (nil? windows-anaconda-activate-bat)
         (win/setup-windows-conda! windows-anaconda-activate-bat
                                   py-ffi/run-simple-string))

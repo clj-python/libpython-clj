@@ -450,17 +450,13 @@ Each call must be matched with PyGILState_Release"}
   (set-library! libpath)
   (when-not (= 1 (Py_IsInitialized))
     (log/debug "Initializing Python C Layer")
+    (println "program-name" program-name)
     (let [program-name (retain-forever :program-name
                                        (-> (or program-name "")
-                                           (dt-ffi/string->c {:encoding :utf-16})))
-          wide-ptr (retain-forever
-                    :program-name-ptr-ptr
-                    (dtype/make-container :native-heap :int64
-                                          [(.address (dtype/as-native-buffer
-                                                      program-name))]))]
+                                           (dt-ffi/string->c {:encoding :utf-16})))]
       (Py_SetProgramName program-name)
       (Py_InitializeEx (if signals? 1 0))
-      (PySys_SetArgvEx 0 wide-ptr 0)
+      (PySys_SetArgvEx 0 program-name 1)
       ;;return value ignored :-)
       ;;This releases the GIL until further processing and allows with-gil to work
       ;;correctly.
