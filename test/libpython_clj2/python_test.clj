@@ -1,16 +1,18 @@
 (ns libpython-clj.python-test
-  (:require [libpython-clj.python :as py :refer [py. py.. py.- py* py**]]
-            [libpython-clj.jna :as libpy]
+  (:require [libpython-clj2.python :as py :refer [py. py.. py.- py* py**]]
+            ;;support for tensor/numpy integration
+            [libpython-clj2.python.np-array]
             [tech.v3.datatype :as dtype]
             [tech.v3.datatype.functional :as dfn]
             [tech.v3.tensor :as dtt]
-            [tech.v3.jna :as jna]
             [clojure.test :refer :all])
   (:import [java.io StringWriter]
            [java.util Map List]
-           [com.sun.jna Pointer]))
+           [tech.v3.datatype.ffi Pointer]))
+
 
 (py/initialize!)
+
 
 (deftest stdout-and-stderr
   (is (= "hey\n" (with-out-str
@@ -67,14 +69,12 @@
     (py/run-simple-string "item3 = item + item2")
     (is (= 300 (globals "item3")))))
 
+
 (deftest numpy-and-back
   (let [jvm-tens (dtt/->tensor (->> (range 9)
                                     (partition 3))
                                :datatype :float64)]
-    ;;zero-copy can't work on jvm datastructures with current JNA tech.
-    ;;IT would require 'pinning' which isn't yet available.
-    (is (nil? (py/as-numpy jvm-tens)))
-    (let [py-tens (py/->numpy jvm-tens)]
+    (let [py-tens (py/->python jvm-tens)]
       (is (= [[0.0 1.0 2.0] [3.0 4.0 5.0] [6.0 7.0 8.0]]
              (-> (dtt/as-tensor py-tens)
                  dtt/->jvm)))

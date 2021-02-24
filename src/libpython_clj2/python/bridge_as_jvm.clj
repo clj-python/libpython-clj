@@ -213,7 +213,7 @@
                          (if (py-proto/has-attr? pyobj# "__name__")
                            (py-base/->jvm (py-proto/get-attr pyobj# "__name__"))
                            "__unnamed__"))
-                 (py-base/->jvm (py-fn/call-attr pyobj# "__str__"))))))
+                 (py-base/->jvm (py-fn/call-attr pyobj# "__str__" nil))))))
          (equals [this# other#]
            (boolean
             (when (dt-ffi/convertible-to-pointer? other#)

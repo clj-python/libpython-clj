@@ -7,6 +7,7 @@
             [libpython-clj2.python.copy :as py-copy]
             [libpython-clj.python.gc :as pygc]
             [tech.v3.datatype.ffi :as dt-ffi]
+            [tech.v3.datatype.ffi.size-t :as ffi-size-t]
             [tech.v3.datatype.struct :as dt-struct]
             [clojure.tools.logging :as log]
             [clojure.stacktrace :as st])
@@ -16,10 +17,10 @@
 
 
 (def methoddef-type (dt-struct/define-datatype! :pymethoddef
-                      [{:name :ml_name :datatype (dt-ffi/size-t-type)}
-                       {:name :ml_meth :datatype (dt-ffi/size-t-type)}
+                      [{:name :ml_name :datatype (ffi-size-t/size-t-type)}
+                       {:name :ml_meth :datatype (ffi-size-t/size-t-type)}
                        {:name :ml_flags :datatype :int32}
-                       {:name :ml_doc :datatype (dt-ffi/size-t-type)}]))
+                       {:name :ml_doc :datatype (ffi-size-t/size-t-type)}]))
 
 
 (def tuple-fn-iface (dt-ffi/define-foreign-interface :pointer [:pointer :pointer]))
@@ -140,9 +141,9 @@
 
 (defn call-attr
   "Call an object attribute with positional arguments."
-  [item att-name & args]
+  [item att-name arglist]
   (-> (py-proto/get-attr item att-name)
-      (py-proto/call args nil)))
+      (py-proto/call arglist nil)))
 
 
 (defn call-attr-kw

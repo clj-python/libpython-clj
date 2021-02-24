@@ -2,6 +2,7 @@
   "Low level bindings to the python shared library system."
   (:require [tech.v3.datatype :as dtype]
             [tech.v3.datatype.ffi :as dt-ffi]
+            [tech.v3.datatype.ffi.size-t :as ffi-size-t]
             [tech.v3.datatype.struct :as dt-struct]
             [tech.v3.datatype.errors :as errors]
             [tech.v3.datatype.native-buffer :as native-buffer]
@@ -11,8 +12,7 @@
             [camel-snake-kebab.core :as csk]
             [clojure.tools.logging :as log]
             [clojure.string :as s])
-  (:import [java.util.concurrent.atomic AtomicLong]
-           [java.util.concurrent ConcurrentHashMap]
+  (:import [java.util.concurrent ConcurrentHashMap]
            [java.util.function Function]
            [tech.v3.datatype.ffi Pointer Library]))
 
@@ -251,20 +251,21 @@ Each call must be matched with PyGILState_Release"}
    })
 
 
-(defonce size-t-type (dt-ffi/size-t-type))
+(def python-lib-def* (delay (dt-ffi/define-library python-library-fns)))
+(defonce pyobject-struct-type*
+  (delay (dt-struct/define-datatype!
+           :pyobject [{:name :ob_refcnt :datatype (ffi-size-t/size-t-type)}
+                      {:name :ob_type :datatype (ffi-size-t/size-t-type)}])))
+
+(defn pytype-offset
+  ^long []
+  (first (dt-struct/offset-of @pyobject-struct-type* :ob_type)))
 
 
-(def python-lib-def (dt-ffi/define-library python-library-fns))
-(defonce pyobject-struct-type (dt-struct/define-datatype!
-                                :pyobject [{:name :ob_refcnt :datatype size-t-type}
-                                           {:name :ob_type :datatype size-t-type}]))
+(defn pyrefcnt-offset
+  ^long []
+  (first (dt-struct/offset-of @pyobject-struct-type* :ob_refcnt)))
 
-(def ^{:tag 'long} pytype-offset
-  (first (dt-struct/offset-of pyobject-struct-type :ob_type)))
-
-
-(def ^{:tag 'long} pyrefcnt-offset
-  (first (dt-struct/offset-of pyobject-struct-type :ob_refcnt)))
 
 (defn ptr->struct
   [struct-type ptr-type]
@@ -280,21 +281,22 @@ Each call must be matched with PyGILState_Release"}
 (defonce ^:private library-path* (atom nil))
 
 
+(defn reset-library!
+  []
+  (when @library-path*
+    (reset! library* (dt-ffi/instantiate-library @python-lib-def* @library-path*))))
+
 
 (defn set-library!
   [libpath]
   (when @library*
     (log/warnf "Python library is being reinitialized to (%s).  Is this what you want?"
                libpath))
+  (reset! library-path* libpath)
+  (reset-library!))
 
-  (reset! library* (dt-ffi/instantiate-library python-lib-def libpath))
-  (reset! library-path* libpath))
 
 
-(defn reset-library!
-  []
-  (when @library-path*
-    (reset! library* (dt-ffi/instantiate-library python-lib-def @library-path*))))
 
 ;;Useful for repling around - this regenerates the library function bindings
 (reset-library!)
@@ -477,34 +479,38 @@ Each call must be matched with PyGILState_Release"}
       (PyTuple_SetItem tuple idx (args idx)))
     tuple))
 
+(def ^:dynamic *python-error-handler* nil)
+
 
 (defn check-error-str
   "Function assumes python stdout and stderr have been redirected"
   []
   (check-gil)
   (when-not (= nil (PyErr_Occurred))
-    (let [type (dt-ffi/make-ptr :pointer 0)
-          value (dt-ffi/make-ptr :pointer 0)
-          tb (dt-ffi/make-ptr :pointer 0)]
-      (PyErr_Fetch type value tb)
-      (PyErr_NormalizeException type value tb)
-      (let [type (Pointer. (type 0))
-            value (Pointer. (value 0))
-            tb (Pointer. (tb 0))
-            tb (if (.isNil tb)
-                 ;;because the tuple steals the reference
-                 (do (Py_IncRef (py-none))
-                     (py-none))
-                 tb)]
-        ;;The tuple steals the references so we do not have to dereference their
-        ;;data at the end of this function as long as we dereferece the tuple.
-        (with-decref [argtuple (make-tuple type value tb)
-                      exc-str-tuple (PyObject_CallObject (exc-formatter) argtuple)]
-          (->> (range (PySequence_Length exc-str-tuple))
-               (map (fn [idx]
-                      (with-decref [strdata (PySequence_GetItem exc-str-tuple idx)]
-                        (pystr->str strdata))))
-               (s/join)))))))
+    (if *python-error-handler*
+      (*python-error-handler*)
+      (let [type (dt-ffi/make-ptr :pointer 0)
+            value (dt-ffi/make-ptr :pointer 0)
+            tb (dt-ffi/make-ptr :pointer 0)]
+        (PyErr_Fetch type value tb)
+        (PyErr_NormalizeException type value tb)
+        (let [type (Pointer. (type 0))
+              value (Pointer. (value 0))
+              tb (Pointer. (tb 0))
+              tb (if (.isNil tb)
+                   ;;because the tuple steals the reference
+                   (do (Py_IncRef (py-none))
+                       (py-none))
+                   tb)]
+          ;;The tuple steals the references so we do not have to dereference their
+          ;;data at the end of this function as long as we dereferece the tuple.
+          (with-decref [argtuple (make-tuple type value tb)
+                        exc-str-tuple (PyObject_CallObject (exc-formatter) argtuple)]
+            (->> (range (PySequence_Length exc-str-tuple))
+                 (map (fn [idx]
+                        (with-decref [strdata (PySequence_GetItem exc-str-tuple idx)]
+                          (pystr->str strdata))))
+                 (s/join))))))))
 
 
 (defn check-error-throw
@@ -543,20 +549,20 @@ Each call must be matched with PyGILState_Release"}
 
 (defn pyobject-type
   ^Pointer [pobj]
-  (if (= :int32 (dt-ffi/size-t-type))
+  (if (= :int32 (ffi-size-t/size-t-type))
     (Pointer. (.getInt (native-buffer/unsafe)
-                       (+ (.address (dt-ffi/->pointer pobj)) pytype-offset)))
+                       (+ (.address (dt-ffi/->pointer pobj)) (pytype-offset))))
     (Pointer. (.getLong (native-buffer/unsafe)
-                        (+ (.address (dt-ffi/->pointer pobj)) pytype-offset)))))
+                        (+ (.address (dt-ffi/->pointer pobj)) (pytype-offset))))))
 
 
 (defn pyobject-refcount
   ^long [pobj]
-  (if (= :int32 (dt-ffi/size-t-type))
+  (if (= :int32 (ffi-size-t/size-t-type))
     (.getInt (native-buffer/unsafe)
-             (+ (.address (dt-ffi/->pointer pobj)) pyrefcnt-offset))
+             (+ (.address (dt-ffi/->pointer pobj)) (pyrefcnt-offset)))
     (.getLong (native-buffer/unsafe)
-              (+ (.address (dt-ffi/->pointer pobj)) pyrefcnt-offset))))
+              (+ (.address (dt-ffi/->pointer pobj)) (pyrefcnt-offset)))))
 
 
 (defn pystr->str
@@ -590,76 +596,32 @@ Each call must be matched with PyGILState_Release"}
                               (csk/->kebab-case-keyword)))))))
 
 
-(def ^{:doc "Dereferences to the value of the py-none symbol"
-       :tag Pointer}
-  py-none* (delay (.findSymbol (current-library) "_Py_NoneStruct")))
-
-(defn py-none
-  ^Pointer []
-  @py-none*)
-
-(def ^{:doc "Dereferences to the value of the py-true symbol"
-       :tag Pointer}
-  py-true* (delay (.findSymbol (current-library) "_Py_TrueStruct")))
-
-(defn py-true
-  ^Pointer []
-  @py-true*)
-
-
-(def ^{:doc "Dereferences to the value of the py-false symbol"
-       :tag Pointer}
-  py-false* (delay (.findSymbol (current-library) "_Py_FalseStruct")))
-
-(defn py-false
-  ^Pointer []
-  @py-false*)
-
-
-(def ^{:doc "Dereferences to the value of the PyRange_Type symbol"
-       :tag Pointer}
-  py-range-type* (delay (.findSymbol (current-library) "PyRange_Type")))
-
-(defn py-range-type
-  ^Pointer []
-  @py-range-type*)
-
-
 (defn- deref-ptr-ptr
   ^Pointer [^Pointer val]
-  (Pointer. (case (dt-ffi/size-t-type)
+  (Pointer. (case (ffi-size-t/size-t-type)
               :int32 (.getInt (native-buffer/unsafe) (.address val))
               :int64 (.getLong (native-buffer/unsafe) (.address val)))))
 
 
-(def ^{:doc "Dereferences to the value of the base python exception type"
-       :tag Pointer}
-  py-exc-type* (delay (.findSymbol (current-library) "PyExc_Exception")))
+(defmacro define-static-symbol
+  [symbol-fn symbol-name deref-ptr?]
+  (let [sym-delay-name (with-meta (symbol (str symbol-fn "*"))
+                         {:doc (format "Dereferences to the value of %s" symbol-name)
+                          :private true})]
+    `(do
+       (def ~sym-delay-name (delay (.findSymbol (current-library) ~symbol-name)))
+       ~(if deref-ptr?
+          `(defn ~symbol-fn [] (deref-ptr-ptr (deref ~sym-delay-name)))
+          `(defn ~symbol-fn [] (deref ~sym-delay-name))))))
 
 
-(defn py-exc-type
-  ^Pointer []
-  (deref-ptr-ptr @py-exc-type*))
-
-
-(def ^{:doc "Dereferences to the value of the base python stopIteration type"
-       :tag Pointer}
-  py-exc-stopiter-type* (delay (.findSymbol (current-library) "PyExc_StopIteration")))
-
-
-(defn py-exc-stopiter-type
-  ^Pointer []
-  (deref-ptr-ptr @py-exc-stopiter-type*))
-
-
-(def ^{:doc "Dereferences to the value of the PyType_Type symbol"
-       :tag Pointer}
-  py-type-type* (delay (.findSymbol (current-library) "PyType_Type")))
-
-
-(defn py-type-type
-  ^Pointer []
-  @py-type-type*)
+(define-static-symbol py-none "_Py_NoneStruct" false)
+(define-static-symbol py-true "_Py_TrueStruct" false)
+(define-static-symbol py-false "_Py_FalseStruct" false)
+(define-static-symbol py-range-type "PyRange_Type" false)
+(define-static-symbol py-exc-type "PyExc_Exception" true)
+(define-static-symbol py-exc-stopiter-type "PyExc_StopIteration" true)
+(define-static-symbol py-type-type "PyType_Type" false)
 
 
 (def object-reference-logging (atom false))
@@ -740,6 +702,13 @@ Object's refcount is bad.  Crash is imminent"
     (int value)))
 
 
+(defn import-module
+  [modname]
+  (if-let [mod (PyImport_ImportModule modname)]
+    (wrap-pyobject mod)
+    (check-error-throw)))
+
+
 (defn run-simple-string
   "Run a simple string.  Results are only visible if they are saved in the
   global or local context.
@@ -762,7 +731,9 @@ Object's refcount is bad.  Crash is imminent"
     return 0;"
   [program & {:keys [globals locals]}]
   (with-gil
+    ;;borrowed reference
     (let [main-mod (PyImport_AddModule "__main__")
+          ;;another borrowed reference that we will expose to the user
           globals (or globals (incref-wrap-pyobject (PyModule_GetDict main-mod)))
           locals (or locals globals)
           retval (wrap-pyobject
