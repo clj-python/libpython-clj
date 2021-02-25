@@ -410,6 +410,14 @@ Each call must be matched with PyGILState_Release"}
                  (Py_DecRef pyobj#)))))))))
 
 
+(defn incref
+  "Increment the refcount returning object.  Legal to call
+  on nil, will not incref item and return nil."
+  [pyobj]
+  (when pyobj (Py_IncRef pyobj))
+  pyobj)
+
+
 (defonce ^{:tag ConcurrentHashMap
            :private true}
   forever-map (ConcurrentHashMap.))

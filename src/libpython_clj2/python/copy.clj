@@ -344,6 +344,6 @@
       ;;Iterables we *have* to convert lazily; we cannot copy them.
       (py-proto/as-python item opts)
       (instance? IFn item)
-      (errors/throwf "Unable to convert functions at this time.")
+      (py-proto/as-python item opts)
       :else
       (errors/throwf "Unable to convert object: %s" item))))

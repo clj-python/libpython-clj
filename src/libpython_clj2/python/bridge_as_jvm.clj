@@ -5,7 +5,8 @@
             [libpython-clj2.python.ffi :refer [with-gil] :as py-ffi]
             [libpython-clj.python.gc :as pygc]
             [tech.v3.datatype.errors :as errors]
-            [tech.v3.datatype.ffi :as dt-ffi])
+            [tech.v3.datatype.ffi :as dt-ffi]
+            [clojure.core.protocols :as clj-proto])
   (:import [java.util Map]
            [clojure.lang IFn MapEntry Fn]
            [tech.v3.datatype.ffi Pointer]
@@ -198,6 +199,8 @@
            (with-gil
              (-> (py-fn/call-kw pyobj# arglist# kw-arg-map#)
                  (py-base/as-jvm))))
+         clj-proto/Datafiable
+         (datafy [callable#] (py-proto/pydatafy callable#))
          Object
          (toString [this#]
            (with-gil

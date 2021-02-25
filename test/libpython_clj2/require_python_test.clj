@@ -1,8 +1,8 @@
 (ns libpython-clj.require-python-test
-  (:require [libpython-clj.require :as req
+  (:require [libpython-clj2.require :as req
              :refer [require-python pydafy pynav]
              :reload true]
-            [libpython-clj.python :as py]
+            [libpython-clj2.python :as py]
             [clojure.test :refer :all]
             [clojure.datafy :refer [datafy nav]]))
 
@@ -46,6 +46,7 @@
     (is (= #{:b} (parse-flags #{:a :b} '[:b true :a false])))
     (is (= #{:b} (parse-flags #{:a :b} '[:b :a false])))
     (is (= #{:b :a} (parse-flags #{:a :b} '[:b :a false :a true])))))
+
 
 (require-python '[builtins :as python]
                 '[builtins.list :as python.pylist])
@@ -145,4 +146,3 @@
           "Methods have line numbers")
       (is (string? file)
           "Methods have file paths"))))
-

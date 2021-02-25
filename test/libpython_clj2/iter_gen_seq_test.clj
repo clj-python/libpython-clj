@@ -1,8 +1,8 @@
-(ns libpython-clj.iter-gen-seq-test
+(ns libpython-clj2.iter-gen-seq-test
   "Iterators/sequences and such are crucial to handling lots of forms
   of data and thus they have to work correctly between the languages."
-  (:require [libpython-clj.python :as py]
-            [libpython-clj.require :refer [require-python]]
+  (:require [libpython-clj2.python :as py]
+            [libpython-clj2.require :refer [require-python]]
             [clojure.test :refer :all]))
 
 

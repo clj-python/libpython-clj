@@ -25,7 +25,7 @@
   'make-tuple-fn'.
   Options are the same as make-tuple-fn."
   ([clj-fn & [{:keys [arg-converter]
-               :or {arg-converter identity}
+               :or {arg-converter py-base/as-jvm}
                :as options}]]
    (py-ffi/with-gil
      ;;Explicity set arg-converter to override make-tuple-fn's default

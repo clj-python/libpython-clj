@@ -27,7 +27,8 @@
                   (.write (self->writer self) (str
                                                (py-base/->jvm
                                                 (first args)))))
-                (py-ffi/py-none)))
+                (py-ffi/py-none))
+              {:arg-converter identity})
      "flush" (py-class/make-tuple-instance-fn
               (constantly (py-ffi/py-none)))
      "isatty" (py-class/make-tuple-instance-fn

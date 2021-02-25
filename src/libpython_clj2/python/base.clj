@@ -99,6 +99,17 @@
   (dir [this] []))
 
 
+(extend-protocol py-proto/PPythonType
+  Boolean
+  (get-python-type [item] :bool)
+  Number
+  (get-python-type [item]
+    (if (integer? item) :int :float))
+  String
+  (get-python-type [item] :str)
+  Object
+  (get-python-type [item] (py-ffi/pyobject-type-kwd item)))
+
 
 (extend-type Pointer
   py-proto/PCopyToJVM

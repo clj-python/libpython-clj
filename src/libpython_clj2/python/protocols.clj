@@ -2,7 +2,8 @@
   "Internal protocols to libpython-clj.  Implementations of these protocols should
   expect the GIL to be captured so they themselves **d not** need to capture
   the GIL."
-  (:require [libpython-clj2.python.ffi :as py-ffi]))
+  (:require [libpython-clj2.python.ffi :as py-ffi]
+            [tech.v3.datatype :as dtype]))
 
 
 (defprotocol PPythonType
@@ -14,7 +15,7 @@
   "Return a keyword that describes the python datatype of this object."
   ([item]
    (if item
-     (py-ffi/pyobject-type-kwd item)
+     (get-python-type item)
      :none-type))
   ([item options]
    (python-type item)))
@@ -81,4 +82,10 @@ are converted into a {:type :pyobject-address} pairs."))
 
 (defmulti pyobject-as-jvm
   "Bridge a python object to the jvm based on its python type"
+  python-type)
+
+
+(defmulti pydatafy
+  "Datafy a python object.  The metadata namespace must be loaded in order
+  to datafy a python object."
   python-type)

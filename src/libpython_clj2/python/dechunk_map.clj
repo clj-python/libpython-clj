@@ -1,4 +1,4 @@
-(ns libpython-clj2.dechunk-map)
+(ns libpython-clj2.python.dechunk-map)
 
 
 (defn dechunk-map

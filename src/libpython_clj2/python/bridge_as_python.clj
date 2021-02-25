@@ -83,7 +83,8 @@
 (defn- as-tuple-instance-fn
   [fn-obj & [options]]
   (py-class/make-tuple-instance-fn fn-obj
-                                   (merge {:result-converter as-python-incref}
+                                   (merge {:result-converter py-base/as-python
+                                           :arg-converter identity}
                                           options)))
 
 

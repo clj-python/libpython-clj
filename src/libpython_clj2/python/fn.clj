@@ -37,7 +37,7 @@
                 result-converter
                 name doc]
          :or {arg-converter py-base/->jvm
-              result-converter py-base/->python-incref
+              result-converter py-base/->python
               name "_unamed"
               doc "no documentation provided"}}]
    (py-ffi/with-gil
@@ -53,9 +53,11 @@
                                   (map (fn [idx]
                                          (-> (py-ffi/PyTuple_GetItem tuple-args idx)
                                              (arg-converter))))))]
-                  (if result-converter
-                    (result-converter retval)
-                    retval))
+                  (pygc/with-stack-context
+                    (-> (if result-converter
+                          (result-converter retval)
+                          retval)
+                        (py-ffi/incref))))
                 (catch Throwable e
                   (log/error e "Error executing clojure function.")
                   (py-ffi/PyErr_SetString

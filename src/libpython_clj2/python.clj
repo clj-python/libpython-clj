@@ -4,16 +4,19 @@
             [libpython-clj2.python.base :as py-base]
             [libpython-clj2.python.fn :as py-fn]
             [libpython-clj2.python.protocols :as py-proto]
+            [libpython-clj2.python.class :as py-class]
             [libpython-clj2.python.with :as py-with]
-            [libpython-clj2.dechunk-map :refer [dechunk-map]]
+            [libpython-clj2.python.dechunk-map :refer [dechunk-map]]
             [libpython-clj2.python.copy :as py-copy]
-            [libpython-clj2.python.bridge-as-jvm]
+            [libpython-clj2.python.bridge-as-jvm :as py-bridge-jvm]
             [libpython-clj2.python.bridge-as-python]
             [libpython-clj2.python.io-redirect :as io-redirect]
             [libpython-clj.python.gc :as pygc]
             [libpython-clj.python.windows :as win]
             [tech.v3.datatype.ffi :as dtype-ffi]
-            [clojure.tools.logging :as log]))
+            [clojure.tools.logging :as log])
+  (:import [java.util Map List]
+           [clojure.lang IFn]))
 
 
 
@@ -172,6 +175,12 @@
   pyobj)
 
 
+(defn has-attr?
+  "Return true if this python object has this attribute."
+  [pyobj att-name]
+  (py-proto/has-attr? pyobj att-name))
+
+
 (defn get-item
   "Get an item from a python object using  __getitem__"
   [pyobj item-name]
@@ -206,20 +215,32 @@
 
 (defn ->jvm
   "Copy a python value into java datastructures"
-  [v]
-  (py-ffi/with-gil (py-base/->jvm v)))
+  [v & [opts]]
+  (py-ffi/with-gil (py-base/->jvm v opts)))
 
 
 (defn as-jvm
   "Copy a python value into java datastructures"
-  [v]
-  (py-ffi/with-gil (py-base/as-jvm v)))
+  [v & [opts]]
+  (py-ffi/with-gil (py-base/as-jvm v opts)))
+
+
+(defn as-map
+  "Make a python object appear as a map of it's items"
+  ^Map [pobj]
+  (py-bridge-jvm/generic-python-as-map pobj))
+
+
+(defn as-list
+  "Make a python object appear as a list"
+  ^List [pobj]
+  (py-bridge-jvm/generic-python-as-list pobj))
 
 
 (defn python-type
   "Get the type (as a keyword) of a python object"
   [v]
-  (py-ffi/with-gil (py-ffi/pyobject-type-kwd v)))
+  (py-ffi/with-gil (py-proto/python-type v)))
 
 
 (defn is-instance?
@@ -232,6 +253,23 @@
         0 false
         1 true
         (py-ffi/check-error-throw)))))
+
+
+(defn callable?
+  "Return true if python object is callable."
+  [pyobj]
+  (cond
+    (instance? IFn pyobj)
+    true
+    (dtype-ffi/convertible-to-pointer? pyobj)
+    (py-ffi/with-gil
+      (let [retval (long (py-ffi/PyCallable_Check pyobj))]
+        (case retval
+          0 false
+          1 true
+          (py-ffi/check-error-throw))))
+    :else
+    false))
 
 
 (defn ->py-list
@@ -283,6 +321,101 @@
        (map (fn [[k v]]
               [k (py-base/as-jvm v)]))
        (into {})))
+
+
+(defn make-callable
+  "Make a python callable object from a clojure function.  This is called for you
+  if you use `as-python` on an implementation of IFn.
+
+Options:
+  * `:arg-converter` - Function called for each function argument before your ifn
+     gets access to it.  Defaults to `->jvm`.
+  * `:result-converter` - Function called on return value before it gets returned to
+     python.  Must return a python object.  Defaults to `->python`; the result will
+     get an extra incref before being returned to Python to account for the implied
+     tracking of `as-python` or `->python`.
+  * `:name` - Name of the python method.  This will appear in stack traces.
+  * `:doc` - documentation for method."
+  ([ifn options]
+   (py-fn/make-tuple-fn ifn options))
+  ([ifn] (make-callable ifn nil)))
+
+
+(defn ^:no-doc make-tuple-fn
+  "Deprecated - use make-callable"
+  [ifn & {:as options}]
+  (make-callable ifn options))
+
+
+(defn make-instance-fn
+  "Make an callable instance function - a function which will be passed the 'this'
+  object as it's first argument.  In addition, this function calls `make-callable`
+  with a `arg-converter` defaulted to `as-jvm`.  See documentation for
+  make-callable."
+  ([ifn options] (py-class/make-tuple-instance-fn ifn options))
+  ([ifn] (make-instance-fn ifn nil)))
+
+
+(defn ^:no-doc make-tuple-instance-fn
+  [ifn & {:as options}]
+  (make-instance-fn ifn options))
+
+
+(defn create-class
+  "Create a new class object.  Any callable values in the cls-hashmap
+  will be presented as instance methods.  If you want access to the
+  'this' object then you must use `make-instance-fn`.
+
+  Example:
+
+```clojure
+user> (require '[libpython-clj2.python :as py])
+nil
+user> (def cls-obj (py/create-class
+                    \"myfancyclass\"
+                    nil
+                    {\"__init__\" (py/make-instance-fn
+                                 (fn [this arg]
+                                   (py/set-attr! this \"arg\" arg)
+                                   ;;If you don't return nil from __init__ that is an
+                                   ;;error.
+                                   nil))
+                     \"addarg\" (py/make-instance-fn
+                               (fn [this otherarg]
+                                 (+ (py/get-attr this \"arg\")
+                                    otherarg)))}))
+#'user/cls-obj
+user> cls-obj
+__no_module__.myfancyclass
+user> (def inst (cls-obj 10))
+#'user/inst
+user> (py/call-attr inst \"addarg\" 10)
+20
+```"
+  [name bases cls-hashmap]
+  (py-class/create-class name bases cls-hashmap))
+
+
+(defn cfn
+  "Call an object.
+  Arguments are passed in positionally.  Any keyword
+  arguments are paired with the next arg, gathered, and passed into the
+  system as *kwargs.
+
+  Not having an argument after a keyword argument is an error."
+  [item & args]
+  (apply py-fn/cfn item args))
+
+
+(defn afn
+  "Call an attribute of an object.
+  Arguments are passed in positionally.  Any keyword
+  arguments are paired with the next arg, gathered, and passed into the
+  system as *kwargs.
+
+  Not having an argument after a keyword is an error."
+  [item attr & args]
+  (apply py-fn/afn item attr args))
 
 
 (defmacro with

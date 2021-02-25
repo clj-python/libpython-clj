@@ -1,7 +1,7 @@
 (ns libpython-clj.sugar-test
-  (:require [libpython-clj.sugar :as pysug :reload true]
+  (:require [libpython-clj2.sugar :as pysug :reload true]
             [clojure.test :refer :all]
-            [libpython-clj.python :as py]))
+            [libpython-clj2.python :as py]))
 
 (deftest test-pyxfn
   (let [{{:strs [addem addx addxkwargs stringify addbang]} :globals}
@@ -76,4 +76,3 @@ def addbang(xs):
                (conj result input)))
             []
             (range 4))))))
-
