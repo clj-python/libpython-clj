@@ -2,8 +2,10 @@
   (:require [libpython-clj2.python :as py :refer [py. py.. py.- py* py**]]
             ;;support for tensor/numpy integration
             [libpython-clj2.python.np-array]
+            [libpython-clj2.python.ffi :as py-ffi]
             [tech.v3.datatype :as dtype]
             [tech.v3.datatype.functional :as dfn]
+            [tech.v3.datatype.ffi :as dt-ffi]
             [tech.v3.tensor :as dtt]
             [clojure.test :refer :all])
   (:import [java.io StringWriter]
@@ -192,41 +194,6 @@
         bridged (py/as-jvm dict)]
     (is (= nil (bridged nil)))))
 
-(deftest custom-clojure-item
-  (let [att-map {"clojure_fn" (py/->python #(vector 1 2 3))}
-        my-python-item (py/create-bridge-from-att-map
-                        ;;First is the jvm object that this bridge stands for.  If this
-                        ;;gets garbage collected then the python side will be removed
-                        ;;also.
-                        att-map
-                        ;;second is the list of attributes.  In this case, since this
-                        ;;object isn't iterable or anything, this function will do.
-                        att-map)
-        py-mod (py/import-module "testcode")]
-    (is (= [1 2 3]
-           (py/call-attr py-mod "calling_custom_clojure_fn" my-python-item)))
-
-    ;;Now this case is harder.  Let's say we have something that is iterable and we
-    ;;want this to be reflected in python.  In that case we have to call 'as-python'
-    ;;on the iterator and that 'should' work.
-
-    (let [my-obj (reify
-                   Iterable
-                   (iterator [this] (.iterator [4 5 6])))
-          ;;Note that attributes themselves have to be python objects and wrapping
-          ;;this with as-python makes that function wrap whatever it returns in a
-          ;;bridging python object also.
-          att-map {"__iter__" (py/as-python #(.iterator my-obj))}
-          my-python-item (py/create-bridge-from-att-map
-                          my-obj
-                          ;;second is the list of attributes.  In this case, since this
-                          ;;object isn't iterable or anything, this function will do.
-                          att-map)]
-      (is (= [4 5 6]
-             (vec my-obj)))
-      (is (= [4 5 6]
-             (vec (py/call-attr py-mod "for_iter" my-python-item)))))))
-
 (deftest bridged-dict-to-jvm
   (let [py-dict (py/->py-dict {:a 1 :b 2})
         bridged (py/as-jvm py-dict)
@@ -235,21 +202,21 @@
 
 (deftest calling-conventions
   (let [np (py/import-module "numpy")
-        linspace (py/$. np linspace)]
+        linspace (py/py.. np -linspace)]
 
     (is (dfn/equals [2.000 2.250 2.500 2.750 3.000]
                     (dtt/as-tensor (linspace 2 3 :num 5))))
     (is (dfn/equals [2.000 2.250 2.500 2.750 3.000]
-                    (dtt/as-tensor (py/c$ linspace 2 3 :num 5))))
+                    (dtt/as-tensor (py/$c linspace 2 3 :num 5))))
     (is (dfn/equals [2.000 2.250 2.500 2.750 3.000]
-                    (dtt/as-tensor (py/a$ np linspace 2 3 :num 5))))))
+                    (dtt/as-tensor (py/$a np linspace 2 3 :num 5))))))
 
 (deftest syntax-sugar
   (py/initialize!)
   (let [np (py/import-module "numpy")]
-    (is (= (str (py/$. np linspace))
+    (is (= (str (py/py.- np linspace))
            (str (py/get-attr np "linspace"))))
-    (is (= (str (py/$.. np random shuffle))
+    (is (= (str (py/py.. np -random -shuffle))
            (str (-> (py/get-attr np "random")
                     (py/get-attr "shuffle"))))))
 
@@ -337,8 +304,8 @@ class Foo:
       (py.. (**update {:c 3}))
       (py.. (**update [[:d 4]] {:e 5})))
 
-    (is (= d {"a" 1 "b" 2 "c" 3 "d" 4 "e" 5})))
-  )
+    (is (= d {"a" 1 "b" 2 "c" 3 "d" 4 "e" 5}))))
+
 
 (deftest infinite-seq
   (let [islice (-> (py/import-module "itertools")
@@ -378,13 +345,13 @@ class Foo:
                     (dtt/as-tensor ary-data)))))
 
 (deftest false-is-always-py-false
-  (let [py-false (libpy/Py_False)
+  (let [py-false (py-ffi/py-false)
         ->false (py/->python false)
         as-false (py/as-python false)]
-    (is (= (Pointer/nativeValue (jna/as-ptr py-false))
-           (Pointer/nativeValue (jna/as-ptr ->false))))
-    (is (= (Pointer/nativeValue (jna/as-ptr py-false))
-           (Pointer/nativeValue (jna/as-ptr as-false))))))
+    (is (= (dt-ffi/->pointer py-false)
+           (dt-ffi/->pointer ->false)))
+    (is (= (dt-ffi/->pointer py-false)
+           (dt-ffi/->pointer as-false)))))
 
 (deftest instance-abc-classes
   (let [py-dict (py/->python {"a" 1 "b" 2})

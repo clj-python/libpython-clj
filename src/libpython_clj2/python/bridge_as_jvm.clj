@@ -12,12 +12,9 @@
            [tech.v3.datatype ObjectBuffer]))
 
 
-(extend-protocol py-proto/PBridgeToPython
-  Object
-  (as-python [obj opts]
-    (py-proto/->python obj opts))
+(extend-protocol py-proto/PBridgeToJVM
   Pointer
-  (as-python [ptr opts]
+  (as-jvm [ptr opts]
     (py-proto/pyobject-as-jvm ptr opts)))
 
 
@@ -398,7 +395,7 @@
   (py-ffi/with-gil
     (py-ffi/with-decref [iter-attr (py-ffi/PyObject_GetAttrString pyobj "__iter__")]
       (when-not iter-attr (py-ffi/check-error-throw))
-      (python->jvm-iterator iter-attr py-base/as-python))))
+      (python->jvm-iterator iter-attr py-base/as-jvm))))
 
 
 (defn generic-python-as-jvm

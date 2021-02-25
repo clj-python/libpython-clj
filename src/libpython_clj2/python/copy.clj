@@ -319,6 +319,8 @@
   (->python [item ops] (->py-string (name item)))
   Symbol
   (->python [item ops] (->py-string (name item)))
+  Character
+  (->python [item ops] (->py-string (str item)))
   Map
   (->python [item opts] (->py-dict item))
   RandomAccess
@@ -339,7 +341,8 @@
       (py-proto/->python (dtype/->reader item) opts)
       ;;There is one more case here for iterables (sequences)
       (instance? Iterable item)
-      (py-proto/->python (vec item) opts)
+      ;;Iterables we *have* to convert lazily; we cannot copy them.
+      (py-proto/as-python item opts)
       (instance? IFn item)
       (errors/throwf "Unable to convert functions at this time.")
       :else

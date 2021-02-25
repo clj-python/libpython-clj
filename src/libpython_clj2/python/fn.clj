@@ -23,7 +23,7 @@
                        {:name :ml_doc :datatype (ffi-size-t/size-t-type)}]))
 
 
-(def tuple-fn-iface (dt-ffi/define-foreign-interface :pointer [:pointer :pointer]))
+(def tuple-fn-iface (dt-ffi/define-foreign-interface :pointer? [:pointer :pointer]))
 
 
 (def ^{:tag 'long} METH_VARARGS  0x0001)

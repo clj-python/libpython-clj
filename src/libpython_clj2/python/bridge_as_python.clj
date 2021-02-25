@@ -25,7 +25,7 @@
   (long (System/identityHashCode obj)))
 
 
-(defn- make-jvm-object-handle
+(defn make-jvm-object-handle
   ^long [item]
   (let [^ConcurrentHashMap hash-map jvm-handle-map]
     (loop [handle (identity-hash-code item)]
@@ -36,21 +36,21 @@
         (recur (.hashCode (UUID/randomUUID)))))))
 
 
-(defn- get-jvm-object
+(defn get-jvm-object
   [handle]
   (.get ^ConcurrentHashMap jvm-handle-map (long handle)))
 
-(defn- remove-jvm-object
+(defn remove-jvm-object
   [handle]
   (.remove ^ConcurrentHashMap jvm-handle-map (long handle))
   nil)
 
-(defn- py-self->jvm-handle
+(defn py-self->jvm-handle
   ^long [self]
   (long (py-base/->jvm (py-proto/get-attr self "jvm_handle"))))
 
 
-(defn- py-self->jvm-obj
+(defn py-self->jvm-obj
   ^Object [self]
   (-> (py-self->jvm-handle self)
       get-jvm-object))
@@ -74,14 +74,17 @@
   functions as python expects a new reference and the as-python pathway
   ensures the jvm garbage collector also sees the reference."
   [item]
-  (let [retval (py-base/as-python item)]
-    (py-ffi/Py_IncRef retval)
-    retval))
+  (when-let [retval (py-base/as-python item)]
+    (do
+      (py-ffi/Py_IncRef retval)
+      retval)))
 
 
 (defn- as-tuple-instance-fn
-  [fn-obj]
-  (py-class/make-tuple-instance-fn fn-obj {:result-converter as-python-incref}))
+  [fn-obj & [options]]
+  (py-class/make-tuple-instance-fn fn-obj
+                                   (merge {:result-converter as-python-incref}
+                                          options)))
 
 
 (defn self->list
@@ -149,12 +152,7 @@
 
 
 (defmethod py-proto/pyobject->jvm :jvm-list-as-python
-  [pyobj]
-  (py-self->jvm-obj pyobj))
-
-
-(defmethod py-proto/pyobject-as-jvm :jvm-list-as-python
-  [pyobj]
+  [pyobj opt]
   (py-self->jvm-obj pyobj))
 
 
@@ -209,16 +207,11 @@
 
 
 (defmethod py-proto/pyobject->jvm :jvm-map-as-python
-  [pyobj]
+  [pyobj opt]
   (py-self->jvm-obj pyobj))
 
 
-(defmethod py-proto/pyobject-as-jvm :jvm-map-as-python
-  [pyobj]
-  (py-self->jvm-obj pyobj))
-
-
-(defonce iterable-type*
+(def iterable-type*
   (pydelay
     (py-ffi/with-gil
       (py-ffi/with-decref
@@ -237,13 +230,17 @@
                         (catch Throwable e
                           (log/warnf e "Error removing object"))))
           "__iter__" (as-tuple-instance-fn
-                      #(.iterator ^Iterable (py-self->jvm-obj %)))
+                      #(.iterator ^Iterable (py-self->jvm-obj %))
+                      {:name "__iter__"})
           "__eq__" (as-tuple-instance-fn #(.equals (py-self->jvm-obj %1)
-                                                   (py-base/as-jvm %2)))
+                                                   (py-base/as-jvm %2))
+                                         {:name "__eq__"})
           "__hash__" (as-tuple-instance-fn
-                      #(.hashCode (py-self->jvm-obj %)))
+                      #(.hashCode (py-self->jvm-obj %))
+                      {:name "__hash__"})
           "__str__" (as-tuple-instance-fn
-                     #(.toString (py-self->jvm-obj %)))})))))
+                     #(.toString (py-self->jvm-obj %))
+                     {:name "__str__"})})))))
 
 
 (defn iterable-as-python
@@ -255,16 +252,11 @@
 
 
 (defmethod py-proto/pyobject->jvm :jvm-iterable-as-python
-  [pyobj]
+  [pyobj opt]
   (py-self->jvm-obj pyobj))
 
 
-(defmethod py-proto/pyobject-as-jvm :jvm-iterable-as-python
-  [pyobj]
-  (py-self->jvm-obj pyobj))
-
-
-(defonce iterator-type*
+(def iterator-type*
   (pydelay
     (py-ffi/with-gil
       (let [mod (py-ffi/PyImport_ImportModule "collections.abc")
@@ -308,20 +300,19 @@
   [^Iterator jvm-data]
   (errors/when-not-errorf
    (instance? Iterator jvm-data)
-   "Argument (%s) is not a java Iterator" (type jvm-data)))
+   "Argument (%s) is not a java Iterator" (type jvm-data))
+  (@iterator-type* (make-jvm-object-handle jvm-data)))
 
 
 (defmethod py-proto/pyobject->jvm :jvm-iterator-as-python
-  [pyobj]
-  (py-self->jvm-obj pyobj))
-
-
-(defmethod py-proto/pyobject-as-jvm :jvm-iterator-as-python
-  [pyobj]
+  [pyobj opt]
   (py-self->jvm-obj pyobj))
 
 
 (extend-protocol py-proto/PBridgeToPython
+  ;;already bridged!
+  Pointer
+  (as-python [item opts] item)
   Boolean
   (as-python [item opts] (py-proto/->python item opts))
   Number

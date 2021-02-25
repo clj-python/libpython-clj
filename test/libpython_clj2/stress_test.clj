@@ -1,9 +1,8 @@
 (ns libpython-clj.stress-test
   "A set of tests meant to crash the system or just run the system out of
   memory if it isn't setup correctly."
-  (:require [libpython-clj.python :as py]
-            [libpython-clj.jna :as libpy]
-            [libpython-clj.python.object :as pyobject]
+  (:require [libpython-clj2.python :as py]
+            [libpython-clj2.python.class :as py-class]
             [clojure.test :refer :all]
             [clojure.edn :as edn]))
 
@@ -115,31 +114,31 @@ def getmultidata():
 (deftest new-cls-stress-test
   (dotimes [iter 100]
     (py/with-gil-stack-rc-context
-      (let [test-cls (py/create-class "testcls" nil
-                                      {"__init__" (py/make-tuple-instance-fn
-                                                   (fn [self name shares price]
-                                                     (py/set-attr! self "name" name)
-                                                     (py/set-attr! self "shares" shares)
-                                                     (py/set-attr! self "price" price)
-                                                     nil))
-                                       "cost" (py/make-tuple-instance-fn
-                                               (fn [self]
-                                                 (let [self (py/as-jvm self)]
-                                                   (* (py/$. self shares)
-                                                      (py/$. self price)))))
-                                       "__str__" (py/make-tuple-instance-fn
-                                                  (fn [self]
-                                                    (let [self (py/as-jvm self)]
-                                                      ;;Self is just a dict so it converts to a hashmap
-                                                      (pr-str {"name" (py/$. self name)
-                                                               "shares" (py/$. self shares)
-                                                               "price" (py/$. self price)}))))
-                                       "testvar" 55}
-                                      )
+      (let [test-cls (py-class/create-class
+                      "testcls" nil
+                      {"__init__" (py-class/make-tuple-instance-fn
+                                   (fn [self name shares price]
+                                     (py/set-attr! self "name" name)
+                                     (py/set-attr! self "shares" shares)
+                                     (py/set-attr! self "price" price)
+                                     nil))
+                       "cost" (py-class/make-tuple-instance-fn
+                               (fn [self]
+                                 (let [self (py/as-jvm self)]
+                                   (* (py/py.- self shares)
+                                      (py/py.- self price)))))
+                       "__str__" (py-class/make-tuple-instance-fn
+                                  (fn [self]
+                                    (let [self (py/as-jvm self)]
+                                      ;;Self is just a dict so it converts to a hashmap
+                                      (pr-str {"name" (py/py.- self name)
+                                               "shares" (py/py.- self shares)
+                                               "price" (py/py.- self price)}))))
+                       "testvar" 55})
             new-inst (test-cls "ACME" 50 90)]
         (is (= 4500
                (py/$a new-inst cost)))
-        (is (= 55 (py/$. new-inst testvar)))
+        (is (= 55 (py/py.- new-inst testvar)))
 
         (is (= {"name" "ACME", "shares" 50, "price" 90}
                (edn/read-string (.toString new-inst))))))))

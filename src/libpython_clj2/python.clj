@@ -9,6 +9,7 @@
             [libpython-clj2.python.copy :as py-copy]
             [libpython-clj2.python.bridge-as-jvm]
             [libpython-clj2.python.bridge-as-python]
+            [libpython-clj2.python.io-redirect :as io-redirect]
             [libpython-clj.python.gc :as pygc]
             [libpython-clj.python.windows :as win]
             [tech.v3.datatype.ffi :as dtype-ffi]
@@ -41,7 +42,8 @@
        * [used signals](https://docs.oracle.com/javase/10/troubleshoot/handle-signals-and-exceptions.htm#JSTGD356)
        * [signal-chaining](https://docs.oracle.com/javase/8/docs/technotes/guides/vm/signal-chaining.html)"
   [& [{:keys [windows-anaconda-activate-bat
-              library-path]} options]]
+              library-path
+              no-io-redirect?]} options]]
   (if-not (and (py-ffi/library-loaded?)
                  (= 1 (py-ffi/Py_IsInitialized)))
     (let [info (py-info/detect-startup-info options)
@@ -58,9 +60,13 @@
                                  (or (:program-name options)
                                      (:executable info)
                                      "")))
+
       (when-not (nil? windows-anaconda-activate-bat)
         (win/setup-windows-conda! windows-anaconda-activate-bat
                                   py-ffi/run-simple-string))
+
+      (when-not no-io-redirect?
+        (io-redirect/redirect-io!))
       :ok)
     :already-initialized))
 
@@ -97,7 +103,7 @@
   related to use of python."
   [& body]
   `(py-ffi/with-gil
-     (pygc/stack-resource-context
+     (pygc/with-stack-context
       ~@body)))
 
 
@@ -216,16 +222,34 @@
   (py-ffi/with-gil (py-ffi/pyobject-type-kwd v)))
 
 
+(defn is-instance?
+  "Return true if inst is an instance of cls.  Note that arguments
+  are reversed as compared to `instance?`"
+  [py-inst py-cls]
+  (py-ffi/with-gil
+    (let [retval (long (py-ffi/PyObject_IsInstance py-inst py-cls))]
+      (case retval
+        0 false
+        1 true
+        (py-ffi/check-error-throw)))))
+
+
 (defn ->py-list
-  "Get the type (as a keyword) of a python object"
+  "Copy the data into a python list"
   [v]
-  (py-ffi/with-gil (py-copy/->py-list v)))
+  (py-ffi/with-gil (-> (py-copy/->py-list v) (as-jvm))))
 
 
 (defn ->py-tuple
-  "Get the type (as a keyword) of a python object"
+  "Copy v into a python tuple"
   [v]
-  (py-ffi/with-gil (py-copy/->py-tuple v)))
+  (py-ffi/with-gil (-> (py-copy/->py-tuple v) (as-jvm))))
+
+
+(defn ->py-dict
+  "Copy v into a python dict"
+  [v]
+  (py-ffi/with-gil (-> (py-copy/->py-dict v) (as-jvm))))
 
 
 (defn run-simple-string
@@ -287,7 +311,7 @@
   opposed to at runtime."
   [item & args]
   (let [[pos-args kw-args] (py-fn/args->pos-kw-args args)]
-    `(call-kw ~item ~pos-args ~kw-args)))
+    `(py-fn/call-kw ~item ~pos-args ~kw-args)))
 
 
 (defmacro py.-
