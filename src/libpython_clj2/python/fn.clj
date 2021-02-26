@@ -5,7 +5,7 @@
             [libpython-clj2.python.base :as py-base]
             [libpython-clj2.python.protocols :as py-proto]
             [libpython-clj2.python.copy :as py-copy]
-            [libpython-clj.python.gc :as pygc]
+            [libpython-clj2.python.gc :as pygc]
             [tech.v3.datatype.ffi :as dt-ffi]
             [tech.v3.datatype.ffi.size-t :as ffi-size-t]
             [tech.v3.datatype.struct :as dt-struct]

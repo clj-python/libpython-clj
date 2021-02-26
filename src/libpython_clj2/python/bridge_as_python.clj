@@ -4,7 +4,7 @@
             [libpython-clj2.python.class :as py-class]
             [libpython-clj2.python.protocols :as py-proto]
             [libpython-clj2.python.fn :as py-fn]
-            [libpython-clj.python.gc :as pygc]
+            [libpython-clj2.python.gc :as pygc]
             [tech.v3.datatype.errors :as errors]
             [tech.v3.datatype :as dtype]
             [clojure.tools.logging :as log])

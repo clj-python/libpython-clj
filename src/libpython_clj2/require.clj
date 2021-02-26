@@ -328,7 +328,7 @@
 
 (defmethod pydafy :default [x]
   (if (pymeta/pyclass? x)
-    (pymeta/datafy-module x)
+    (pymeta/datafy-module-or-class x)
     (throw (ex-info (str "datafy not implemented for " (pytype x))
                     {:type (pytype x)}))))
 
@@ -341,7 +341,7 @@
 
 
 (defmethod pydafy 'builtins.module [m]
-  (pymeta/datafy-module m))
+  (pymeta/datafy-module-or-class m))
 
 
 (defmethod pynav 'builtins.module [coll k v]

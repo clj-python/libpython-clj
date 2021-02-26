@@ -1,4 +1,4 @@
-(ns libpython-clj.python-test
+(ns libpython-clj2.python-test
   (:require [libpython-clj2.python :as py :refer [py. py.. py.- py* py**]]
             ;;support for tensor/numpy integration
             [libpython-clj2.python.np-array]

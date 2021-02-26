@@ -1,4 +1,4 @@
-(ns libpython-clj.fncall-test
+(ns libpython-clj2.fncall-test
   (:require [libpython-clj2.python :as py]
             [clojure.test :refer :all]))
 

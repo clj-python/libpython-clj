@@ -1,4 +1,4 @@
-(ns libpython-clj.require-python-test
+(ns libpython-clj2.require-python-test
   (:require [libpython-clj2.require :as req
              :refer [require-python pydafy pynav]
              :reload true]
@@ -15,7 +15,7 @@
                   :as pymath])
 
 (deftest base-require-test
-  (let [publics (ns-publics (find-ns 'libpython-clj.require-python-test))]
+  (let [publics (ns-publics (find-ns 'libpython-clj2.require-python-test))]
     (is (not (contains? publics 'sin)))
     (is (= 10.0 (double (floor 10.1))))
     (is (thrown? Throwable (require-python '[math :refer [blah]])))))
@@ -77,7 +77,7 @@
   (is csv.DictWriter/writerows))
 
 (deftest test-req-transform
-  (let [req-transform #'libpython-clj.require/req-transform]
+  (let [req-transform #'libpython-clj2.require/req-transform]
 
     (is (= (req-transform 'a) 'a))
 
@@ -116,7 +116,7 @@
   (is (set? (datafy (python/frozenset [1 2 3])))))
 
 (deftest import-python-test
-  (is (= :ok (libpython-clj.require/import-python))))
+  (is (= :ok (libpython-clj2.require/import-python))))
 
 (require-python '[socket :bind-ns true])
 (require-python 'socket.SocketIO)

@@ -1,4 +1,4 @@
-(ns libpython-clj.stress-test
+(ns libpython-clj2.stress-test
   "A set of tests meant to crash the system or just run the system out of
   memory if it isn't setup correctly."
   (:require [libpython-clj2.python :as py]

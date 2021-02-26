@@ -4,7 +4,7 @@
   (:require [libpython-clj2.python.ffi :as py-ffi]
             [libpython-clj2.python.protocols :as py-proto]
             [libpython-clj2.python.base :as py-base]
-            [libpython-clj.python.gc :as pygc]
+            [libpython-clj2.python.gc :as pygc]
             [tech.v3.datatype :as dtype]
             [tech.v3.datatype.protocols :as dt-proto]
             [tech.v3.datatype.ffi :as dt-ffi]

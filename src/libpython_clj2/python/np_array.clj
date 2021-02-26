@@ -8,7 +8,7 @@
             [libpython-clj2.python.copy :as py-copy]
             [libpython-clj2.python.bridge-as-jvm :as py-bridge]
             [libpython-clj2.python.base :as py-base]
-            [libpython-clj.python.gc :as pygc]
+            [libpython-clj2.python.gc :as pygc]
             [tech.v3.tensor :as dtt]
             [tech.v3.datatype.protocols :as dtype-proto]
             [tech.v3.datatype.casting :as casting]

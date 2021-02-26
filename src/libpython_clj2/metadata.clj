@@ -204,7 +204,9 @@
 
 (defn base-pyobj-map
   [item]
-  (cond-> {:type  (py/python-type item)
+  (cond-> {:type  (cond (pyclass? item) :type
+                        (pymodule? item) :module
+                        :else (py/python-type item))
            :doc   (doc item)
            :str   (.toString item)
            :flags (pyobj-flags item)
@@ -223,7 +225,7 @@
   (or (string? att-val)
       (number? att-val)))
 
-(defn datafy-module [item]
+(defn datafy-module-or-class [item]
   (with-gil
     (->> (if (or (pyclass? item)
                  (pymodule? item))
@@ -242,7 +244,6 @@
                             (when (scalar? att-val)
                               {:value att-val}))]
                     (catch Throwable e
-                      (println e)
                       (log/warnf "Metadata generation failed for %s:%s"
                                  (.toString item)
                                  att-name)
@@ -250,13 +251,48 @@
          (remove nil?)
          (into (base-pyobj-map item)))))
 
+
 (defmethod py-proto/pydatafy :default
   [pyobj]
-  (base-pyobj-map pyobj))
+  (if (or (pyclass? pyobj)
+          (pymodule? pyobj))
+    (datafy-module-or-class pyobj)
+    (base-pyobj-map pyobj)))
 
-(defmethod py-proto/pydatafy :module
+
+(defmethod py-proto/pydatafy :dict
   [pyobj]
-  (datafy-module pyobj))
+  (->> (py/as-jvm pyobj)
+       (map (fn [[k v]]
+              [k (clj-proto/datafy v)]))
+       (into {})))
+
+
+(defmethod py-proto/pydatafy :list
+  [pyobj]
+  (->> (py/as-jvm pyobj)
+       (mapv clj-proto/datafy)))
+
+
+(defmethod py-proto/pydatafy :tuple
+  [pyobj]
+  (->> (py/as-jvm pyobj)
+       (mapv clj-proto/datafy)))
+
+
+(defmethod py-proto/pydatafy :set
+  [pyobj]
+  (->> (py/as-jvm pyobj)
+       (map clj-proto/datafy)
+       (set)))
+
+
+(defmethod py-proto/pydatafy :frozenset
+  [pyobj]
+  (->> (py/as-jvm pyobj)
+       (map clj-proto/datafy)
+       (set)))
+
 
 (defn nav-module [coll f val]
   (with-gil
@@ -313,7 +349,7 @@
       :type   (-> (import-module (:module metadata-map))
                   (get-attr (:name metadata-map))))
     (catch Exception e
-      (log/warn e)
+      (log/warnf e "metadata-map: %s" metadata-map)
       ;; metatypes -- e.g. socket.SocketIO
       (-> (import-module (:module metadata-map))
           (get-attr (:name metadata-map))))))

@@ -1,4 +1,4 @@
-(ns libpython-clj.python.gc
+(ns libpython-clj2.python.gc
   "Binding of various sort of gc semantics optimized specifically for
   libpython-clj.  For general bindings, see tech.resource"
   (:import [java.util.concurrent ConcurrentHashMap ConcurrentLinkedDeque]

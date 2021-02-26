@@ -1,10 +1,9 @@
-(ns libpython-clj.python.numpy-test
+(ns libpython-clj2.numpy-test
   (:require [clojure.test :refer [deftest is]]
-            [libpython-clj.python :as py]
+            [libpython-clj2.python :as py]
             [tech.v3.datatype :as dtype]
             [tech.v3.datatype.functional :as dfn]
-            [tech.v3.tensor :as dtt])
-  (:import [com.sun.jna Pointer]))
+            [tech.v3.tensor :as dtt]))
 
 (py/initialize!)
 

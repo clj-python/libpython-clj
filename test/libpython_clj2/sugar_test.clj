@@ -1,4 +1,4 @@
-(ns libpython-clj.sugar-test
+(ns libpython-clj2.sugar-test
   (:require [libpython-clj2.sugar :as pysug :reload true]
             [clojure.test :refer :all]
             [libpython-clj2.python :as py]))

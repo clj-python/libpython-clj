@@ -11,8 +11,8 @@
             [libpython-clj2.python.bridge-as-jvm :as py-bridge-jvm]
             [libpython-clj2.python.bridge-as-python]
             [libpython-clj2.python.io-redirect :as io-redirect]
-            [libpython-clj.python.gc :as pygc]
-            [libpython-clj.python.windows :as win]
+            [libpython-clj2.python.gc :as pygc]
+            [libpython-clj2.python.windows :as win]
             [tech.v3.datatype.ffi :as dtype-ffi]
             [clojure.tools.logging :as log])
   (:import [java.util Map List]

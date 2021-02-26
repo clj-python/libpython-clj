@@ -3,7 +3,7 @@
             [libpython-clj2.python.base :as py-base]
             [libpython-clj2.python.fn :as py-fn]
             [libpython-clj2.python.ffi :refer [with-gil] :as py-ffi]
-            [libpython-clj.python.gc :as pygc]
+            [libpython-clj2.python.gc :as pygc]
             [tech.v3.datatype.errors :as errors]
             [tech.v3.datatype.ffi :as dt-ffi]
             [clojure.core.protocols :as clj-proto])

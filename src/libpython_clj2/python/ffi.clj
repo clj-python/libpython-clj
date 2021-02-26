@@ -8,7 +8,7 @@
             [tech.v3.datatype.native-buffer :as native-buffer]
             [tech.v3.datatype.protocols :as dt-proto]
             [tech.v3.resource :as resource]
-            [libpython-clj.python.gc :as pygc]
+            [libpython-clj2.python.gc :as pygc]
             [camel-snake-kebab.core :as csk]
             [clojure.tools.logging :as log]
             [clojure.string :as s])
