@@ -98,9 +98,9 @@
   "This is a tough function to get right.  The iterator could return nil as in
   you could have a list of python none types or something so you have to iterate
   till you get a StopIteration error."
-  [iter-fn & [item-conversion-fn]]
+  [pyobj item-conversion-fn]
   (with-gil
-    (let [py-iter (py-fn/call iter-fn)
+    (let [py-iter (py-fn/call-attr pyobj "__iter__" nil)
           py-next-fn (when py-iter (py-proto/get-attr py-iter "__next__"))
           next-fn (fn [last-item]
                     (when (= last-item ::iteration-finished)
@@ -137,14 +137,6 @@
         (next [obj-iter]
           (-> (swap-vals! cur-item-store next-fn)
               ffirst))))))
-
-
-(defn- raw-python-iterator
-  [att-map]
-  (when-not (get att-map "__iter__")
-    (throw (ex-info "Object is not iterable!" {})))
-  (let [py-iter (python->jvm-iterator (get att-map "__iter__") identity)]
-    py-iter))
 
 
 (defmacro bridge-pyobject
@@ -231,27 +223,41 @@
 
 (defn call-impl-fn
   [fn-name att-map args]
-  (if-let [py-fn (get att-map fn-name)]
-    (-> (py-fn/call-kw py-fn (map py-base/as-python args) nil)
+  (if-let [py-fn* (get att-map fn-name)]
+    ;;laziness is carefully constructed here in order to allow the arguments to
+    ;;be released within the context of the function call during fn.clj call-py-fn.
+    (-> (py-fn/call-kw @py-fn* (map py-base/as-python args) nil)
         (py-base/as-jvm))
     (throw (UnsupportedOperationException.
             (format "Python object has no attribute: %s"
                     fn-name)))))
 
 
+(defn make-dict-att-map
+  [pyobj attnames]
+  (let [dict-atts (set attnames)]
+    (->> (py-proto/dir pyobj)
+         (filter dict-atts)
+         (map (juxt identity #(delay (py-proto/get-attr pyobj %))))
+         (into {}))))
+
+
+(defn make-instance-pycall
+  [pyobj attnames]
+  (let [dict-att-map (make-dict-att-map pyobj attnames)]
+    (fn [fn-name & args]
+      (py-ffi/with-gil (call-impl-fn fn-name dict-att-map args)))))
+
+
+
 (defn generic-python-as-map
   [pyobj]
   (with-gil
-    (let [dict-atts #{"__len__" "__getitem__" "__setitem__" "__iter__" "__contains__"
-                      "__eq__" "__hash__" "clear" "keys" "values"
-                      "__delitem__"}
-          dict-att-map (->> (py-proto/dir pyobj)
-                            (filter dict-atts)
-                            (map (juxt identity (partial py-proto/get-attr pyobj)))
-                            (into {}))
-          py-call (fn [fn-name & args]
-                    (with-gil (call-impl-fn fn-name dict-att-map args)))]
-
+    (let [py-call
+          (make-instance-pycall
+           pyobj
+           #{"__len__" "__getitem__" "__setitem__" "__iter__" "__contains__"
+             "__eq__" "__hash__" "clear" "keys" "values" "__delitem__"})]
       (bridge-pyobject
        pyobj
        Map
@@ -288,7 +294,7 @@
        (iterator
         [this]
         (let [mapentry-seq
-              (->> (raw-python-iterator dict-att-map)
+              (->> (python->jvm-iterator pyobj identity)
                    iterator-seq
                    (map (fn [pyobj-key]
                           (with-gil
@@ -312,15 +318,11 @@
 (defn generic-python-as-list
   [pyobj]
   (with-gil
-    (let [dict-atts #{"__len__" "__getitem__" "__setitem__" "__iter__" "__contains__"
-                      "__eq__" "__hash__" "clear" "insert" "pop" "append"
-                      "__delitem__" "sort"}
-          dict-att-map (->> (py-proto/dir pyobj)
-                            (filter dict-atts)
-                            (map (juxt identity (partial py-proto/get-attr pyobj)))
-                            (into {}))
-          py-call (fn [fn-name & args]
-                    (with-gil (call-impl-fn fn-name dict-att-map args)))]
+    (let [py-call (make-instance-pycall
+                  pyobj
+                  #{"__len__" "__getitem__" "__setitem__" "__iter__" "__contains__"
+                    "__eq__" "__hash__" "clear" "insert" "pop" "append"
+                    "__delitem__" "sort"})]
       (bridge-pyobject
        pyobj
        ObjectBuffer
@@ -393,14 +395,6 @@
                       ~@body)))
 
 
-(defn python-obj-iterator
-  [pyobj]
-  (py-ffi/with-gil
-    (py-ffi/with-decref [iter-attr (py-ffi/PyObject_GetAttrString pyobj "__iter__")]
-      (when-not iter-attr (py-ffi/check-error-throw))
-      (python->jvm-iterator iter-attr py-base/as-jvm))))
-
-
 (defn generic-python-as-jvm
   "Given a generic pyobject, wrap it in a read-only map interface
   where the keys are the attributes."
@@ -412,12 +406,13 @@
         (bridge-callable-pyobject
          pyobj
          Iterable
-         (iterator [this] (python-obj-iterator pyobj))
+         (iterator [this] (python->jvm-iterator pyobj py-base/as-jvm))
          Fn)
         (bridge-pyobject
          pyobj
          Iterable
-         (iterator [this] (python-obj-iterator pyobj)))))))
+         (iterator [this] (python->jvm-iterator pyobj  py-base/as-jvm)))))))
+
 
 
 (defmethod py-proto/pyobject-as-jvm :default

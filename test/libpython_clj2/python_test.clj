@@ -27,21 +27,22 @@
   (is (thrown? Throwable (py/run-simple-string "import sys\nprint('hey', stderr"))))
 
 (deftest dicts
-  (let [py-dict (py/->python {:a 1 :b 2})]
-    (is (= :dict (py/python-type py-dict)))
-    (is (= 2 (-> (py/call-attr py-dict "__len__")
-                 (py/->jvm))))
-    (is (= {"a" 1 "b" 2}
-           (->> (py/->jvm py-dict)
-                (into {}))))
-    (let [bridge-dict (py/as-jvm py-dict)]
-      (is (instance? Map bridge-dict))
-      (is (= #{"a" "b"} (->> (keys bridge-dict)
-                             set)))
-      (is (= #{1 2} (->> (vals bridge-dict)
-                         set)))
+  (py/with-gil-stack-rc-context
+    (let [py-dict (py/->python {:a 1 :b 2})]
+      (is (= :dict (py/python-type py-dict)))
+      (is (= 2 (-> (py/call-attr py-dict "__len__")
+                   (py/->jvm))))
       (is (= {"a" 1 "b" 2}
-             (into {} bridge-dict))))))
+             (->> (py/->jvm py-dict)
+                  (into {}))))
+      (let [bridge-dict (py/as-jvm py-dict)]
+        (is (instance? Map bridge-dict))
+        (is (= #{"a" "b"} (->> (keys bridge-dict)
+                               set)))
+        (is (= #{1 2} (->> (vals bridge-dict)
+                           set)))
+        (is (= {"a" 1 "b" 2}
+               (into {} bridge-dict)))))))
 
 (deftest lists
   (let [py-list (py/->py-list [4 3 2 1])]

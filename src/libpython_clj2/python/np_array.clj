@@ -85,9 +85,7 @@
   (py-bridge/bridge-pyobject
    pyobj
    Iterable
-   (iterator [this]
-             (py-ffi/with-gil
-               (py-bridge/python-obj-iterator pyobj)))
+   (iterator [this] (py-bridge/python->jvm-iterator pyobj py-base/as-jvm))
    dtype-proto/PToTensor
    (as-tensor [item]
               (-> (numpy->desc item)

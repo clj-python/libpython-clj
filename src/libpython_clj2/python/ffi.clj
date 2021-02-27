@@ -628,7 +628,7 @@ Each call must be matched with PyGILState_Release"}
 (define-static-symbol py-type-type "PyType_Type" false)
 
 
-(def object-reference-logging (atom false))
+(def object-reference-logging (atom nil))
 
 
 (defn- wrap-obj-ptr

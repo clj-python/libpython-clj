@@ -217,7 +217,7 @@
          ;;setitem steals the reference
          (py-ffi/Py_IncRef arg)
          (py-ffi/PyTuple_SetItem retval idx arg))))
-    retval))
+    (py-ffi/wrap-pyobject retval)))
 
 
 (defn ->py-dict
@@ -240,7 +240,8 @@
 (defn ->py-string
   "Copy an object into a python string"
   [item]
-  (py-ffi/PyUnicode_FromString (str item)))
+  (-> (py-ffi/PyUnicode_FromString (str item))
+      (py-ffi/wrap-pyobject)))
 
 
 (defn ->py-list
