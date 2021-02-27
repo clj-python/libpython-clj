@@ -20,10 +20,10 @@
                       [{:name :ml_name :datatype (ffi-size-t/size-t-type)}
                        {:name :ml_meth :datatype (ffi-size-t/size-t-type)}
                        {:name :ml_flags :datatype :int32}
-                       {:name :ml_doc :datatype (ffi-size-t/size-t-type)}]))
+                           {:name :ml_doc :datatype (ffi-size-t/size-t-type)}]))
 
 
-(def tuple-fn-iface (dt-ffi/define-foreign-interface :pointer? [:pointer :pointer]))
+(def tuple-fn-iface* (delay  (dt-ffi/define-foreign-interface :pointer? [:pointer :pointer])))
 
 
 (def ^{:tag 'long} METH_VARARGS  0x0001)
@@ -44,7 +44,7 @@
      (let [arg-converter (or arg-converter identity)
            fn-inst
            (dt-ffi/instantiate-foreign-interface
-            tuple-fn-iface
+            @tuple-fn-iface*
             (fn [self tuple-args]
               (try
                 (let [retval
@@ -64,7 +64,7 @@
                    (py-ffi/py-exc-type)
                    (format "%s:%s" e (with-out-str
                                        (st/print-stack-trace e))))))))
-           fn-ptr (dt-ffi/foreign-interface-instance->c tuple-fn-iface fn-inst)
+           fn-ptr (dt-ffi/foreign-interface-instance->c @tuple-fn-iface* fn-inst)
            ;;no resource tracking - we leak the struct
            method-def (dt-struct/new-struct :pymethoddef {:resource-type nil
                                                           :container-type :native-heap})
