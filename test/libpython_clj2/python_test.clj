@@ -14,7 +14,11 @@
 
 
 (py/initialize!)
-
+(dt-ffi/enable-string->c-stats!)
+(.addShutdownHook (Runtime/getRuntime) (Thread.
+                                        (fn []
+                                          (clojure.pprint/pprint
+                                           (dt-ffi/string->c-data-histogram)))))
 
 (deftest stdout-and-stderr
   (is (= "hey\n" (with-out-str
@@ -47,8 +51,7 @@
 (deftest lists
   (let [py-list (py/->py-list [4 3 2 1])]
     (is (= :list (py/python-type py-list)))
-    (is (= 4 (-> (py/call-attr py-list "__len__")
-                 (py/->jvm))))
+    (is (= 4 (py/call-attr py-list "__len__")))
     (is (= [4 3 2 1]
            (->> (py/->jvm py-list)
                 (into []))))

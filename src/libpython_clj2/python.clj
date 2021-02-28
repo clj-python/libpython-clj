@@ -68,8 +68,8 @@
         (win/setup-windows-conda! windows-anaconda-activate-bat
                                   py-ffi/run-simple-string))
 
-      (when-not no-io-redirect?
-        (io-redirect/redirect-io!))
+      #_(when-not no-io-redirect?
+          (io-redirect/redirect-io!))
       :ok)
     :already-initialized))
 
@@ -116,7 +116,7 @@
   [modname]
   (with-gil
     (if-let [mod (py-ffi/PyImport_ImportModule modname)]
-      (-> (py-ffi/wrap-pyobject mod)
+      (-> (py-ffi/track-pyobject mod)
           (py-base/as-jvm))
       (py-ffi/check-error-throw))))
 
@@ -126,7 +126,7 @@
   [modname]
   (with-gil
     (-> (py-ffi/PyImport_AddModule modname)
-        (py-ffi/wrap-pyobject)
+        (py-ffi/track-pyobject)
         (py-base/as-jvm))))
 
 
@@ -135,7 +135,7 @@
   [mod]
   (with-gil
     (-> (py-ffi/PyModule_GetDict mod)
-        (py-ffi/wrap-pyobject)
+        (py-ffi/track-pyobject)
         (py-base/as-jvm))))
 
 

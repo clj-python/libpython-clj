@@ -126,9 +126,9 @@
                                                         (Pointer. (value 0))
                                                         (Pointer. (tb 0)))
                                   (py-ffi/check-error-throw)))))
-                          [(cond-> (py-ffi/wrap-pyobject retval)
-                             item-conversion-fn
-                             item-conversion-fn)]))))
+                          (if item-conversion-fn
+                            (item-conversion-fn (py-ffi/track-pyobject retval))
+                            retval)))))
           cur-item-store (atom (next-fn nil))]
       (reify
         java.util.Iterator
@@ -136,7 +136,7 @@
           (boolean (not= ::iteration-finished @cur-item-store)))
         (next [obj-iter]
           (-> (swap-vals! cur-item-store next-fn)
-              ffirst))))))
+              first))))))
 
 
 (defmacro bridge-pyobject
@@ -173,8 +173,9 @@
                  py-base/as-jvm)))
          (set-attr! [item# item-name# item-value#]
            (with-gil
-             (py-proto/set-attr! pyobj# item-name#
-                                 (py-base/as-python item-value#))))
+             (py-ffi/with-decref [item-value# (py-ffi/untracked->python
+                                               item-value# py-base/as-python)]
+               (py-proto/set-attr! pyobj# item-name# item-value#))))
          py-proto/PPyItem
          (has-item? [item# item-name#]
            (with-gil
@@ -185,12 +186,15 @@
                  py-base/as-jvm)))
          (set-item! [item# item-name# item-value#]
            (with-gil
-             (py-proto/set-item! pyobj# item-name# (py-base/as-python item-value#))))
+             (py-ffi/with-decref [item-value# (py-ffi/untracked->python
+                                               item-value# py-base/as-python)]
+               (py-proto/set-item! pyobj# item-name# item-value#))))
          py-proto/PyCall
          (call [callable# arglist# kw-arg-map#]
-           (with-gil
-             (-> (py-fn/call-kw pyobj# arglist# kw-arg-map#)
-                 (py-base/as-jvm))))
+           (-> (py-fn/call-py-fn pyobj# arglist# kw-arg-map# py-base/as-python)
+               (py-base/as-jvm)))
+         (marshal-return [callable# retval#]
+           (py-base/as-jvm retval#))
          clj-proto/Datafiable
          (datafy [callable#] (py-proto/pydatafy callable#))
          Object
@@ -235,10 +239,13 @@
 
 (defn make-dict-att-map
   [pyobj attnames]
-  (let [dict-atts (set attnames)]
+  (let [dict-atts (set attnames)
+        gc-ctx (pygc/gc-context)]
     (->> (py-proto/dir pyobj)
          (filter dict-atts)
-         (map (juxt identity #(delay (py-proto/get-attr pyobj %))))
+         (map (juxt identity #(delay
+                                (pygc/with-gc-context gc-ctx
+                                  (py-proto/get-attr pyobj %)))))
          (into {}))))
 
 
@@ -294,13 +301,17 @@
        (iterator
         [this]
         (let [mapentry-seq
-              (->> (python->jvm-iterator pyobj identity)
+              (->> (python->jvm-iterator pyobj nil)
                    iterator-seq
                    (map (fn [pyobj-key]
                           (with-gil
                             (let [k (py-base/as-jvm pyobj-key)
-                                  v (.get this pyobj-key)]
-                              (MapEntry. k v))))))]
+                                  v (.get this pyobj-key)
+                                  retval
+                                  (MapEntry. k v)]
+                              (println "map entry" [k (py-proto/python-type v)])
+                              retval)))))]
+
           (.iterator ^Iterable mapentry-seq)))
        IFn
        (invoke [this arg] (.getOrDefault this arg nil))
@@ -369,11 +380,11 @@
 
 ;;Python specific interop wrapper for IFn invocations.
 (defn- emit-py-args []
-  (emit-args    (fn [args] `(~'invoke [~@args]
-                             (py-fn/cfn ~@args)))
-                (fn [args]
-                  `(~'invoke [~@args]
-                    (apply py-fn/cfn ~@(butlast args) ~(last args))))))
+  (emit-args (fn [args] `(~'invoke [~@args]
+                          (py-fn/cfn ~@args)))
+             (fn [args]
+               `(~'invoke [~@args]
+                 (apply py-fn/cfn ~@(butlast args) ~(last args))))))
 
 
 (defmacro bridge-callable-pyobject

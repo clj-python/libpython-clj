@@ -262,16 +262,17 @@
 
    (require-python '[operators :refer :*])"
   ([req]
-   (cond
-     (list? req) ;; prefix list
-     (let [prefix-lists (req-transform req)]
-       (doseq [req prefix-lists] (require-python req)))
-     (symbol? req)
-     (require-python (vector req))
-     (vector? req)
-     (do-require-python req)
-     :else
-     (throw (Exception. "Invalid argument: %s" req)))
+   (py/with-gil
+     (cond
+       (list? req) ;; prefix list
+       (let [prefix-lists (req-transform req)]
+         (doseq [req prefix-lists] (require-python req)))
+       (symbol? req)
+       (require-python (vector req))
+       (vector? req)
+       (do-require-python req)
+       :else
+       (throw (Exception. "Invalid argument: %s" req))))
    :ok)
   ([req & reqs]
    (require-python req)

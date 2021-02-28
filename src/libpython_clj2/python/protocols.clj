@@ -66,7 +66,8 @@ are converted into a {:type :pyobject-address} pairs."))
 
 
 (defprotocol PyCall
-  (call [callable arglist kw-arg-map]))
+  (call [callable arglist kw-arg-map])
+  (marshal-return [callable retval]))
 
 
 (defprotocol PPyItem

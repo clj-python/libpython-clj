@@ -120,21 +120,22 @@
     (py-proto/pyobject-as-jvm item options))
   py-proto/PPyDir
   (dir [item]
-    (when-let [dirlist (py-ffi/PyObject_Dir item)]
-      (try
-        (py-proto/->jvm dirlist nil)
-        (finally
-          (py-ffi/Py_DecRef dirlist)))))
+    (py-ffi/with-decref [dirlist (py-ffi/PyObject_Dir item)]
+      (if dirlist
+        (->jvm dirlist)
+        (py-ffi/check-error-throw))))
   py-proto/PPyAttr
   (has-attr? [item item-name]
     (if (stringable? item-name)
       (= 1 (py-ffi/PyObject_HasAttrString item (stringable item-name)))
       (= 1 (py-ffi/PyObject_HasAttr item (->python item-name nil)))))
   (get-attr [item item-name]
-    (-> (if (stringable? item-name)
-          (py-ffi/PyObject_GetAttrString item (stringable item-name))
-          (py-ffi/PyObject_GetAttr item (->python item-name)))
-        (py-ffi/wrap-pyobject)))
+    (->
+     (if (stringable? item-name)
+       (py-ffi/PyObject_GetAttrString item (stringable item-name))
+       (py-ffi/with-decref [item-name (py-ffi/untracked->python item-name ->python)]
+         (py-ffi/PyObject_GetAttr item item-name)))
+        (py-ffi/simplify-or-track)))
   (set-attr! [item item-name item-value]
     (let [item-val (->python item-value)]
       (if (stringable? item-name)
@@ -151,11 +152,13 @@
       (= 1 (py-ffi/PyObject_HasAttrString item (stringable item-name)))
       (= 1 (py-ffi/PyObject_HasAttr item (->python item-name)))))
   (get-item [item item-name]
-    (-> (py-ffi/PyObject_GetItem item (->python item-name))
-        (py-ffi/wrap-pyobject)))
+    (py-ffi/with-decref [item-name (py-ffi/untracked->python item-name ->python)]
+      (-> (py-ffi/PyObject_GetItem item item-name)
+          (py-ffi/simplify-or-track))))
   (set-item! [item item-name item-value]
-    (let [item-val (->python item-value)]
-      (py-ffi/PyObject_SetItem item (->python item-name) item-val)
+    (py-ffi/with-decref [item-name (py-ffi/untracked->python item-name ->python)
+                         item-val (py-ffi/untracked->python item-value ->python)]
+      (py-ffi/PyObject_SetItem item item-name item-val)
       (py-ffi/check-error-throw))
     nil))
 

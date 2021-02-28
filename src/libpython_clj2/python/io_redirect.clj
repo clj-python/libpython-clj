@@ -3,24 +3,25 @@
             [libpython-clj2.python.ffi :as py-ffi]
             [libpython-clj2.python.bridge-as-python :as py-bridge-py]
             [libpython-clj2.python.base :as py-base]
-            [libpython-clj2.python.protocols :as py-proto])
+            [libpython-clj2.python.protocols :as py-proto]
+            [libpython-clj2.python.gc :as pygc]
+            [libpython-clj2.python.jvm-handle :as jvm-handle]
+            [clojure.tools.logging :as log])
   (:import [java.io Writer]))
 
 
 (defn self->writer
   ^Writer [self]
-  (deref (py-bridge-py/py-self->jvm-obj self)))
+  (deref (jvm-handle/py-self->jvm-obj self)))
 
 
 (def writer-cls*
-  (py-bridge-py/pydelay
+  (jvm-handle/py-global-delay
    (py-class/create-class
     "jvm_io_bridge"
     nil
-    {"__init__" (py-class/make-tuple-instance-fn
-                 (fn [self jvm-handle]
-                   (py-proto/set-attr! self "jvm_handle" jvm-handle)
-                   nil))
+    {"__init__" (py-class/wrapped-jvm-constructor)
+     "__del__" (py-class/wrapped-jvm-destructor)
      "write" (py-class/make-tuple-instance-fn
               (fn [self & args]
                 (when (seq args)
@@ -39,11 +40,12 @@
   [writer-var sys-mod-attname]
   (assert (instance? Writer (deref writer-var)))
   (py-ffi/with-gil
-    (let [sys-module (py-ffi/import-module "sys")
-          std-out-writer (@writer-cls*
-                          (py-bridge-py/make-jvm-object-handle writer-var))]
-      (py-proto/set-attr! sys-module sys-mod-attname std-out-writer)
-      :ok)))
+    (pygc/with-stack-context
+      (let [sys-module (py-ffi/import-module "sys")
+            std-out-writer (@writer-cls* (jvm-handle/make-jvm-object-handle
+                                          writer-var))]
+        (py-proto/set-attr! sys-module sys-mod-attname std-out-writer)
+        :ok))))
 
 
 (defn redirect-io!

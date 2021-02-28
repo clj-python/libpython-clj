@@ -20,7 +20,7 @@
 (set! *warn-on-reflection* true)
 
 
-(declare wrap-pyobject py-none pystr->str)
+(declare track-pyobject py-none pystr->str check-error-throw pyobject-type-kwd)
 
 
 (def python-library-fns
@@ -235,6 +235,13 @@ Each call must be matched with PyGILState_Release"}
                                ['idx :size-t]
                                ['v :pointer]]
                     :doc "Set the item at index index in list to item. Return 0 on success. If index is out of bounds, return -1 and set an IndexError exception.  This function steals the reference to v"}
+   :PyList_Size {:rettype :size-t
+                  :argtypes [['o :pointer]]
+                  :doc "return the length of a list"}
+   :PyList_GetItem {:rettype :pointer
+                     :argtypes [['o :pointer]
+                                ['idx :size-t]]
+                     :doc "return a borrowed reference to item at idx"}
    :PySet_New {:rettype :pointer
                :argtypes [['items :pointer]]
                :doc "Create a new set"}
@@ -379,6 +386,34 @@ Each call must be matched with PyGILState_Release"}
 (define-pylib-functions)
 
 
+(defn- deref-ptr-ptr
+  ^Pointer [^Pointer val]
+  (Pointer. (case (ffi-size-t/size-t-type)
+              :int32 (.getInt (native-buffer/unsafe) (.address val))
+              :int64 (.getLong (native-buffer/unsafe) (.address val)))))
+
+
+(defmacro define-static-symbol
+  [symbol-fn symbol-name deref-ptr?]
+  (let [sym-delay-name (with-meta (symbol (str symbol-fn "*"))
+                         {:doc (format "Dereferences to the value of %s" symbol-name)
+                          :private true})]
+    `(do
+       (def ~sym-delay-name (delay (.findSymbol (current-library) ~symbol-name)))
+       ~(if deref-ptr?
+          `(defn ~symbol-fn [] (deref-ptr-ptr (deref ~sym-delay-name)))
+          `(defn ~symbol-fn [] (deref ~sym-delay-name))))))
+
+
+(define-static-symbol py-none "_Py_NoneStruct" false)
+(define-static-symbol py-true "_Py_TrueStruct" false)
+(define-static-symbol py-false "_Py_FalseStruct" false)
+(define-static-symbol py-range-type "PyRange_Type" false)
+(define-static-symbol py-exc-type "PyExc_Exception" true)
+(define-static-symbol py-exc-stopiter-type "PyExc_StopIteration" true)
+(define-static-symbol py-type-type "PyType_Type" false)
+
+
 (defmacro check-gil
   "Maybe the most important insurance policy"
   []
@@ -395,7 +430,8 @@ Each call must be matched with PyGILState_Release"}
          (try
            ~@body
            (finally
-             (Py_DecRef ~(first vardefs)))))
+             (when ~(first vardefs)
+               (Py_DecRef ~(first vardefs))))))
       `(let [~'obj-data (object-array ~n-vars)]
          (try
            (let [~@(mapcat (fn [[idx [varsym varform]]]
@@ -405,6 +441,7 @@ Each call must be matched with PyGILState_Release"}
                            (map-indexed vector (partition 2 vardefs)))]
              ~@body)
            (finally
+             (check-gil)
              (dotimes [idx# ~n-vars]
                (when-let [pyobj#  (aget ~'obj-data idx#)]
                  (Py_DecRef pyobj#)))))))))
@@ -472,18 +509,74 @@ Each call must be matched with PyGILState_Release"}
   :ok)
 
 
-(defn make-tuple
-  "Low-level make tuple fn.  Args must all by python objects and after this
-  call the tuple *own the objects*!!!"
-  [& args]
+(defn untracked->python
+  ^Pointer [item & [conversion-fallback]]
+  (cond
+    (instance? Pointer item)
+    (-> (if (.isNil ^Pointer item)
+          (py-none)
+          item)
+        (incref))
+    (instance? Number item) (if (integer? item)
+                              (PyLong_FromLongLong (long item))
+                              (PyFloat_FromDouble (double item)))
+    (instance? Boolean item) (-> (if item (py-true) (py-false))
+                                 (incref))
+    (instance? String item) (PyUnicode_FromString item)
+    (nil? item) (incref (py-none))
+    :else
+    (if conversion-fallback
+      (incref (conversion-fallback item))
+      (throw (Exception. "Unable to convert value %s" item)))))
+
+
+(defn untracked-tuple
+  "Low-level make tuple fn.  conv-fallback is used when an argument isn't an
+  atomically convertible python type.  Returns an untracked python tuple."
+  [args & [conv-fallback]]
+  (check-gil)
   (let [args (vec args)
         argcount (count args)
         tuple (PyTuple_New argcount)]
     (dotimes [idx argcount]
-      (PyTuple_SetItem tuple idx (args idx)))
+      (PyTuple_SetItem tuple idx (untracked->python (args idx)
+                                                    conv-fallback)))
     tuple))
 
+
+(defn untracked-dict
+  "Low-level make dict fn.  conv-fallback is used when a key or value isn't an
+  atomically convertible python type. Returns an untracked dict."
+  [item-seq & [conv-fallback]]
+  (check-gil)
+  (let [dict (PyDict_New)]
+    (pygc/with-stack-context
+      (doseq [[k v] item-seq]
+        ;;setitem does not steal the reference
+        (let [k (untracked->python k conv-fallback)
+              v (untracked->python v conv-fallback)
+              si-retval (PyDict_SetItem dict k v)]
+          (Py_DecRef k)
+          (Py_DecRef v)
+          (when-not (== (long si-retval) 0)
+            (check-error-throw)))))
+    dict))
+
 (def ^:dynamic *python-error-handler* nil)
+
+
+(defn fetch-normalize-exception
+  []
+  (check-gil)
+  (resource/stack-resource-context
+   (let [type (dt-ffi/make-ptr :pointer 0)
+         value (dt-ffi/make-ptr :pointer 0)
+         tb (dt-ffi/make-ptr :pointer 0)]
+     (PyErr_Fetch type value tb)
+     (PyErr_NormalizeException type value tb)
+     {:type (Pointer/constructNonZero (type 0))
+      :value (Pointer/constructNonZero (value 0))
+      :traceback (Pointer/constructNonZero (tb 0))})))
 
 
 (defn check-error-str
@@ -493,29 +586,21 @@ Each call must be matched with PyGILState_Release"}
   (when-not (= nil (PyErr_Occurred))
     (if *python-error-handler*
       (*python-error-handler*)
-      (let [type (dt-ffi/make-ptr :pointer 0)
-            value (dt-ffi/make-ptr :pointer 0)
-            tb (dt-ffi/make-ptr :pointer 0)]
-        (PyErr_Fetch type value tb)
-        (PyErr_NormalizeException type value tb)
-        (let [type (Pointer. (type 0))
-              value (Pointer. (value 0))
-              tb (Pointer. (tb 0))
-              tb (if (.isNil tb)
-                   ;;because the tuple steals the reference
-                   (do (Py_IncRef (py-none))
-                       (py-none))
-                   tb)]
-          ;;The tuple steals the references so we do not have to dereference their
-          ;;data at the end of this function as long as we dereferece the tuple.
-          (with-decref [argtuple (make-tuple type value tb)
-                        exc-str-tuple (PyObject_CallObject (exc-formatter) argtuple)]
-            (->> (range (PySequence_Length exc-str-tuple))
-                 (map (fn [idx]
-                        (with-decref [strdata (PySequence_GetItem exc-str-tuple idx)]
-                          (pystr->str strdata))))
-                 (s/join))))))))
-
+      (let [{:keys [type value traceback]}
+            (fetch-normalize-exception)]
+        (with-decref [argtuple (untracked-tuple [type value traceback])
+                      exc-str-tuple (PyObject_CallObject (exc-formatter) argtuple)]
+          (case (pyobject-type-kwd exc-str-tuple)
+            :list (->> (range (PyList_Size exc-str-tuple))
+                       (map (fn [idx]
+                              (let [strdata (PyList_GetItem exc-str-tuple idx)]
+                                (pystr->str strdata))))
+                       (s/join))
+            :tuple (->> (range (PyTuple_Size exc-str-tuple))
+                        (map (fn [idx]
+                               (let [strdata (PyTuple_GetItem exc-str-tuple idx)]
+                                 (pystr->str strdata))))
+                       (s/join))))))))
 
 (defn check-error-throw
   []
@@ -547,6 +632,7 @@ Each call must be matched with PyGILState_Release"}
          retval#)
        (finally
          (when gil-state#
+           (System/gc)
            (pygc/clear-reference-queue)
            (PyGILState_Release gil-state#))))))
 
@@ -600,35 +686,8 @@ Each call must be matched with PyGILState_Release"}
                               (csk/->kebab-case-keyword)))))))
 
 
-(defn- deref-ptr-ptr
-  ^Pointer [^Pointer val]
-  (Pointer. (case (ffi-size-t/size-t-type)
-              :int32 (.getInt (native-buffer/unsafe) (.address val))
-              :int64 (.getLong (native-buffer/unsafe) (.address val)))))
 
-
-(defmacro define-static-symbol
-  [symbol-fn symbol-name deref-ptr?]
-  (let [sym-delay-name (with-meta (symbol (str symbol-fn "*"))
-                         {:doc (format "Dereferences to the value of %s" symbol-name)
-                          :private true})]
-    `(do
-       (def ~sym-delay-name (delay (.findSymbol (current-library) ~symbol-name)))
-       ~(if deref-ptr?
-          `(defn ~symbol-fn [] (deref-ptr-ptr (deref ~sym-delay-name)))
-          `(defn ~symbol-fn [] (deref ~sym-delay-name))))))
-
-
-(define-static-symbol py-none "_Py_NoneStruct" false)
-(define-static-symbol py-true "_Py_TrueStruct" false)
-(define-static-symbol py-false "_Py_FalseStruct" false)
-(define-static-symbol py-range-type "PyRange_Type" false)
-(define-static-symbol py-exc-type "PyExc_Exception" true)
-(define-static-symbol py-exc-stopiter-type "PyExc_StopIteration" true)
-(define-static-symbol py-type-type "PyType_Type" false)
-
-
-(def object-reference-logging (atom nil))
+(def object-reference-logging (atom true))
 
 
 (defn- wrap-obj-ptr
@@ -636,10 +695,16 @@ Each call must be matched with PyGILState_Release"}
   [pyobj ^Pointer pyobjptr gc-data]
   (let [addr (.address pyobjptr)]
     (when @object-reference-logging
-      (log/infof "tracking object  - 0x%x:%4d:%s"
+      (log/infof "tracking object  - 0x%x:%4d:%s\n%s"
                  addr
                  (pyobject-refcount pyobj)
-                 (name (pyobject-type-kwd pyobjptr))))
+                 (name (pyobject-type-kwd pyobjptr))
+                 (with-out-str
+                     (try
+                       (throw (Exception. "test"))
+                       ""
+                       (catch Exception e
+                         (clojure.stacktrace/print-stack-trace e))))))
     (pygc/track pyobj
                 ;;we know the GIL is captured in this method
                 #(try
@@ -653,7 +718,7 @@ Each call must be matched with PyGILState_Release"}
                          (if (< refcount 1)
                            (log/errorf "Fatal error -- releasing object - 0x%x:%4d:%s
 Object's refcount is bad.  Crash is imminent"
-                                       pyobjptr
+                                       addr
                                        refcount
                                        typename)
                            (log/infof (format "releasing object - 0x%x:%4d:%s"
@@ -665,7 +730,7 @@ Object's refcount is bad.  Crash is imminent"
                      (log/error e "Exception while releasing object"))))))
 
 
-(defn wrap-pyobject
+(defn track-pyobject
   ^Pointer [pyobj & [{:keys [skip-error-check?
                              gc-data]}]]
   (check-gil)
@@ -679,11 +744,11 @@ Object's refcount is bad.  Crash is imminent"
         nil))))
 
 
-(defn incref-wrap-pyobject
+(defn incref-track-pyobject
   ^Pointer [pyobj]
   (when pyobj
     (Py_IncRef pyobj)
-    (wrap-pyobject pyobj)))
+    (track-pyobject pyobj)))
 
 
 
@@ -709,7 +774,7 @@ Object's refcount is bad.  Crash is imminent"
 (defn import-module
   [modname]
   (if-let [mod (PyImport_ImportModule modname)]
-    (wrap-pyobject mod)
+    (track-pyobject mod)
     (check-error-throw)))
 
 
@@ -738,12 +803,35 @@ Object's refcount is bad.  Crash is imminent"
     ;;borrowed reference
     (let [main-mod (PyImport_AddModule "__main__")
           ;;another borrowed reference that we will expose to the user
-          globals (or globals (incref-wrap-pyobject (PyModule_GetDict main-mod)))
+          globals (or globals (incref-track-pyobject (PyModule_GetDict main-mod)))
           locals (or locals globals)
-          retval (wrap-pyobject
+          retval (track-pyobject
                   (PyRun_String (str program)
                                 (start-symbol :py-file-input)
                                 globals locals))]
       {:globals globals
        :locals locals
        :retval retval})))
+
+
+(defn simplify-or-track
+  "If input is an atomic python object (long, float, string, bool), return
+  the JVM equivalent and release the reference to pyobj.  Else track the object."
+  [^Pointer pyobj]
+  (if-not (or (nil? pyobj) (.isNil pyobj))
+    (if (= pyobj (py-none))
+      (do (Py_DecRef pyobj)
+          nil)
+      (case (pyobject-type-kwd pyobj)
+        :int (with-decref [pyobj pyobj]
+               (PyLong_AsLongLong pyobj))
+        :float (with-decref [pyobj pyobj]
+                 (PyFloat_AsDouble pyobj))
+        :str (with-decref [pyobj pyobj]
+               (pystr->str pyobj))
+        :bool (with-decref [pyobj pyobj]
+                (= (dt-ffi/->pointer pyobj)
+                   (py-true)))
+        ;;maybe copy, maybe bridge - in any case we have to decref the item
+        (track-pyobject pyobj)))
+    (check-error-throw)))

@@ -1,10 +1,13 @@
 (ns libpython-clj2.python.class
   "Namespace to help create a python class from Clojure."
   (:require [libpython-clj2.python.ffi :as py-ffi]
-            [libpython-clj2.python.copy :as py-copy]
             [libpython-clj2.python.base :as py-base]
+            [libpython-clj2.python.jvm-handle :as jvm-handle]
             [libpython-clj2.python.fn :as py-fn]
-            [libpython-clj2.python.protocols :as py-proto]))
+            [libpython-clj2.python.protocols :as py-proto]
+            [tech.v3.datatype.errors :as errors]
+            [clojure.tools.logging :as log])
+  (:import [clojure.lang IFn]))
 
 
 (defn- py-fn->instance-fn
@@ -12,8 +15,9 @@
   in class definitions."
   [py-fn]
   (py-ffi/check-gil)
-  (-> (py-ffi/PyInstanceMethod_New py-fn)
-      (py-ffi/wrap-pyobject)))
+  (let [retval (-> (py-ffi/PyInstanceMethod_New py-fn)
+                   (py-ffi/track-pyobject))]
+    retval))
 
 
 (defn make-tuple-instance-fn
@@ -43,18 +47,73 @@
   See the classes-test file in test/libpython-clj"
   [name bases cls-hashmap]
   (py-ffi/with-gil
-    (py-ffi/check-error-throw)
-    (let [cls-dict (reduce (fn [cls-dict [k v]]
-                             (py-proto/set-item! cls-dict k (py-base/->python v))
-                             cls-dict)
-                           (py-base/->python {})
-                           cls-hashmap)
-          bases (py-copy/->py-tuple bases)
-          new-cls (py-fn/call (py-ffi/py-type-type) name bases cls-dict)]
-      (py-proto/as-jvm new-cls nil))))
+    (py-ffi/with-decref
+      [cls-dict (py-ffi/untracked-dict cls-hashmap py-base/->python)
+       bases (py-ffi/untracked-tuple bases py-base/->python)]
+      (-> (py-fn/call (py-ffi/py-type-type) name bases cls-dict)
+          (py-base/as-jvm)))))
+
+
+(def wrapped-jvm-destructor*
+  (jvm-handle/py-global-delay
+   (make-tuple-instance-fn
+    (fn [self]
+      (let [jvm-hdl (jvm-handle/py-self->jvm-handle self)]
+        (log/debugf "Deleting bridged handle %d" jvm-hdl)
+        (jvm-handle/remove-jvm-object jvm-hdl)
+        nil)))))
+
+
+(defn wrapped-jvm-destructor
+  []
+  @wrapped-jvm-destructor*)
+
+
+(def wrapped-jvm-constructor*
+  (jvm-handle/py-global-delay
+   (make-tuple-instance-fn jvm-handle/py-self-set-jvm-handle!)))
+
+
+(defn wrapped-jvm-constructor
+  []
+  @wrapped-jvm-constructor*)
+
+
+(def abc-callable-type*
+  (jvm-handle/py-global-delay
+   (py-ffi/with-decref [mod (py-ffi/PyImport_ImportModule "collections.abc")]
+     (py-proto/get-attr mod "Callable"))))
+
+
+(def wrapped-fn-class*
+  (jvm-handle/py-global-delay
+     (create-class
+      "LibPythonCLJWrappedFn" [@abc-callable-type*]
+      {"__init__" (wrapped-jvm-constructor)
+       "__del__" (wrapped-jvm-destructor)
+       "__call__" (make-tuple-instance-fn
+                   (fn [self & args]
+                     (let [jvm-obj (jvm-handle/py-self->jvm-obj self)]
+                       (-> (apply jvm-obj (map py-base/as-jvm args))
+                           (py-ffi/untracked->python py-base/as-python)))))})))
+
+
+(defn wrap-ifn
+  [ifn]
+  (errors/when-not-errorf
+   (instance? IFn ifn)
+   "Object %s is not an instance of clojure.lang.IFn" ifn)
+  (@wrapped-fn-class* (jvm-handle/make-jvm-object-handle ifn)))
+
 
 
 (comment
+  (def cls-obj*
+)
+  (@cls-obj* (jvm-handle/make-jvm-object-handle
+              #(println "in python:" %)))
+
+
   (def cls-obj (create-class
                 "Stock" nil
                 {"__init__" (make-tuple-instance-fn
@@ -68,6 +127,7 @@
                                 ;;If you don't return nil from __init__ that is an
                                 ;;error.
                                nil))
+                 "__del__" (wrapped-jvm-destructor)
                  "cost" (make-tuple-instance-fn
                          (fn cost [self]
                            (* (py-proto/get-attr self "shares")

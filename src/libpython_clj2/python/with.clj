@@ -11,16 +11,8 @@
   "Utility code used in with macro"
   []
   (py-ffi/check-gil)
-  (let [ptype (dt-ffi/make-ptr :pointer 0)
-        pvalue (dt-ffi/make-ptr :pointer 0)
-        ptraceback (dt-ffi/make-ptr :pointer 0)]
-    (py-ffi/PyErr_Fetch ptype pvalue ptraceback)
-    (py-ffi/PyErr_NormalizeException ptype pvalue ptraceback)
-    ;;We own the references so they have to be released.
-    (throw (ex-info "python error in flight"
-                    {:ptype (Pointer/constructNonZero (ptype 0))
-                     :pvalue (Pointer/constructNonZero (pvalue 0))
-                     :ptraceback (Pointer/constructNonZero (ptraceback 0))}))))
+  (throw (ex-info "python error in flight"
+                  (py-ffi/fetch-normalize-exception))))
 
 
 (defn with-exit-error-handler
@@ -28,9 +20,9 @@
   [with-var error]
   (let [einfo (ex-data error)]
     (if (every? #(contains? einfo %) [:ptype :pvalue :ptraceback])
-      (let [{^Pointer ptype :ptype
-             ^Pointer pvalue :pvalue
-             ^Pointer ptraceback :ptraceback} einfo
+      (let [{^Pointer ptype :type
+             ^Pointer pvalue :value
+             ^Pointer ptraceback :traceback} einfo
             suppress-error? (py-fn/call-attr with-var "__exit__"
                                              [ptype
                                               pvalue
@@ -43,8 +35,8 @@
             (py-ffi/check-error-throw))
           (do
             (when ptype (py-ffi/Py_DecRef ptype))
-            (when-not pvalue (py-ffi/Py_DecRef pvalue))
-            (when-not ptraceback (py-ffi/Py_DecRef ptraceback)))))
+            (when pvalue (py-ffi/Py_DecRef pvalue))
+            (when ptraceback (py-ffi/Py_DecRef ptraceback)))))
       (do
         (py-fn/call-attr with-var "__exit__" [nil nil nil])
         (throw error)))))

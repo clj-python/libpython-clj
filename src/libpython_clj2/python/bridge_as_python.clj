@@ -5,6 +5,7 @@
             [libpython-clj2.python.protocols :as py-proto]
             [libpython-clj2.python.fn :as py-fn]
             [libpython-clj2.python.gc :as pygc]
+            [libpython-clj2.python.jvm-handle :as jvm-handle]
             [tech.v3.datatype.errors :as errors]
             [tech.v3.datatype :as dtype]
             [clojure.tools.logging :as log])
@@ -13,60 +14,6 @@
            [tech.v3.datatype.ffi Pointer]
            [tech.v3.datatype ObjectBuffer]
            [clojure.lang Keyword Symbol IFn]))
-
-
-(defonce ^{:private true
-           :tag ConcurrentHashMap}
-  jvm-handle-map (ConcurrentHashMap.))
-
-
-(defn identity-hash-code
-  ^long [obj]
-  (long (System/identityHashCode obj)))
-
-
-(defn make-jvm-object-handle
-  ^long [item]
-  (let [^ConcurrentHashMap hash-map jvm-handle-map]
-    (loop [handle (identity-hash-code item)]
-      (if (not (.containsKey hash-map handle))
-        (do
-          (.put hash-map handle item)
-          handle)
-        (recur (.hashCode (UUID/randomUUID)))))))
-
-
-(defn get-jvm-object
-  [handle]
-  (.get ^ConcurrentHashMap jvm-handle-map (long handle)))
-
-(defn remove-jvm-object
-  [handle]
-  (.remove ^ConcurrentHashMap jvm-handle-map (long handle))
-  nil)
-
-(defn py-self->jvm-handle
-  ^long [self]
-  (long (py-base/->jvm (py-proto/get-attr self "jvm_handle"))))
-
-
-(defn py-self->jvm-obj
-  ^Object [self]
-  (-> (py-self->jvm-handle self)
-      get-jvm-object))
-
-
-(defmacro pydelay
-  "Create a delay object that uses only gc reference semantics.  If stack reference
-  semantics happen to be in effect when this delay executes the object may still be
-  reachable by your program when it's reference counts are released leading to
-  bad/crashy behavior.  This ensures that can't happen at the cost of possibly an object
-  sticking around."
-  [& body]
-  `(delay
-     (py-ffi/with-gil
-       (with-bindings {#'pygc/*stack-gc-context* nil}
-         ~@body))))
 
 
 (defn as-python-incref
@@ -87,14 +34,13 @@
                                            :arg-converter identity}
                                           options)))
 
-
 (defn self->list
   ^List [self]
-  (py-self->jvm-obj self))
+  (jvm-handle/py-self->jvm-obj self))
 
 
 (defonce sequence-type*
-  (pydelay
+  (jvm-handle/py-global-delay
    (py-ffi/with-gil
      (py-ffi/with-decref
        [mod (py-ffi/PyImport_ImportModule "collections.abc")
@@ -102,15 +48,8 @@
        (py-class/create-class
         "jvm-list-as-python"
         [seq-type]
-        {"__init__" (as-tuple-instance-fn
-                     (fn [self jvm-handle]
-                       (py-proto/set-attr! self "jvm_handle" jvm-handle)
-                       nil))
-         "__del__" (as-tuple-instance-fn
-                    #(try
-                       (remove-jvm-object (py-self->jvm-handle %))
-                       (catch Throwable e
-                         (log/warnf e "Error removing object"))))
+        {"__init__" (py-class/wrapped-jvm-constructor)
+         "__del__" (py-class/wrapped-jvm-destructor)
          "__contains__" (as-tuple-instance-fn #(.contains (self->list %1) %2))
          "__eq__" (as-tuple-instance-fn #(.equals (self->list %1)
                                                   (py-base/->jvm %2)))
@@ -148,23 +87,23 @@
   (let [list-data (if (instance? List item)
                     item
                     (dtype/->buffer item))
-        hdl (make-jvm-object-handle list-data)]
+        hdl (jvm-handle/make-jvm-object-handle list-data)]
     (@sequence-type* hdl)))
 
 
 (defmethod py-proto/pyobject->jvm :jvm-list-as-python
   [pyobj opt]
-  (py-self->jvm-obj pyobj))
+  (jvm-handle/py-self->jvm-obj pyobj))
 
 
 
 (defn self->map
   ^Map [self]
-  (py-self->jvm-obj self))
+  (jvm-handle/py-self->jvm-obj self))
 
 
 (defonce mapping-type*
-  (pydelay
+  (jvm-handle/py-global-delay
     (with-gil
       (py-ffi/with-decref
         [mod (py-ffi/PyImport_ImportModule "collections.abc")
@@ -173,15 +112,8 @@
         (py-class/create-class
          "jvm-map-as-python"
          [map-type]
-         {"__init__" (as-tuple-instance-fn
-                      (fn [self jvm-handle]
-                        (py-proto/set-attr! self "jvm_handle" jvm-handle)
-                        nil))
-          "__del__" (as-tuple-instance-fn
-                     #(try
-                        (remove-jvm-object (py-self->jvm-handle %))
-                        (catch Throwable e
-                          (log/warnf e "Error removing object"))))
+         {"__init__" (py-class/wrapped-jvm-constructor)
+          "__del__" (py-class/wrapped-jvm-destructor)
           "__contains__" (as-tuple-instance-fn #(.containsKey (self->map %1)
                                                               (py-base/as-jvm %2)))
           "__eq__" (as-tuple-instance-fn #(.equals (self->map %1) (py-base/as-jvm %2)))
@@ -204,16 +136,16 @@
   (errors/when-not-errorf
    (instance? Map jvm-data)
    "arg (%s) is not an instance of Map" (type jvm-data))
-  (@mapping-type* (make-jvm-object-handle jvm-data)))
+  (@mapping-type* (jvm-handle/make-jvm-object-handle jvm-data)))
 
 
 (defmethod py-proto/pyobject->jvm :jvm-map-as-python
   [pyobj opt]
-  (py-self->jvm-obj pyobj))
+  (jvm-handle/py-self->jvm-obj pyobj))
 
 
 (def iterable-type*
-  (pydelay
+  (jvm-handle/py-global-delay
     (py-ffi/with-gil
       (py-ffi/with-decref
         [mod (py-ffi/PyImport_ImportModule "collections.abc")
@@ -221,26 +153,19 @@
         (py-class/create-class
          "jvm-iterable-as-python"
          [iter-base-cls]
-         {"__init__" (as-tuple-instance-fn
-                      (fn [self jvm-handle]
-                        (py-proto/set-attr! self "jvm_handle" jvm-handle)
-                        nil))
-          "__del__" (as-tuple-instance-fn
-                     #(try
-                        (remove-jvm-object (py-self->jvm-handle %))
-                        (catch Throwable e
-                          (log/warnf e "Error removing object"))))
+         {"__init__" (py-class/wrapped-jvm-constructor)
+          "__del__" (py-class/wrapped-jvm-destructor)
           "__iter__" (as-tuple-instance-fn
-                      #(.iterator ^Iterable (py-self->jvm-obj %))
+                      #(.iterator ^Iterable (jvm-handle/py-self->jvm-obj %))
                       {:name "__iter__"})
-          "__eq__" (as-tuple-instance-fn #(.equals (py-self->jvm-obj %1)
+          "__eq__" (as-tuple-instance-fn #(.equals (jvm-handle/py-self->jvm-obj %1)
                                                    (py-base/as-jvm %2))
                                          {:name "__eq__"})
           "__hash__" (as-tuple-instance-fn
-                      #(.hashCode (py-self->jvm-obj %))
+                      #(.hashCode (jvm-handle/py-self->jvm-obj %))
                       {:name "__hash__"})
           "__str__" (as-tuple-instance-fn
-                     #(.toString (py-self->jvm-obj %))
+                     #(.toString (jvm-handle/py-self->jvm-obj %))
                      {:name "__str__"})})))))
 
 
@@ -249,21 +174,21 @@
   (errors/when-not-errorf
    (instance? Iterable jvm-data)
    "Argument (%s) is not an instance of Iterable" (type jvm-data))
-  (@iterable-type* (make-jvm-object-handle jvm-data)))
+  (@iterable-type* (jvm-handle/make-jvm-object-handle jvm-data)))
 
 
 (defmethod py-proto/pyobject->jvm :jvm-iterable-as-python
   [pyobj opt]
-  (py-self->jvm-obj pyobj))
+  (jvm-handle/py-self->jvm-obj pyobj))
 
 
 (def iterator-type*
-  (pydelay
+  (jvm-handle/py-global-delay
     (py-ffi/with-gil
       (let [mod (py-ffi/PyImport_ImportModule "collections.abc")
             iter-base-cls (py-ffi/PyObject_GetAttrString mod  "Iterator")
             next-fn (fn [self]
-                      (let [^Iterator item (py-self->jvm-obj self)]
+                      (let [^Iterator item (jvm-handle/py-self->jvm-obj self)]
                         (if (.hasNext item)
                           (pygc/with-stack-context
                             (let [retval
@@ -280,15 +205,8 @@
         (py-class/create-class
          "jvm-iterator-as-python"
          [iter-base-cls]
-         {"__init__" (as-tuple-instance-fn
-                      (fn [self jvm-handle]
-                        (py-proto/set-attr! self "jvm_handle" jvm-handle)
-                        nil))
-          "__del__" (as-tuple-instance-fn
-                     #(try
-                        (remove-jvm-object (py-self->jvm-handle %))
-                        (catch Throwable e
-                          (log/warnf e "Error removing object"))))
+         {"__init__" (py-class/wrapped-jvm-constructor)
+          "__del__" (py-class/wrapped-jvm-destructor)
           "__next__" (py-class/make-tuple-instance-fn
                       next-fn
                       ;;In this case we are explicitly taking care of all conversions
@@ -302,12 +220,12 @@
   (errors/when-not-errorf
    (instance? Iterator jvm-data)
    "Argument (%s) is not a java Iterator" (type jvm-data))
-  (@iterator-type* (make-jvm-object-handle jvm-data)))
+  (@iterator-type* (jvm-handle/make-jvm-object-handle jvm-data)))
 
 
 (defmethod py-proto/pyobject->jvm :jvm-iterator-as-python
   [pyobj opt]
-  (py-self->jvm-obj pyobj))
+  (jvm-handle/py-self->jvm-obj pyobj))
 
 
 (extend-protocol py-proto/PBridgeToPython
@@ -332,7 +250,7 @@
       (dtype/reader? item)
       (list-as-python item)
       (instance? IFn item)
-      (py-fn/make-tuple-fn item)
+      (py-class/wrap-ifn item)
       (instance? Iterable item)
       (iterable-as-python item)
       (instance? Iterator item)

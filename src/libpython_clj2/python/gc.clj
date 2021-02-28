@@ -73,3 +73,13 @@
   [& body]
   `(with-bindings {#'*stack-gc-context* :disabled}
      ~@body))
+
+(defn gc-context
+  []
+  *stack-gc-context*)
+
+
+(defmacro with-gc-context
+  [gc-ctx & body]
+  `(with-bindings {#'*stack-gc-context* ~gc-ctx}
+     ~@body))

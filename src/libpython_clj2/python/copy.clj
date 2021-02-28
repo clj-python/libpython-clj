@@ -192,7 +192,7 @@
     :else
     {:type (py-ffi/pyobject-type-kwd pyobj)
      ;;Create a new GC root as the old reference is released.
-     :value (let [new-obj (py-ffi/wrap-pyobject
+     :value (let [new-obj (py-ffi/track-pyobject
                            (Pointer. (.address (dt-ffi/->pointer pyobj))))]
               (py-ffi/Py_IncRef new-obj)
               new-obj)}))
@@ -208,40 +208,23 @@
 
 (defn ->py-tuple
   [args]
-  (let [args (vec args)
-        n-args (count args)
-        retval (py-ffi/PyTuple_New n-args)]
-    (pygc/with-stack-context
-     (dotimes [idx n-args]
-       (let [arg (py-base/->python (args idx))]
-         ;;setitem steals the reference
-         (py-ffi/Py_IncRef arg)
-         (py-ffi/PyTuple_SetItem retval idx arg))))
-    (py-ffi/wrap-pyobject retval)))
+  (-> (py-ffi/untracked-tuple args py-base/->python)
+      (py-ffi/track-pyobject)))
 
 
 (defn ->py-dict
   "Copy an object into a new python dictionary."
   [item]
   (py-ffi/check-gil)
-  (let [dict (py-ffi/PyDict_New)]
-    (pygc/with-stack-context
-      (doseq [[k v] item]
-        ;;setitem does not steal the reference
-        (let [si-retval
-              (py-ffi/PyDict_SetItem dict
-                                     (py-proto/->python k nil)
-                                     (py-proto/->python v nil))]
-          (when-not (== (long si-retval) 0)
-            (py-ffi/check-error-throw)))))
-    (py-ffi/wrap-pyobject dict)))
+  (-> (py-ffi/untracked-dict item py-base/->python)
+      (py-ffi/track-pyobject)))
 
 
 (defn ->py-string
   "Copy an object into a python string"
   [item]
   (-> (py-ffi/PyUnicode_FromString (str item))
-      (py-ffi/wrap-pyobject)))
+      (py-ffi/track-pyobject)))
 
 
 (defn ->py-list
@@ -262,24 +245,24 @@
                  new-val))]
           (when-not (== 0 (long si-retval))
             (py-ffi/check-error-throw)))))
-    (py-ffi/wrap-pyobject retval)))
+    (py-ffi/track-pyobject retval)))
 
 
 (defn ->py-set
   [item]
   (py-ffi/check-gil)
   (-> (py-ffi/PySet_New (->py-list item))
-      (py-ffi/wrap-pyobject)))
+      (py-ffi/track-pyobject)))
 
 
 (defn ->py-long
   [item]
-  (py-ffi/wrap-pyobject (py-ffi/PyLong_FromLongLong (long item))))
+  (py-ffi/track-pyobject (py-ffi/PyLong_FromLongLong (long item))))
 
 
 (defn ->py-double
   [item]
-  (py-ffi/wrap-pyobject (py-ffi/PyFloat_FromDouble (double item))))
+  (py-ffi/track-pyobject (py-ffi/PyFloat_FromDouble (double item))))
 
 
 (defn ->py-range
@@ -290,15 +273,12 @@
         n-elems (long (dtype/ecount dt-range))
         stop (+ start (* inc n-elems))
         ;;the tuple steals the references
-        argtuple (py-ffi/make-tuple
-                  (py-ffi/PyLong_FromLongLong start)
-                  (py-ffi/PyLong_FromLongLong stop)
-                  (py-ffi/PyLong_FromLongLong inc))
+        argtuple (py-ffi/untracked-tuple [start stop inc])
         retval (py-ffi/PyObject_CallObject (py-ffi/py-range-type) argtuple)]
     ;;we drop the tuple
     (py-ffi/Py_DecRef argtuple)
     ;;and wrap the retval
-    (py-ffi/wrap-pyobject retval)))
+    (py-ffi/track-pyobject retval)))
 
 
 (extend-protocol py-proto/PCopyToPython

@@ -69,7 +69,7 @@
            method-def (dt-struct/new-struct :pymethoddef {:resource-type nil
                                                           :container-type :native-heap})
            name (dt-ffi/string->c name {:resource-type nil})
-           doc (dt-ffi/string->c name {:resource-type nil})]
+           doc (dt-ffi/string->c doc {:resource-type nil})]
        (.put method-def :ml_name (.address (dt-ffi/->pointer name)))
        (.put method-def :ml_meth (.address (dt-ffi/->pointer fn-ptr)))
        (.put method-def :ml_flags METH_VARARGS)
@@ -82,51 +82,39 @@
                                         :fn-inst fn-inst})
        ;;no self, no module reference
        (-> (py-ffi/PyCFunction_NewEx method-def nil nil)
-           (py-ffi/wrap-pyobject)))))
+           (py-ffi/track-pyobject)))))
   ([ifn]
    (make-tuple-fn ifn nil)))
 
 
-(defn simplify-or-wrap
-  [^Pointer pyobj]
-  (if-not (or (nil? pyobj) (.isNil pyobj))
-    (if (= pyobj (py-ffi/py-none))
-      (do (py-ffi/Py_DecRef pyobj)
-          nil)
-      (case (py-ffi/pyobject-type-kwd pyobj)
-        :int (py-ffi/with-decref [pyobj pyobj]
-               (py-ffi/PyLong_AsLongLong pyobj))
-        :float (py-ffi/with-decref [pyobj pyobj]
-                 (py-ffi/PyFloat_AsDouble pyobj))
-        :string (py-ffi/with-decref [pyobj pyobj]
-                  (py-ffi/pystr->str))
-        ;;maybe copy, maybe bridge - in any case we have to decref the item
-        (py-ffi/wrap-pyobject pyobj)))
-    (py-ffi/check-error-throw)))
-
-
-(defn- call-py-fn
-  [callable arglist kw-arg-map]
+(defn call-py-fn
+  [callable arglist kw-arg-map arg-converter]
   (py-ffi/with-gil
     ;;Release objects marshalled just for this call immediately
     (let [retval
           (pygc/with-stack-context
-            (cond
-              (seq kw-arg-map)
-              (py-ffi/PyObject_Call callable
-                                    (py-copy/->py-tuple arglist)
-                                    (py-copy/->py-dict kw-arg-map))
-              (seq arglist)
-              (py-ffi/PyObject_CallObject callable (py-copy/->py-tuple arglist))
-              :else
-              (py-ffi/PyObject_CallObject callable nil)))]
-      (simplify-or-wrap retval))))
+            (py-ffi/with-decref
+              ;;We go out of our way to avoid tracking the arglist because it is
+              ;;allocated/deallocated so often
+              [arglist (when (or (seq kw-arg-map) (seq arglist))
+                         (py-ffi/untracked-tuple arglist arg-converter))
+               kw-arg-map (when (seq kw-arg-map)
+                            (py-ffi/untracked-dict kw-arg-map arg-converter))]
+              (cond
+                kw-arg-map
+                (py-ffi/PyObject_Call callable arglist kw-arg-map)
+                arglist
+                (py-ffi/PyObject_CallObject callable arglist)
+                :else
+                (py-ffi/PyObject_CallObject callable nil))))]
+      (py-ffi/simplify-or-track retval))))
 
 
 (extend-type Pointer
   py-proto/PyCall
   (call [callable arglist kw-arg-map]
-    (call-py-fn callable arglist kw-arg-map)))
+    (call-py-fn callable arglist kw-arg-map py-base/->python))
+  (marshal-return [callable retval] (py-base/->jvm retval)))
 
 
 (defn call
@@ -141,19 +129,19 @@
   (py-proto/call callable arglist kw-args))
 
 
-(defn call-attr
-  "Call an object attribute with positional arguments."
-  [item att-name arglist]
-  (-> (py-proto/get-attr item att-name)
-      (py-proto/call arglist nil)))
-
-
 (defn call-attr-kw
   "Call an object attribute with a vector of positional args and a
   map of keyword args."
-  [item att-name arglist kw-map]
-  (-> (py-proto/get-attr item att-name)
-      (py-proto/call arglist kw-map)))
+  [item att-name arglist kw-map arg-converter]
+  (if (string? att-name)
+    (py-ffi/with-decref [attval (py-ffi/PyObject_GetAttrString item att-name)]
+      (->> (call-py-fn attval arglist kw-map arg-converter)
+          (py-proto/marshal-return item)))))
+
+(defn call-attr
+  "Call an object attribute with only positional arguments."
+  [item att-name arglist]
+  (call-attr-kw item att-name arglist nil py-base/->python))
 
 (defn args->pos-kw-args
   "Utility function that, given a list of arguments, separates them
@@ -220,4 +208,4 @@
   [item attr & args]
   (let [[pos-args kw-args] (args->pos-kw-args args)]
     (call-attr-kw item (key-sym-str->str attr)
-                  pos-args kw-args)))
+                  pos-args kw-args py-base/->python)))
