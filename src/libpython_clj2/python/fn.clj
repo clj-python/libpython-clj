@@ -53,11 +53,9 @@
                                   (map (fn [idx]
                                          (-> (py-ffi/PyTuple_GetItem tuple-args idx)
                                              (arg-converter))))))]
-                  (pygc/with-stack-context
-                    (-> (if result-converter
-                          (result-converter retval)
-                          retval)
-                        (py-ffi/incref))))
+                  (if result-converter
+                    (py-ffi/untracked->python retval result-converter)
+                    retval))
                 (catch Throwable e
                   (log/error e "Error executing clojure function.")
                   (py-ffi/PyErr_SetString
@@ -114,7 +112,7 @@
   py-proto/PyCall
   (call [callable arglist kw-arg-map]
     (call-py-fn callable arglist kw-arg-map py-base/->python))
-  (marshal-return [callable retval] (py-base/->jvm retval)))
+  (marshal-return [callable retval] retval))
 
 
 (defn call

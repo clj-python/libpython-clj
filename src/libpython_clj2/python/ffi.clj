@@ -632,7 +632,7 @@ Each call must be matched with PyGILState_Release"}
          retval#)
        (finally
          (when gil-state#
-           (System/gc)
+           #_(System/gc)
            (pygc/clear-reference-queue)
            (PyGILState_Release gil-state#))))))
 
@@ -687,7 +687,7 @@ Each call must be matched with PyGILState_Release"}
 
 
 
-(def object-reference-logging (atom true))
+(def object-reference-logging (atom nil))
 
 
 (defn- wrap-obj-ptr
@@ -695,16 +695,16 @@ Each call must be matched with PyGILState_Release"}
   [pyobj ^Pointer pyobjptr gc-data]
   (let [addr (.address pyobjptr)]
     (when @object-reference-logging
-      (log/infof "tracking object  - 0x%x:%4d:%s\n%s"
+      (log/infof "tracking object  - 0x%x:%4d:%s"
                  addr
                  (pyobject-refcount pyobj)
                  (name (pyobject-type-kwd pyobjptr))
-                 (with-out-str
-                     (try
-                       (throw (Exception. "test"))
-                       ""
-                       (catch Exception e
-                         (clojure.stacktrace/print-stack-trace e))))))
+                 #_(with-out-str
+                   (try
+                     (throw (Exception. "test"))
+                     ""
+                     (catch Exception e
+                       (clojure.stacktrace/print-stack-trace e))))))
     (pygc/track pyobj
                 ;;we know the GIL is captured in this method
                 #(try

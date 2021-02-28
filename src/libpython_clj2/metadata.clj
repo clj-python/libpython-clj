@@ -68,12 +68,6 @@
       nil)))
 
 (defn py-fn-argspec [f]
-  (clojure.tools.logging/infof
-   "argspec f (%s) 0x%x refcount (%d) argspec refcount (%d)"
-   (.toString f)
-   (.address (dt-ffi/->pointer f))
-   (py-ffi/pyobject-refcount f)
-   (py-ffi/pyobject-refcount argspec))
   (if-let [spec (try (when-not (pyclass? f)
                        (argspec f))
                      (catch Throwable e nil))]
@@ -183,7 +177,6 @@
 
 
 (defn py-fn-metadata [fn-name x {:keys [no-arglists?]}]
-  (println "fn-name" fn-name)
   (let [fn-argspec (pyargspec x)
         fn-docstr  (get-pydoc x)]
     (merge
@@ -236,7 +229,6 @@
 
 (defn datafy-module-or-class [item]
   (with-gil
-    (println "obj-name" (.toString item))
     (->> (if (or (pyclass? item)
                  (pymodule? item))
            (->> (vars item)

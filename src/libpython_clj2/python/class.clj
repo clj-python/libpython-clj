@@ -59,7 +59,7 @@
    (make-tuple-instance-fn
     (fn [self]
       (let [jvm-hdl (jvm-handle/py-self->jvm-handle self)]
-        (log/debugf "Deleting bridged handle %d" jvm-hdl)
+        #_(log/debugf "Deleting bridged handle %d" jvm-hdl)
         (jvm-handle/remove-jvm-object jvm-hdl)
         nil)))))
 
@@ -95,7 +95,12 @@
                    (fn [self & args]
                      (let [jvm-obj (jvm-handle/py-self->jvm-obj self)]
                        (-> (apply jvm-obj (map py-base/as-jvm args))
-                           (py-ffi/untracked->python py-base/as-python)))))})))
+                           (py-ffi/untracked->python py-base/as-python)))))
+       "__str__" (make-tuple-instance-fn
+                  (fn [self]
+                    (format
+                     "libpython-clj-wrapper[%s]"
+                     (.toString (jvm-handle/py-self->jvm-obj self)))))})))
 
 
 (defn wrap-ifn

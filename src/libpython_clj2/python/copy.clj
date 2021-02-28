@@ -240,9 +240,7 @@
               (py-ffi/PyList_SetItem
                retval
                idx
-               (let [new-val (py-proto/->python (item-seq idx) nil)]
-                 (py-ffi/Py_IncRef new-val)
-                 new-val))]
+               (py-ffi/untracked->python (item-seq idx) py-base/->python))]
           (when-not (== 0 (long si-retval))
             (py-ffi/check-error-throw)))))
     (py-ffi/track-pyobject retval)))

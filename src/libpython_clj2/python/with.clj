@@ -19,7 +19,7 @@
   "Utility code used in with macro"
   [with-var error]
   (let [einfo (ex-data error)]
-    (if (every? #(contains? einfo %) [:ptype :pvalue :ptraceback])
+    (if (every? #(contains? einfo %) [:type :value :traceback])
       (let [{^Pointer ptype :type
              ^Pointer pvalue :value
              ^Pointer ptraceback :traceback} einfo

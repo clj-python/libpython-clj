@@ -191,14 +191,7 @@
                       (let [^Iterator item (jvm-handle/py-self->jvm-obj self)]
                         (if (.hasNext item)
                           (pygc/with-stack-context
-                            (let [retval
-                                  (-> (.next item)
-                                      ;;As python tracks the object in a jvm context
-                                      (py-base/as-python))]
-                              ;;But we are handing the object back to python
-                              ;;which is expecting a new reference.
-                              (py-ffi/Py_IncRef retval)
-                              retval))
+                            (py-ffi/untracked->python (.next item) py-base/as-python))
                           (do
                             (py-ffi/PyErr_SetNone (py-ffi/py-exc-stopiter-type))
                             nil))))]

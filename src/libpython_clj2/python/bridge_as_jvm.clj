@@ -97,7 +97,10 @@
 (defn python->jvm-iterator
   "This is a tough function to get right.  The iterator could return nil as in
   you could have a list of python none types or something so you have to iterate
-  till you get a StopIteration error."
+  till you get a StopIteration error.
+
+  If item-conversion-fn is nil, returns the raw fn output.
+  Else calls item-conversion-fn."
   [pyobj item-conversion-fn]
   (with-gil
     (let [py-iter (py-fn/call-attr pyobj "__iter__" nil)
@@ -230,7 +233,7 @@
   (if-let [py-fn* (get att-map fn-name)]
     ;;laziness is carefully constructed here in order to allow the arguments to
     ;;be released within the context of the function call during fn.clj call-py-fn.
-    (-> (py-fn/call-kw @py-fn* (map py-base/as-python args) nil)
+    (-> (py-fn/call-py-fn @py-fn* args nil py-base/as-python)
         (py-base/as-jvm))
     (throw (UnsupportedOperationException.
             (format "Python object has no attribute: %s"
@@ -309,7 +312,6 @@
                                   v (.get this pyobj-key)
                                   retval
                                   (MapEntry. k v)]
-                              (println "map entry" [k (py-proto/python-type v)])
                               retval)))))]
 
           (.iterator ^Iterable mapentry-seq)))

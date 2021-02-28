@@ -68,8 +68,8 @@
         (win/setup-windows-conda! windows-anaconda-activate-bat
                                   py-ffi/run-simple-string))
 
-      #_(when-not no-io-redirect?
-          (io-redirect/redirect-io!))
+      (when-not no-io-redirect?
+        (io-redirect/redirect-io!))
       :ok)
     :already-initialized))
 
@@ -126,7 +126,7 @@
   [modname]
   (with-gil
     (-> (py-ffi/PyImport_AddModule modname)
-        (py-ffi/track-pyobject)
+        (py-ffi/incref-track-pyobject)
         (py-base/as-jvm))))
 
 
@@ -135,7 +135,7 @@
   [mod]
   (with-gil
     (-> (py-ffi/PyModule_GetDict mod)
-        (py-ffi/track-pyobject)
+        (py-ffi/incref-track-pyobject)
         (py-base/as-jvm))))
 
 
@@ -153,7 +153,7 @@
 (defn call-attr-kw
   "Call an attribute passing in both positional and keyword arguments."
   [pyobj attname args kw-list]
-  (with-gil (py-fn/call-attr-kw pyobj attname args kw-list)))
+  (with-gil (py-fn/call-attr-kw pyobj attname args kw-list py-base/as-python)))
 
 (defn get-attr
   "Get an attribute from a python object"
