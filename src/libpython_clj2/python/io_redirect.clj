@@ -1,4 +1,5 @@
 (ns libpython-clj2.python.io-redirect
+  "Implementation of optional io redirection."
   (:require [libpython-clj2.python.class :as py-class]
             [libpython-clj2.python.ffi :as py-ffi]
             [libpython-clj2.python.bridge-as-python :as py-bridge-py]

@@ -1,4 +1,6 @@
 (ns libpython-clj2.python.bridge-as-jvm
+  "Functionality related to proxying python objects such that they interact natively
+  with the JVM --  Python dicts become java.util.Maps, for instance."
   (:require [libpython-clj2.python.protocols :as py-proto]
             [libpython-clj2.python.base :as py-base]
             [libpython-clj2.python.fn :as py-fn]

@@ -1,10 +1,11 @@
 (ns libpython-clj2.python.np-array
-  "Bindings for deeper intergration of numpy into the tech.v3.datatype system.  This allows somewhat more
-  seamless usage of numpy arrays in datatype and tensor functionality such as enabling
-  the tech.v3.tensor/ensure-tensor call to work with numpy arrays (as zero copying when possible).
+  "Bindings for deeper intergration of numpy into the tech.v3.datatype system.  This
+  allows seamless usage of numpy arrays in datatype and tensor functionality such as
+  enabling the tech.v3.tensor/ensure-tensor call to work with numpy arrays -- using
+  zero copying when possible.
 
-  All users need to do is call require this namespace; then as-jvm will convert a numpy array
-  into a tech tensor in-place."
+  All users need to do is call require this namespace; then as-jvm will convert a numpy
+  array into a tech tensor in-place."
   (:require [libpython-clj2.python.ffi :as py-ffi]
             [libpython-clj2.python.fn :as py-fn]
             [libpython-clj2.python.protocols :as py-proto]

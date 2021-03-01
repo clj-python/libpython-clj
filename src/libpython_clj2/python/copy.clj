@@ -1,5 +1,5 @@
 (ns libpython-clj2.python.copy
-  "Bindings to copy jvm <-> python.  All functions in this namespace expect the
+  "Bindings to copy jvm <-> python.  Most functions in this namespace expect the
   GIL to be captured."
   (:require [libpython-clj2.python.ffi :as py-ffi]
             [libpython-clj2.python.protocols :as py-proto]

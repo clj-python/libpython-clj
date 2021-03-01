@@ -1,5 +1,15 @@
 (ns libpython-clj2.python.ffi
-  "Low level bindings to the python shared library system."
+  "Low level bindings to the python shared library system.  Several key pieces of
+  functionality are implemented:
+
+  * Declare/implement actual C binding layer
+  * Low level library initialization
+  * GIL management
+  * Error checking
+  * High perf tuple, dict creation
+  * Addref/decref reference management including tracking objects - binding them
+    to the JVM GC
+  * python type->clojure keyword table"
   (:require [tech.v3.datatype :as dtype]
             [tech.v3.datatype.ffi :as dt-ffi]
             [tech.v3.datatype.ffi.size-t :as ffi-size-t]
@@ -521,7 +531,6 @@ Each call must be matched with PyGILState_Release"}
   (set-library! libpath)
   (when-not (= 1 (Py_IsInitialized))
     (log/debug "Initializing Python C Layer")
-    (println "program-name" program-name)
     (let [program-name (retain-forever :program-name
                                        (-> (or program-name "")
                                            (dt-ffi/string->c {:encoding :utf-16})))]

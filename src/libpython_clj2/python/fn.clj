@@ -1,10 +1,13 @@
 (ns libpython-clj2.python.fn
   "Pathways for creating clojure functions from python callable objects and
-  vice versa.  This namespace expects the GIL is captured."
+  vice versa.  This namespace expects the GIL is captured.
+  Functions bridging this way is relatively expensive but it is the foundation
+  that the more advanced bridging in class.clj is built upon.
+
+  Also contains mechanisms for calling python functions and attributes."
   (:require [libpython-clj2.python.ffi :as py-ffi]
             [libpython-clj2.python.base :as py-base]
             [libpython-clj2.python.protocols :as py-proto]
-            [libpython-clj2.python.copy :as py-copy]
             [libpython-clj2.python.gc :as pygc]
             [tech.v3.datatype.ffi :as dt-ffi]
             [tech.v3.datatype.ffi.size-t :as ffi-size-t]

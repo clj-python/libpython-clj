@@ -1,4 +1,5 @@
 (ns libpython-clj2.python.windows
+  "Windows-specific functionality so that the system works with Anaconda."
   (:require [clojure.java.shell :refer [sh]]
             [clojure.java.io :as io]
             [clojure.string :as s]))

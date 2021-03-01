@@ -1,4 +1,6 @@
 (ns libpython-clj2.python.info
+  "Python system information.  Uses the installed python executable to find out
+  various details about how python is expecting to run."
   (:require [clojure.java.shell :as sh]
             [clojure.data.json :as json]
             [clojure.tools.logging :as log])

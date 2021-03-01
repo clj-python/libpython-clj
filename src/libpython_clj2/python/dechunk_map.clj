@@ -1,4 +1,6 @@
-(ns libpython-clj2.python.dechunk-map)
+(ns libpython-clj2.python.dechunk-map
+  "Utility namespace with a function that works like a single-sequence map but
+  stops chunking.")
 
 
 (defn dechunk-map

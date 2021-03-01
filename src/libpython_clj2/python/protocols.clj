@@ -1,7 +1,6 @@
 (ns libpython-clj2.python.protocols
-  "Internal protocols to libpython-clj.  Implementations of these protocols should
-  expect the GIL to be captured so they themselves **d not** need to capture
-  the GIL."
+  "Internal protocols to libpython-clj.  These allow a dual system where raw pointers
+  work with copying pathways and bridged objects work with bridging pathways."
   (:require [libpython-clj2.python.ffi :as py-ffi]
             [tech.v3.datatype :as dtype]))
 

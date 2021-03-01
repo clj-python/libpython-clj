@@ -1,14 +1,14 @@
 (ns libpython-clj2.python.bridge-as-python
+  "Functionality related to proxying JVM objects into Python so for instance a
+  java.util.Map implementation will appear to python as being dict-like."
   (:require [libpython-clj2.python.ffi :refer [with-gil] :as py-ffi]
             [libpython-clj2.python.base :as py-base]
             [libpython-clj2.python.class :as py-class]
             [libpython-clj2.python.protocols :as py-proto]
-            [libpython-clj2.python.fn :as py-fn]
             [libpython-clj2.python.gc :as pygc]
             [libpython-clj2.python.jvm-handle :as jvm-handle]
             [tech.v3.datatype.errors :as errors]
-            [tech.v3.datatype :as dtype]
-            [clojure.tools.logging :as log])
+            [tech.v3.datatype :as dtype])
   (:import [java.util Map RandomAccess UUID List Iterator]
            [java.util.concurrent ConcurrentHashMap]
            [tech.v3.datatype.ffi Pointer]

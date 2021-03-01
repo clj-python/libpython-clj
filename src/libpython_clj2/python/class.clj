@@ -1,12 +1,12 @@
 (ns libpython-clj2.python.class
-  "Namespace to help create a python class from Clojure."
+  "Namespace to help create a new python class from Clojure.  Used as a core
+  implementation technique for bridging JVM objects into python."
   (:require [libpython-clj2.python.ffi :as py-ffi]
             [libpython-clj2.python.base :as py-base]
             [libpython-clj2.python.jvm-handle :as jvm-handle]
             [libpython-clj2.python.fn :as py-fn]
             [libpython-clj2.python.protocols :as py-proto]
-            [tech.v3.datatype.errors :as errors]
-            [clojure.tools.logging :as log])
+            [tech.v3.datatype.errors :as errors])
   (:import [clojure.lang IFn]))
 
 

@@ -1,4 +1,6 @@
 (ns libpython-clj2.python.jvm-handle
+  "Conversion of a jvm object into an integer and back.  Used for storing handles
+  on python proxies."
   (:require [libpython-clj2.python.protocols :as py-proto]
             [libpython-clj2.python.gc :as pygc])
   (:import [java.util.concurrent ConcurrentHashMap]
