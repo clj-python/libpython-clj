@@ -14,11 +14,12 @@
 
 
 (py/initialize!)
-(dt-ffi/enable-string->c-stats!)
-(.addShutdownHook (Runtime/getRuntime) (Thread.
-                                        (fn []
-                                          (clojure.pprint/pprint
-                                           (dt-ffi/string->c-data-histogram)))))
+;; Useful to see how many times we convert a string to a python object.
+;; (dt-ffi/enable-string->c-stats!)
+;; (.addShutdownHook (Runtime/getRuntime) (Thread.
+;;                                         (fn []
+;;                                           (clojure.pprint/pprint
+;;                                            (dt-ffi/string->c-data-histogram)))))
 
 (deftest stdout-and-stderr
   (is (= "hey\n" (with-out-str

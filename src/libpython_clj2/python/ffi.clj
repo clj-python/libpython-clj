@@ -336,7 +336,7 @@ Each call must be matched with PyGILState_Release"}
 ;;When this is true, generated functions will throw an exception if called when the
 ;;GIL is not captured.  It makes sense to periodically enable this flag in order
 ;;to ensure we aren't getting away with sneaky non-GIL access to Python.
-(def enable-api-gilcheck true)
+(def enable-api-gilcheck false)
 
 
 (defn- find-pylib-fn
@@ -709,7 +709,7 @@ Each call must be matched with PyGILState_Release"}
 
 
 
-(def object-reference-logging (atom true))
+(def object-reference-logging (atom nil))
 
 
 (defn- wrap-obj-ptr
