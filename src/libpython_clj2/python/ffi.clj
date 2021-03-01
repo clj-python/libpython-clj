@@ -21,14 +21,17 @@
 (set! *warn-on-reflection* true)
 
 
-(declare track-pyobject py-none pystr->str check-error-throw pyobject-type-kwd)
+(declare track-pyobject py-none pystr->str check-error-throw pyobject-type-kwd
+         PyGILState_Check)
 
 
 (def python-library-fns
   {:Py_InitializeEx {:rettype :void
                      :argtypes [['signals :int32]]
+                     :requires-gil? false
                      :doc "Initialize the python shared library"}
    :Py_IsInitialized {:rettype :int32
+                      :requires-gil? false
                       :doc "Return 1 if library is initalized, 0 otherwise"}
 
    :PyRun_SimpleString {:rettype :int32
@@ -47,14 +50,18 @@
                    :doc "Set the argv/argc for the interpreter.
 Required for some python modules"}
    :Py_SetProgramName {:rettype :void
+                       :requires-gil? false
                        :argtypes [['program-name-wideptr :pointer]]
                        :doc "Set the program name"}
    :PyEval_SaveThread {:rettype :pointer
+                       :requires-gil? false
                        :doc "Release the GIL on the current thread"}
    :PyGILState_Ensure {:rettype :int32
+                       :requires-gil? false
                        :doc "Ensure this thread owns the python GIL.
 Each call must be matched with PyGILState_Release"}
    :PyGILState_Check {:rettype :int32
+                      :requires-gil? false
                       :doc "Return 1 if gil is held, 0 otherwise"}
    :PyGILState_Release {:rettype :void
                         :argtypes [['modhdl :int32]]
@@ -318,6 +325,20 @@ Each call must be matched with PyGILState_Release"}
   @library*)
 
 
+(defmacro check-gil
+  "Maybe the most important insurance policy"
+  []
+  `(errors/when-not-error
+    (= 1 (PyGILState_Check))
+    "GIL is not captured"))
+
+
+;;When this is true, generated functions will throw an exception if called when the
+;;GIL is not captured.  It makes sense to periodically enable this flag in order
+;;to ensure we aren't getting away with sneaky non-GIL access to Python.
+(def enable-api-gilcheck true)
+
+
 (defn- find-pylib-fn
   [fn-kwd]
   (let [pylib @library*]
@@ -353,35 +374,41 @@ Each call must be matched with PyGILState_Release"}
          (fn [[fn-name {:keys [rettype argtypes] :as fn-data}]]
            (let [fn-symbol (symbol (name fn-name))
                  requires-resctx? (first (filter #(= :string %)
-                                                 (map second argtypes)))]
+                                                 (map second argtypes)))
+                 gilcheck? (when enable-api-gilcheck
+                             (if (contains? fn-data :requires-gil?)
+                               (fn-data :requires-gil?)
+                               true))]
              `(defn ~fn-symbol
                 ~(:doc fn-data "No documentation!")
                 ~(mapv first argtypes)
                 (let [~'ifn (find-pylib-fn ~fn-name)]
-                  ~(if requires-resctx?
-                     `(resource/stack-resource-context
-                       (~'ifn ~@(map (fn [[argname argtype]]
-                                       (cond
-                                         (#{:int8 :int16 :int32 :int64} argtype)
-                                         `(long ~argname)
-                                         (#{:float32 :float64} argtype)
-                                         `(double ~argname)
-                                         (= :string argtype)
-                                         `(dt-ffi/string->c ~argname)
-                                         :else
-                                         argname))
-                                     argtypes)))
-                     `(~'ifn ~@(map (fn [[argname argtype]]
-                                      (cond
-                                        (#{:int8 :int16 :int32 :int64} argtype)
-                                        `(long ~argname)
-                                        (#{:float32 :float64} argtype)
-                                        `(double ~argname)
-                                        (= :string argtype)
-                                        `(dt-ffi/string->c ~argname)
-                                        :else
-                                        argname))
-                                    argtypes)))))))))))
+                  (do
+                    ~(when gilcheck? `(check-gil))
+                    ~(if requires-resctx?
+                       `(resource/stack-resource-context
+                         (~'ifn ~@(map (fn [[argname argtype]]
+                                         (cond
+                                           (#{:int8 :int16 :int32 :int64} argtype)
+                                           `(long ~argname)
+                                           (#{:float32 :float64} argtype)
+                                           `(double ~argname)
+                                           (= :string argtype)
+                                           `(dt-ffi/string->c ~argname)
+                                           :else
+                                           argname))
+                                       argtypes)))
+                       `(~'ifn ~@(map (fn [[argname argtype]]
+                                        (cond
+                                          (#{:int8 :int16 :int32 :int64} argtype)
+                                          `(long ~argname)
+                                          (#{:float32 :float64} argtype)
+                                          `(double ~argname)
+                                          (= :string argtype)
+                                          `(dt-ffi/string->c ~argname)
+                                          :else
+                                          argname))
+                                      argtypes))))))))))))
 
 
 (define-pylib-functions)
@@ -413,14 +440,6 @@ Each call must be matched with PyGILState_Release"}
 (define-static-symbol py-exc-type "PyExc_Exception" true)
 (define-static-symbol py-exc-stopiter-type "PyExc_StopIteration" true)
 (define-static-symbol py-type-type "PyType_Type" false)
-
-
-(defmacro check-gil
-  "Maybe the most important insurance policy"
-  []
-  `(errors/when-not-error
-    (= 1 (PyGILState_Check))
-    "GIL is not captured"))
 
 
 (defmacro with-decref

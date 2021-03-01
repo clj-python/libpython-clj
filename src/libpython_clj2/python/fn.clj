@@ -17,10 +17,10 @@
 
 
 (def methoddef-type (dt-struct/define-datatype! :pymethoddef
-                      [{:name :ml_name :datatype (ffi-size-t/size-t-type)}
-                       {:name :ml_meth :datatype (ffi-size-t/size-t-type)}
+                      [{:name :ml_name :datatype (ffi-size-t/ptr-t-type)}
+                       {:name :ml_meth :datatype (ffi-size-t/ptr-t-type)}
                        {:name :ml_flags :datatype :int32}
-                           {:name :ml_doc :datatype (ffi-size-t/size-t-type)}]))
+                       {:name :ml_doc :datatype (ffi-size-t/ptr-t-type)}]))
 
 
 (def tuple-fn-iface* (delay  (dt-ffi/define-foreign-interface :pointer? [:pointer :pointer])))
@@ -131,10 +131,16 @@
   "Call an object attribute with a vector of positional args and a
   map of keyword args."
   [item att-name arglist kw-map arg-converter]
-  (if (string? att-name)
-    (py-ffi/with-decref [attval (py-ffi/PyObject_GetAttrString item att-name)]
-      (->> (call-py-fn attval arglist kw-map arg-converter)
-          (py-proto/marshal-return item)))))
+  (py-ffi/with-gil
+    (if (string? att-name)
+      (py-ffi/with-decref [attval (py-ffi/PyObject_GetAttrString item att-name)]
+        (->> (call-py-fn attval arglist kw-map arg-converter)
+             (py-proto/marshal-return item)))
+      (py-ffi/with-decref
+        [att-name (py-ffi/untracked->python att-name py-base/->python)
+         att-val (py-ffi/untracked->python att-name py-base/->python)]
+        (->> (call-py-fn att-val arglist kw-map arg-converter)
+             (py-proto/marshal-return item))))))
 
 (defn call-attr
   "Call an object attribute with only positional arguments."
