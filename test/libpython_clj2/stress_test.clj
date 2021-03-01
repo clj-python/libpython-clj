@@ -55,11 +55,6 @@ def getmultidata():
     (gd-fn)))
 
 
-;;Ensure that failure to open resource context before tracking for stack
-;;related things causes immediate failure.  Unless you feel like being pedantic,
-;;this isn't necessary.  The python library automatically switches to normal gc-only
-;;mode if a resource context is open.
-
 (deftest forever-test
   (doseq [items (take 10 (partition 999 (get-data)))]
     ;;One way is to use the GC

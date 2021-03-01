@@ -6,6 +6,7 @@
             [tech.v3.datatype.struct :as dt-struct]
             [tech.v3.datatype.errors :as errors]
             [tech.v3.datatype.native-buffer :as native-buffer]
+            [tech.v3.datatype.nio-buffer :as nio-buffer]
             [tech.v3.datatype.protocols :as dt-proto]
             [tech.v3.resource :as resource]
             [libpython-clj2.python.gc :as pygc]
@@ -15,7 +16,8 @@
   (:import [java.util.concurrent ConcurrentHashMap]
            [java.util.function Function]
            [tech.v3.datatype.ffi Pointer Library]
-           [clojure.lang Keyword Symbol]))
+           [clojure.lang Keyword Symbol]
+           [java.nio.charset StandardCharsets]))
 
 
 (set! *warn-on-reflection* true)
@@ -105,6 +107,10 @@ Each call must be matched with PyGILState_Release"}
    :PyUnicode_AsUTF8 {:rettype :pointer
                       :argtypes [['obj :pointer]]
                       :doc "convert a python unicode object to a utf8 encoded string"}
+   :PyUnicode_AsUTF8AndSize {:rettype :pointer
+                             :argtypes [['obj :pointer]
+                                        ['size :pointer]]
+                             :doc "Return both the data and the size of the data"}
    :PyImport_ImportModule {:rettype :pointer
                            :argtypes [['modname :string]]
                            :doc "Import a python module"}
@@ -679,10 +685,19 @@ Each call must be matched with PyGILState_Release"}
 
 (defn pystr->str
   ^String [pyobj]
-  (check-gil)
-  (-> (PyUnicode_AsUTF8 pyobj)
-      (dt-ffi/c->string)))
-
+  ;;manually allocate/deallocate for speed; this gets called a lot
+  (let [size-obj (dt-ffi/make-ptr (ffi-size-t/size-t-type) 0 {:resource-type nil
+                                                              :uninitialized? true})
+        ^Pointer str-ptr (PyUnicode_AsUTF8AndSize pyobj size-obj)
+        nbuf (native-buffer/wrap-address (.address str-ptr)
+                                         (size-obj 0)
+                                         nil)]
+    (native-buffer/free size-obj)
+    (-> (.decode StandardCharsets/UTF_8
+                 ;;avoid resource chaining for performance
+                 ^java.nio.ByteBuffer (nio-buffer/native-buf->nio-buf
+                                       nbuf {:resource-type nil}))
+        (.toString))))
 
 (defn pytype-name
   ^String [type-pyobj]

@@ -49,17 +49,17 @@
 
 
 (defmethod py-proto/pyobject->jvm :str
-  [pyobj & [options]]
+  [pyobj & args]
   (py-ffi/pystr->str pyobj))
 
 
 (defmethod py-proto/pyobject->jvm :int
-  [pyobj & [options]]
+  [pyobj & args]
   (py-ffi/PyLong_AsLongLong pyobj))
 
 
 (defmethod py-proto/pyobject->jvm :float
-  [pyobj & [options]]
+  [pyobj & args]
   (py-ffi/PyFloat_AsDouble pyobj))
 
 
