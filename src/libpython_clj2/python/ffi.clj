@@ -14,7 +14,8 @@
             [clojure.string :as s])
   (:import [java.util.concurrent ConcurrentHashMap]
            [java.util.function Function]
-           [tech.v3.datatype.ffi Pointer Library]))
+           [tech.v3.datatype.ffi Pointer Library]
+           [clojure.lang Keyword Symbol]))
 
 
 (set! *warn-on-reflection* true)
@@ -523,6 +524,8 @@ Each call must be matched with PyGILState_Release"}
     (instance? Boolean item) (-> (if item (py-true) (py-false))
                                  (incref))
     (instance? String item) (PyUnicode_FromString item)
+    (instance? Keyword item) (PyUnicode_FromString (name item))
+    (instance? Symbol item) (PyUnicode_FromString (name item))
     (nil? item) (incref (py-none))
     :else
     (if conversion-fallback
@@ -687,7 +690,7 @@ Each call must be matched with PyGILState_Release"}
 
 
 
-(def object-reference-logging (atom nil))
+(def object-reference-logging (atom true))
 
 
 (defn- wrap-obj-ptr
@@ -700,11 +703,11 @@ Each call must be matched with PyGILState_Release"}
                  (pyobject-refcount pyobj)
                  (name (pyobject-type-kwd pyobjptr))
                  #_(with-out-str
-                   (try
-                     (throw (Exception. "test"))
-                     ""
-                     (catch Exception e
-                       (clojure.stacktrace/print-stack-trace e))))))
+                     (try
+                       (throw (Exception. "test"))
+                       ""
+                       (catch Exception e
+                         (clojure.stacktrace/print-stack-trace e))))))
     (pygc/track pyobj
                 ;;we know the GIL is captured in this method
                 #(try
@@ -712,15 +715,15 @@ Each call must be matched with PyGILState_Release"}
                    (let [pyobjptr (Pointer. addr)
                          ;;reference gc data
                          gc-data (identity gc-data)]
-                     (when @object-reference-logging
-                       (let [refcount (pyobject-refcount pyobjptr)
-                             typename (name (pyobject-type-kwd pyobjptr))]
-                         (if (< refcount 1)
-                           (log/errorf "Fatal error -- releasing object - 0x%x:%4d:%s
+                     (let [refcount (pyobject-refcount pyobjptr)
+                           typename (pyobject-type-kwd pyobjptr)]
+                       (if (< refcount 1)
+                         (log/errorf "Fatal error -- releasing object - 0x%x:%4d:%s
 Object's refcount is bad.  Crash is imminent"
-                                       addr
-                                       refcount
-                                       typename)
+                                     addr
+                                     refcount
+                                     typename)
+                         (when @object-reference-logging
                            (log/infof (format "releasing object - 0x%x:%4d:%s"
                                               addr
                                               refcount
