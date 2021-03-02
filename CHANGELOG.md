@@ -1,10 +1,11 @@
 # Time for a ChangeLog!
 
-## 2.00
+## 2.00-beta-1
 * Major upgrade of tech system - moved to dtype-next.  This release is only compatible with
   tech.ml.dataset versions 5.+.  There are many changes but there should be very few user visible
   ones.  Please see [cnuernber/dtype-next](https://cnuernber.github.io/dtype-next/) for more
-  information.
+  information.  This brings a total refactor removing about 1/2 the code, 32bit support and
+  and JDK-16 support.
 
 ## 1.45
  * tech.datatype - 5.0 release

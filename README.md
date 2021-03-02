@@ -5,14 +5,26 @@
 [![Clojars Project](https://img.shields.io/clojars/v/clj-python/libpython-clj.svg)](https://clojars.org/clj-python/libpython-clj)
 [![travis integration](https://travis-ci.com/clj-python/libpython-clj.svg?branch=master)](https://travis-ci.com/clj-python/libpython-clj)
 
- - Note - Please avoid deprecated versions such as `[cnuernber/libpython-clj "1.36"]` (***note name change***).
+
+ ## BETA 1 Is OUT!
+
  
+ This brings JDK-16 support as well as 32 bit support using a brand new 
+ [ffi interface](https://cnuernber.github.io/dtype-next/tech.v3.datatype.ffi.html) and
+ removing about 1/2 of the existing code.  The library's API has not changed majorly 
+ aside from deprecated methods have been removed.
+ 
+ * Main namespace is now `libpython-clj2` -- docs have not been updated.
+ * **32 bit support**!!
+ * Partial support for JDK-16 - The tests pass for core Python functionality but numpy
+   failed to load - the JDK-16 dynamic library loading path is different than JNA and of
+   course this causes issues.
+ * 20-30% better performance.
+ * - Note - Please avoid deprecated versions such as `[cnuernber/libpython-clj "1.36"]` (***note name change***).
  * [API Documentation](https://clj-python.github.io/libpython-clj/)
  * This library, which has received the efforts of many excellent people, is built mainly upon
-   [cnuernber/dtype-next](https://github.com/cnuernber/dtype-next/) and 
-   [techascent/tech.jna](https://github.com/techascent/tech.jna).  It supports zerocopy transfer
-   of data to/from numpy, dynamically creating Clojure namespaces from Python modules, and has
-   a deep intergration with the Clojure language.
+   [cnuernber/dtype-next](https://github.com/cnuernber/dtype-next/) and the 
+   [JNA library](https://github.com/java-native-access/jna).
 
 ## libpython-clj features
 
