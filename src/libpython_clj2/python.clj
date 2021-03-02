@@ -6,7 +6,7 @@
 
 Example:
 
-  ```clojure
+```clojure
 user> (require '[libpython-clj2.python :as py])
 nil
 user> (py/initialize!)
