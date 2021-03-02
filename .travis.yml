@@ -14,3 +14,6 @@ addons:
   apt:
     update: true
 install: clojure -Sdescribe
+cache:
+  directories:
+    - "$HOME/.m2"

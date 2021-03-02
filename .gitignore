@@ -12,3 +12,5 @@ pom.xml.asc
 .hg/
 __pycache__
 .cpcache/
+cpython
+a.out

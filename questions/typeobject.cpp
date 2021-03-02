@@ -26,4 +26,27 @@ int main(int c, char** v)
    sizeof(Py_hash_t),
    Py_TPFLAGS_DEFAULT
     );
+
+
+  printf(
+    "PyObject details\n"
+    "object size: %ld\n"
+    "ob_refcnt offset: %ld\n"
+    "ob_type   offset: %ld\n"
+    "gilstate size: %ld\n",
+    sizeof(PyObject),
+    offsetof(PyObject, ob_refcnt),
+    offsetof(PyObject, ob_type),
+    sizeof(PyGILState_STATE));
+
+
+    printf(
+    "PyMethodDef details\n"
+    "object size: %ld\n"
+    "ml_flags offset: %ld\n"
+    "ml_doc   offset: %ld\n",
+    sizeof(PyMethodDef),
+    offsetof(PyMethodDef, ml_flags),
+    offsetof(PyMethodDef, ml_doc));
+
 }
