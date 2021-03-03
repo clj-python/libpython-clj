@@ -26,7 +26,6 @@
                       :namespaces [libpython-clj2.python
                                    libpython-clj2.require
                                    libpython-clj2.python.np-array]}}}
-  :java-source-paths ["java"]
   :aliases {"codox" ["with-profile" "codox,dev" "codox"]}
 
   )
