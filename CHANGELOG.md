@@ -1,5 +1,8 @@
 # Time for a ChangeLog!
 
+## 2.00-beta-2
+ * Fix for [numpy.all returns false](https://github.com/clj-python/libpython-clj/issues/148)
+
 ## 2.00-beta-1
 * Major upgrade of tech system - moved to dtype-next.  This release is only compatible with
   tech.ml.dataset versions 5.+.  There are many changes but there should be very few user visible
