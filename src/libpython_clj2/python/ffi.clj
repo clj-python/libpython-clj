@@ -876,8 +876,7 @@ Object's refcount is bad.  Crash is imminent"
         :str (with-decref [pyobj pyobj]
                (pystr->str pyobj))
         :bool (with-decref [pyobj pyobj]
-                (= (dt-ffi/->pointer pyobj)
-                   (py-true)))
+                (== 1 (long (PyObject_IsTrue pyobj))))
         ;;maybe copy, maybe bridge - in any case we have to decref the item
         (track-pyobject pyobj)))
     (check-error-throw)))

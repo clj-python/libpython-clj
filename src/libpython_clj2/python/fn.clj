@@ -115,7 +115,8 @@
   py-proto/PyCall
   (call [callable arglist kw-arg-map]
     (call-py-fn callable arglist kw-arg-map py-base/->python))
-  (marshal-return [callable retval] retval))
+  (marshal-return [callable retval]
+    retval))
 
 
 (defn call
@@ -137,11 +138,14 @@
   (py-ffi/with-gil
     (if (string? att-name)
       (py-ffi/with-decref [attval (py-ffi/PyObject_GetAttrString item att-name)]
+        (when-not attval (py-ffi/check-error-throw))
         (->> (call-py-fn attval arglist kw-map arg-converter)
              (py-proto/marshal-return item)))
       (py-ffi/with-decref
         [att-name (py-ffi/untracked->python att-name py-base/->python)
          att-val (py-ffi/untracked->python att-name py-base/->python)]
+        (when (or (nil? att-name) (nil? att-val))
+          (py-ffi/check-error-throw))
         (->> (call-py-fn att-val arglist kw-map arg-converter)
              (py-proto/marshal-return item))))))
 

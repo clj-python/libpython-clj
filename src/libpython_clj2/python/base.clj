@@ -10,10 +10,10 @@
 (defn ->jvm
   "Copying conversion to the jvm."
   ([obj]
-   (when obj
+   (when-not (nil? obj)
      (py-proto/->jvm obj nil)))
   ([obj opts]
-   (when obj
+   (when-not (nil? obj)
      (py-proto/->jvm obj opts))))
 
 
@@ -22,7 +22,7 @@
   ([obj]
    (as-jvm obj nil))
   ([obj opts]
-   (when obj
+   (when-not (nil? obj)
      (py-proto/as-jvm obj opts))))
 
 

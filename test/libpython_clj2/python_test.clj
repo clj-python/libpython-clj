@@ -384,6 +384,12 @@ class Foo:
          (py/->jvm (py/->python \c)))))
 
 
+(deftest numpy-all
+  (let [np (py/import-module "numpy")]
+    (is (= true (py/call-attr np "all" (py/call-attr np "array" [true true true]))))
+    (is (= false (py/call-attr np "all" (py/call-attr np "array" [true false true]))))))
+
+
 (comment
   (require '[libpython-clj.require :refer [require-python]])
 
