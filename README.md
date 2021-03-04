@@ -54,8 +54,8 @@ This code is a concrete example that generates an
 
 ```clojure
 (ns facial-rec.face-feature
-  (:require [libpython-clj.require :refer [require-python]]
-            [libpython-clj.python :refer [py. py.. py.-] :as py]
+  (:require [libpython-clj2.require :refer [require-python]]
+            [libpython-clj2.python :refer [py. py.. py.-] :as py]
             [tech.v2.datatype :as dtype]))
 
 
@@ -106,7 +106,7 @@ This code is a concrete example that generates an
 #### Config namespace
 ```clojure
 (ns my-py-clj.config
-  (:require [libpython-clj.python :as py]))
+  (:require [libpython-clj2.python :as py]))
 
 ;; When you use conda, it should look like this.
 (py/initialize! :python-executable "/opt/anaconda3/envs/my_env/bin/python3.7"
@@ -123,7 +123,7 @@ This code is a concrete example that generates an
 
 
 ```clojure
-user> (require '[libpython-clj.require :refer [require-python]])
+user> (require '[libpython-clj2.require :refer [require-python]])
 ...logging info....
 nil
 user> (require-python '[numpy :as np])
