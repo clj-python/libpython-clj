@@ -77,11 +77,11 @@ user> (py/py. np linspace 2 3 :num 10)
                                   (catch Throwable e false)))
                        (first))]
       (log/infof "Loading python library: %s" libname)
-      (py-ffi/initialize! libname (:python-home info)
-                          (assoc options :program-name
-                                 (or (:program-name options)
-                                     (:executable info)
-                                     "")))
+      (py-ffi/initialize!
+       libname (:python-home info)
+       (assoc options
+              :program-name (:program-name options (:executable info))
+              :python-home (:python-home options (:python-home info))))
 
       (when-not (nil? windows-anaconda-activate-bat)
         (win/setup-windows-conda! windows-anaconda-activate-bat

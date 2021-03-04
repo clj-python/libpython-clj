@@ -179,7 +179,7 @@
          (set-attr! [item# item-name# item-value#]
            (with-gil
              (py-ffi/with-decref [item-value# (py-ffi/untracked->python
-                                               item-value# py-base/as-python)]
+                                               item-value# py-base/->python)]
                (py-proto/set-attr! pyobj# item-name# item-value#))))
          py-proto/PPyItem
          (has-item? [item# item-name#]
@@ -192,11 +192,11 @@
          (set-item! [item# item-name# item-value#]
            (with-gil
              (py-ffi/with-decref [item-value# (py-ffi/untracked->python
-                                               item-value# py-base/as-python)]
+                                               item-value# py-base/->python)]
                (py-proto/set-item! pyobj# item-name# item-value#))))
          py-proto/PyCall
          (call [callable# arglist# kw-arg-map#]
-           (-> (py-fn/call-py-fn pyobj# arglist# kw-arg-map# py-base/as-python)
+           (-> (py-fn/call-py-fn pyobj# arglist# kw-arg-map# py-base/->python)
                (py-base/as-jvm)))
          (marshal-return [callable# retval#]
            (py-base/as-jvm retval#))
@@ -235,7 +235,7 @@
   (if-let [py-fn* (get att-map fn-name)]
     ;;laziness is carefully constructed here in order to allow the arguments to
     ;;be released within the context of the function call during fn.clj call-py-fn.
-    (-> (py-fn/call-py-fn @py-fn* args nil py-base/as-python)
+    (-> (py-fn/call-py-fn @py-fn* args nil py-base/->python)
         (py-base/as-jvm))
     (throw (UnsupportedOperationException.
             (format "Python object has no attribute: %s"

@@ -65,6 +65,10 @@ Required for some python modules"}
                        :requires-gil? false
                        :argtypes [['program-name-wideptr :pointer]]
                        :doc "Set the program name"}
+   :Py_SetPythonHome {:rettype :void
+                      :requires-gil? false
+                      :argtypes [['python-home-wideptr :pointer]]
+                      :doc "Set the program name"}
    :PyEval_SaveThread {:rettype :pointer
                        :requires-gil? false
                        :doc "Release the GIL on the current thread"}
@@ -525,16 +529,25 @@ Each call must be matched with PyGILState_Release"}
 
 
 (defn initialize!
-  [libpath python-home & [{:keys [signals? program-name]
+  [libpath python-home & [{:keys [signals? program-name python-home]
                            :or {signals? true
-                                program-name ""}}]]
+                                program-name ""}
+                           :as opts}]]
   (set-library! libpath)
   (when-not (= 1 (Py_IsInitialized))
     (log/debug "Initializing Python C Layer")
-    (let [program-name (retain-forever :program-name
+    ;;platform specific encoding
+    (let [encoding-options {:encoding :wchar-t}
+          program-name (retain-forever :program-name
                                        (-> (or program-name "")
-                                           (dt-ffi/string->c {:encoding :utf-16})))]
+                                           (dt-ffi/string->c encoding-options)))]
       (Py_SetProgramName program-name)
+      (when python-home
+        (let [python-home (retain-forever :python-home
+                                          (dt-ffi/string->c python-home
+                                                            encoding-options))]
+          (log/debugf "Python Home: %s" (:python-home opts))
+          (Py_SetPythonHome python-home)))
       (Py_InitializeEx (if signals? 1 0))
       (PySys_SetArgvEx 0 program-name 1)
       ;;return value ignored :-)
