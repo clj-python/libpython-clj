@@ -146,57 +146,57 @@
 
 (defmacro bridge-pyobject
   [pyobj & body]
-  `(let [pyobj# ~pyobj]
+  `(let [pyobj*# ~pyobj]
      (with-meta
        (reify
          dt-ffi/PToPointer
          (convertible-to-pointer? [item#] true)
-         (->pointer [item#] (dt-ffi/->pointer pyobj#))
+         (->pointer [item#] (dt-ffi/->pointer @pyobj*#))
          py-proto/PPythonType
          (get-python-type [item]
-           (with-gil (py-proto/get-python-type pyobj#)))
+           (with-gil (py-proto/get-python-type @pyobj*#)))
          py-proto/PCopyToPython
-         (py-base/->python [item# options#] pyobj#)
+         (py-base/->python [item# options#] @pyobj*#)
          py-proto/PBridgeToPython
-         (py-base/as-python [item# options#] pyobj#)
+         (py-base/as-python [item# options#] @pyobj*#)
          py-proto/PBridgeToJVM
          (py-base/as-jvm [item# options#] item#)
          py-proto/PCopyToJVM
          (->jvm [item# options#]
            (with-gil
-             (py-base/->jvm pyobj# options#)))
+             (py-base/->jvm @pyobj*# options#)))
          py-proto/PPyDir
          (dir [item#]
-           (with-gil (py-proto/dir pyobj#)))
+           (with-gil (py-proto/dir @pyobj*#)))
          py-proto/PPyAttr
          (has-attr? [item# item-name#]
            (with-gil
-             (py-proto/has-attr? pyobj# item-name#)))
+             (py-proto/has-attr? @pyobj*# item-name#)))
          (get-attr [item# item-name#]
            (with-gil
-             (-> (py-proto/get-attr pyobj# item-name#)
+             (-> (py-proto/get-attr @pyobj*# item-name#)
                  py-base/as-jvm)))
          (set-attr! [item# item-name# item-value#]
            (with-gil
              (py-ffi/with-decref [item-value# (py-ffi/untracked->python
                                                item-value# py-base/->python)]
-               (py-proto/set-attr! pyobj# item-name# item-value#))))
+               (py-proto/set-attr! @pyobj*# item-name# item-value#))))
          py-proto/PPyItem
          (has-item? [item# item-name#]
            (with-gil
-             (py-proto/has-item? pyobj# item-name#)))
+             (py-proto/has-item? @pyobj*# item-name#)))
          (get-item [item# item-name#]
            (with-gil
-             (-> (py-proto/get-item pyobj# item-name#)
+             (-> (py-proto/get-item @pyobj*# item-name#)
                  py-base/as-jvm)))
          (set-item! [item# item-name# item-value#]
            (with-gil
              (py-ffi/with-decref [item-value# (py-ffi/untracked->python
                                                item-value# py-base/->python)]
-               (py-proto/set-item! pyobj# item-name# item-value#))))
+               (py-proto/set-item! @pyobj*# item-name# item-value#))))
          py-proto/PyCall
          (call [callable# arglist# kw-arg-map#]
-           (-> (py-fn/call-py-fn pyobj# arglist# kw-arg-map# py-base/->python)
+           (-> (py-fn/call-py-fn @pyobj*# arglist# kw-arg-map# py-base/->python)
                (py-base/as-jvm)))
          (marshal-return [callable# retval#]
            (py-base/as-jvm retval#))
@@ -206,19 +206,19 @@
          (toString [this#]
            (with-gil
              (pygc/with-stack-context
-               (if (= 1 (py-ffi/PyObject_IsInstance pyobj# (py-ffi/py-type-type)))
+               (if (= 1 (py-ffi/PyObject_IsInstance @pyobj*# (py-ffi/py-type-type)))
                  (format "%s.%s"
-                         (if (py-proto/has-attr? pyobj# "__module__")
-                           (py-base/->jvm (py-proto/get-attr pyobj# "__module__"))
+                         (if (py-proto/has-attr? @pyobj*# "__module__")
+                           (py-base/->jvm (py-proto/get-attr @pyobj*# "__module__"))
                            "__no_module__")
-                         (if (py-proto/has-attr? pyobj# "__name__")
-                           (py-base/->jvm (py-proto/get-attr pyobj# "__name__"))
+                         (if (py-proto/has-attr? @pyobj*# "__name__")
+                           (py-base/->jvm (py-proto/get-attr @pyobj*# "__name__"))
                            "__unnamed__"))
-                 (py-base/->jvm (py-fn/call-attr pyobj# "__str__" nil))))))
+                 (py-base/->jvm (py-fn/call-attr @pyobj*# "__str__" nil))))))
          (equals [this# other#]
            (boolean
             (when (dt-ffi/convertible-to-pointer? other#)
-              (py-base/equals? pyobj# other#))))
+              (py-base/equals? @pyobj*# other#))))
          (hashCode [this#]
            (.hashCode ^Object (py-base/hash-code this#)))
          ~@body)
@@ -243,35 +243,35 @@
 
 
 (defn make-dict-att-map
-  [pyobj attnames]
+  [pyobj* attnames]
   (let [dict-atts (set attnames)
         gc-ctx (pygc/gc-context)]
-    (->> (py-proto/dir pyobj)
+    (->> (py-proto/dir @pyobj*)
          (filter dict-atts)
          (map (juxt identity #(delay
                                 (pygc/with-gc-context gc-ctx
-                                  (py-proto/get-attr pyobj %)))))
+                                  (py-proto/get-attr @pyobj* %)))))
          (into {}))))
 
 
 (defn make-instance-pycall
-  [pyobj attnames]
-  (let [dict-att-map (make-dict-att-map pyobj attnames)]
+  [pyobj* attnames]
+  (let [dict-att-map (make-dict-att-map pyobj* attnames)]
     (fn [fn-name & args]
       (py-ffi/with-gil (call-impl-fn fn-name dict-att-map args)))))
 
 
 
 (defn generic-python-as-map
-  [pyobj]
+  [pyobj*]
   (with-gil
     (let [py-call
           (make-instance-pycall
-           pyobj
+           pyobj*
            #{"__len__" "__getitem__" "__setitem__" "__iter__" "__contains__"
              "__eq__" "__hash__" "clear" "keys" "values" "__delitem__"})]
       (bridge-pyobject
-       pyobj
+       pyobj*
        Map
        (clear [item] (py-call "clear"))
        (containsKey [item k] (boolean (py-call "__contains__" k)))
@@ -306,7 +306,7 @@
        (iterator
         [this]
         (let [mapentry-seq
-              (->> (python->jvm-iterator pyobj nil)
+              (->> (python->jvm-iterator @pyobj* nil)
                    iterator-seq
                    (map (fn [pyobj-key]
                           (with-gil
@@ -327,19 +327,19 @@
 
 (defmethod py-proto/pyobject-as-jvm :dict
   [pyobj & [opts]]
-  (generic-python-as-map pyobj))
+  (generic-python-as-map (delay pyobj)))
 
 
 (defn generic-python-as-list
-  [pyobj]
+  [pyobj*]
   (with-gil
     (let [py-call (make-instance-pycall
-                  pyobj
+                  pyobj*
                   #{"__len__" "__getitem__" "__setitem__" "__iter__" "__contains__"
                     "__eq__" "__hash__" "clear" "insert" "pop" "append"
                     "__delitem__" "sort"})]
       (bridge-pyobject
-       pyobj
+       pyobj*
        ObjectBuffer
        (lsize [reader]
               (long (py-call "__len__")))
@@ -352,21 +352,24 @@
        (writeObject [writer idx value]
               (py-call "__setitem__" idx value))
        (remove [writer ^int idx]
-               (py-call "__delitem__" idx))
+               (py-call "__delitem__" idx)
+               true)
        (add [mutable idx value]
-            (py-call "insert" idx value))
+            (py-call "insert" idx value)
+            true)
        (add [mutable value]
-            (.add mutable (.size mutable) value))))))
+            (.add mutable (.size mutable) value)
+            true)))))
 
 
 (defmethod py-proto/pyobject-as-jvm :list
   [pyobj & [opts]]
-  (generic-python-as-list pyobj))
+  (generic-python-as-list (delay pyobj)))
 
 
 (defmethod py-proto/pyobject-as-jvm :tuple
   [pyobj & [opts]]
-  (generic-python-as-list pyobj))
+  (generic-python-as-list (delay pyobj)))
 
 
 ;;utility fn to generate IFn arities
@@ -399,37 +402,47 @@
    If caller supplies an implementation for clojure.lang.IFn or aliased
    Fn, the macro will use that instead (allowing more control but
    requiring caller to specify implementations for all desired arities)."
-  [pyobj interpreter & body]
+  [pyobj* interpreter & body]
   (let [fn-specs (when-not (some #{'IFn 'clojure.lang.IFn} body)
                    `(~'IFn
                      ~@(emit-py-args)
                      (~'applyTo [~'this ~'arglist]
                       (~'apply py-fn/cfn ~'this ~'arglist))))]
-    `(bridge-pyobject ~pyobj ~interpreter
+    `(bridge-pyobject ~pyobj* ~interpreter
                       ~@fn-specs
                       ~@body)))
+
+
+(defn generic-callable-pyobject
+  [pyobj*]
+  (bridge-callable-pyobject
+   pyobj*
+   Iterable
+   (iterator [this] (python->jvm-iterator @pyobj* py-base/as-jvm))
+   Fn))
+
+
+(defn generic-pyobject
+  [pyobj*]
+  (bridge-pyobject
+   pyobj*
+   Iterable
+   (iterator [this] (python->jvm-iterator @pyobj*  py-base/as-jvm))))
 
 
 (defn generic-python-as-jvm
   "Given a generic pyobject, wrap it in a read-only map interface
   where the keys are the attributes."
-  [pyobj]
+  [pyobj*]
   (with-gil
-    (if (= :none-type (py-ffi/pyobject-type-kwd pyobj))
+    (if (= :none-type (py-ffi/pyobject-type-kwd @pyobj*))
       nil
-      (if (py-proto/callable? pyobj)
-        (bridge-callable-pyobject
-         pyobj
-         Iterable
-         (iterator [this] (python->jvm-iterator pyobj py-base/as-jvm))
-         Fn)
-        (bridge-pyobject
-         pyobj
-         Iterable
-         (iterator [this] (python->jvm-iterator pyobj  py-base/as-jvm)))))))
+      (if (py-proto/callable? @pyobj*)
+        (generic-callable-pyobject pyobj*)
+        (generic-pyobject pyobj*)))))
 
 
 
 (defmethod py-proto/pyobject-as-jvm :default
   [pyobj & [opts]]
-  (generic-python-as-jvm pyobj))
+  (generic-python-as-jvm (delay pyobj)))

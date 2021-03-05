@@ -106,7 +106,7 @@
                               (= :all (:refer etc)) #{:all}
                               (= :* (:refer etc))   #{:*}
                               :else                 (into #{} (:refer etc)))
-        pyobj               (pymeta/path->py-obj (str module-name) :reload? reload?)
+        pyobj               (py/path->py-obj (str module-name) :reload? reload?)
         existing-py-ns?     (find-ns module-name)]
     (create-ns module-name)
 

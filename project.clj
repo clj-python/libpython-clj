@@ -24,8 +24,8 @@
                       :doc-paths ["topics"]
                       :source-uri "https://github.com/clj-python/libpython-clj/blob/master/{filepath}#L{line}"
                       :namespaces [libpython-clj2.python
-                                   libpython-clj2.require
-                                   libpython-clj2.python.np-array]}}}
-  :aliases {"codox" ["with-profile" "codox,dev" "codox"]}
-
-  )
+                                   libpython-clj2.codegen
+                                   libpython-clj2.python.np-array
+                                   python.builtins
+                                   python.numpy]}}}
+  :aliases {"codox" ["with-profile" "codox,dev" "codox"]})

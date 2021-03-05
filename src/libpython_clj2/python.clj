@@ -247,13 +247,13 @@ user> (py/py. np linspace 2 3 :num 10)
 (defn as-map
   "Make a python object appear as a map of it's items"
   ^Map [pobj]
-  (py-bridge-jvm/generic-python-as-map pobj))
+  (py-bridge-jvm/generic-python-as-map (delay pobj)))
 
 
 (defn as-list
   "Make a python object appear as a list"
   ^List [pobj]
-  (py-bridge-jvm/generic-python-as-list pobj))
+  (py-bridge-jvm/generic-python-as-list (delay pobj)))
 
 
 (defn python-type
@@ -573,3 +573,42 @@ user> (py/call-attr inst \"addarg\" 10)
   Python."
   [x & args]
   (apply handle-pydotdot x args))
+
+
+(defn- module-path-string
+  "Given a.b, return a
+   Given a.b.c, return a.b
+   Given a.b.c.d, return a.b.c  etc."
+  [x]
+  (clojure.string/join
+   "."
+   (pop (clojure.string/split (str x) #"[.]"))))
+
+
+(defn- module-path-last-string
+  "Given a.b.c.d, return d"
+  [x]
+  (last (clojure.string/split (str x) #"[.]")))
+
+
+(defn path->py-obj
+  "Given a string such as \"builtins\" or \"builtins.list\", load the module or
+  the class object in the module.
+
+  Options:
+
+  * `:reload` - Reload the module."
+  [item-path & {:keys [reload?]}]
+  (when (seq item-path)
+    (if-let [module-retval (try
+                             (import-module item-path)
+                             (catch Throwable e nil))]
+      (if reload?
+        (let [import-lib (import-module "importlib")]
+          (call-attr import-lib "reload" item-path))
+        module-retval)
+      (let [butlast (module-path-string item-path)]
+        (if-let [parent-mod (path->py-obj butlast :reload? reload?)]
+          (get-attr parent-mod (module-path-last-string item-path))
+          (throw (Exception. (format "Failed to find module or class %s"
+                                     item-path))))))))

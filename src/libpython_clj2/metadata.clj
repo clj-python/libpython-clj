@@ -130,13 +130,15 @@
                               (drop n-pos-args)
                               (map symbol)
                               (into []))
-         or-map          (->> (concat
-                               (interleave kw-default-args defaults)
-                               (flatten (seq kwonlydefaults)))
-                              (partition-all 2)
-                              (map vec)
-                              (map (fn [[k v]] [(symbol k) v]))
-                              (into {}))
+
+         ;;These sometimes have actual python symbols in them so we can't use them
+         ;; or-map          (->> (concat
+         ;;                       (interleave kw-default-args defaults)
+         ;;                       (flatten (seq kwonlydefaults)))
+         ;;                      (partition-all 2)
+         ;;                      (map vec)
+         ;;                      (map (fn [[k v]] [(symbol k) v]))
+         ;;                      (into {}))
          as-varkw    (when (not (nil? varkw))
                        {:as (symbol varkw)})
          default-map (->> (concat
@@ -148,8 +150,6 @@
                           (into {}))
 
          kwargs-map (merge default-map
-                           (when (not-empty or-map)
-                             {:or or-map})
                            (when (not-empty as-varkw)
                              as-varkw))
          opt-args
@@ -310,37 +310,6 @@
         val)
       val)))
 
-
-(defn module-path-string
-  "Given a.b, return a
-   Given a.b.c, return a.b
-   Given a.b.c.d, return a.b.c  etc."
-  [x]
-  (clojure.string/join
-   "."
-   (pop (clojure.string/split (str x) #"[.]"))))
-
-
-(defn module-path-last-string
-  "Given a.b.c.d, return d"
-  [x]
-  (last (clojure.string/split (str x) #"[.]")))
-
-
-(defn path->py-obj
-  [item-path & {:keys [reload?]}]
-  (when (seq item-path)
-    (if-let [module-retval (try
-                             (import-module item-path)
-                             (catch Throwable e nil))]
-      (if reload?
-        (reload-module module-retval)
-        module-retval)
-      (let [butlast (module-path-string item-path)]
-        (if-let [parent-mod (path->py-obj butlast :reload? reload?)]
-          (get-attr parent-mod (module-path-last-string item-path))
-          (throw (Exception. (format "Failed to find module or class %s"
-                                     item-path))))))))
 
 
 (defn metadata-map->py-obj

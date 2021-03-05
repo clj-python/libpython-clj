@@ -2,7 +2,8 @@
   "Conversion of a jvm object into an integer and back.  Used for storing handles
   on python proxies."
   (:require [libpython-clj2.python.protocols :as py-proto]
-            [libpython-clj2.python.gc :as pygc])
+            [libpython-clj2.python.gc :as pygc]
+            [libpython-clj2.python.ffi :as py-ffi])
   (:import [java.util.concurrent ConcurrentHashMap]
            [java.util UUID]))
 
