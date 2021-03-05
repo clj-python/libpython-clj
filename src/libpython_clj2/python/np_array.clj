@@ -58,10 +58,10 @@
     (let [ctypes (py-proto/as-jvm (py-proto/get-attr np-obj "ctypes") {})
           np-dtype (-> (py-proto/as-jvm (py-proto/get-attr np-obj "dtype") {})
                        (obj-dtype->dtype))
-          shape (-> (py-proto/get-attr ctypes "shape")
+          shape (-> (delay (py-proto/get-attr ctypes "shape"))
                     (py-bridge/generic-python-as-list)
                     vec)
-          strides (-> (py-proto/get-attr ctypes "strides")
+          strides (-> (delay (py-proto/get-attr ctypes "strides"))
                       (py-bridge/generic-python-as-list)
                       vec)
           long-addr (py-proto/get-attr ctypes "data")]
@@ -83,52 +83,53 @@
 
 (defmethod py-proto/pyobject-as-jvm :ndarray
   [pyobj opts]
-  (py-bridge/bridge-pyobject
-   pyobj
-   Iterable
-   (iterator [this] (py-bridge/python->jvm-iterator pyobj py-base/as-jvm))
-   dtype-proto/PToTensor
-   (as-tensor [item]
-              (-> (numpy->desc item)
-                  (dtt/nd-buffer-descriptor->tensor)))
-   dtype-proto/PElemwiseDatatype
-   (elemwise-datatype
-    [this]
-    (py-ffi/with-gil
-      (-> (py-proto/get-attr pyobj "dtype")
-          (py-proto/as-jvm {})
-          (obj-dtype->dtype))))
-   dtype-proto/PECount
-   (ecount [this] (apply * (dtype-proto/shape this)))
+  (let [pyobj* (delay pyobj)]
+    (py-bridge/bridge-pyobject
+     pyobj*
+     Iterable
+     (iterator [this] (py-bridge/python->jvm-iterator @pyobj* py-base/as-jvm))
+     dtype-proto/PToTensor
+     (as-tensor [item]
+                (-> (numpy->desc item)
+                    (dtt/nd-buffer-descriptor->tensor)))
+     dtype-proto/PElemwiseDatatype
+     (elemwise-datatype
+      [this]
+      (py-ffi/with-gil
+        (-> (py-proto/get-attr pyobj "dtype")
+            (py-proto/as-jvm {})
+            (obj-dtype->dtype))))
+     dtype-proto/PECount
+     (ecount [this] (apply * (dtype-proto/shape this)))
 
-   dtype-proto/PShape
-   (shape
-    [this]
-    (py-ffi/with-gil
-      (-> (py-proto/get-attr pyobj "shape")
-          (py-proto/->jvm {}))))
+     dtype-proto/PShape
+     (shape
+      [this]
+      (py-ffi/with-gil
+        (-> (py-proto/get-attr @pyobj* "shape")
+            (py-proto/->jvm {}))))
 
-   dtype-proto/PToNativeBuffer
-   (convertible-to-native-buffer? [item] true)
-   (->native-buffer
-    [item]
-    (py-ffi/with-gil
-      (dtype-proto/->native-buffer
-       (dtype-proto/as-tensor item))))
+     dtype-proto/PToNativeBuffer
+     (convertible-to-native-buffer? [item] true)
+     (->native-buffer
+      [item]
+      (py-ffi/with-gil
+        (dtype-proto/->native-buffer
+         (dtype-proto/as-tensor item))))
 
-   dtype-proto/PSubBuffer
-   (sub-buffer
-    [buffer offset length]
-    (py-ffi/with-gil
-      (-> (dtype-proto/as-tensor buffer)
-          (dtype-proto/sub-buffer offset length))))
+     dtype-proto/PSubBuffer
+     (sub-buffer
+      [buffer offset length]
+      (py-ffi/with-gil
+        (-> (dtype-proto/as-tensor buffer)
+            (dtype-proto/sub-buffer offset length))))
 
-   dtype-proto/PToNDBufferDesc
-   (convertible-to-nd-buffer-desc? [item] true)
-   (->nd-buffer-descriptor
-    [item]
-    (py-ffi/with-gil
-      (numpy->desc item)))))
+     dtype-proto/PToNDBufferDesc
+     (convertible-to-nd-buffer-desc? [item] true)
+     (->nd-buffer-descriptor
+      [item]
+      (py-ffi/with-gil
+        (numpy->desc item))))))
 
 
 (defn datatype->ptr-type-name
