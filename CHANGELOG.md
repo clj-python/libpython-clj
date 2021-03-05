@@ -1,5 +1,12 @@
 # Time for a ChangeLog!
 
+## 2.00-beta-4
+ * [static namespace generation](https://clj-python.github.io/libpython-clj/libpython-clj2.codegen.html#var-write-namespace.21) - Generate AOT-safe clojure code that will
+ dynamically find the symbol and cache it upon first call.
+ 
+## 2.00-beta-3
+ * Fixes to allow Conda to work - [cnuernber/facial-rec](https://github.com/cnuernber/facial-rec) lives again!!
+
 ## 2.00-beta-2
  * Fix for [numpy.all returns false](https://github.com/clj-python/libpython-clj/issues/148)
 

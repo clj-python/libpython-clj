@@ -25,6 +25,9 @@
  * This library, which has received the efforts of many excellent people, is built mainly upon
    [cnuernber/dtype-next](https://github.com/cnuernber/dtype-next/) and the 
    [JNA library](https://github.com/java-native-access/jna).
+ * [Static code generation](https://clj-python.github.io/libpython-clj/libpython-clj2.codegen.html#var-write-namespace.21) - generate clojure namespaces 
+   wrapping python modules that are safe to use with AOT and load much faster than analogous `require-python` calls.  These namespace will not
+   automatically initialize the python subsystem -- initialize! must be called first (or a nice exception is throw).
 
 ## libpython-clj features
 
