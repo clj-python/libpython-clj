@@ -1,5 +1,9 @@
 # Time for a ChangeLog!
 
+## 2.00-beta-5
+ * Fix codox document generation issue.
+ * Added a document on environments.
+
 ## 2.00-beta-4
  * [static namespace generation](https://clj-python.github.io/libpython-clj/libpython-clj2.codegen.html#var-write-namespace.21) - Generate AOT-safe clojure code that will
  dynamically find the symbol and cache it upon first call.
