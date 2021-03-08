@@ -33,6 +33,7 @@ user> (py/py. np linspace 2 3 :num 10)
             [libpython-clj2.python.gc :as pygc]
             [libpython-clj2.python.windows :as win]
             [tech.v3.datatype.ffi :as dtype-ffi]
+            [tech.v3.datatype.errors :as errors]
             [clojure.tools.logging :as log])
   (:import [java.util Map List]
            [clojure.lang IFn]))
@@ -63,9 +64,10 @@ user> (py/py. np linspace 2 3 :num 10)
      during it's normal course of operation.  For more information see:
        * [used signals](https://docs.oracle.com/javase/10/troubleshoot/handle-signals-and-exceptions.htm#JSTGD356)
        * [signal-chaining](https://docs.oracle.com/javase/8/docs/technotes/guides/vm/signal-chaining.html)"
-  [& [{:keys [windows-anaconda-activate-bat
-              library-path
-              no-io-redirect?]} options]]
+  [& {:keys [windows-anaconda-activate-bat
+             library-path
+             no-io-redirect?]
+      :as options}]
   (if-not (and (py-ffi/library-loaded?)
                  (= 1 (py-ffi/Py_IsInitialized)))
     (let [info (py-info/detect-startup-info options)
@@ -76,6 +78,9 @@ user> (py/py. np linspace 2 3 :num 10)
                                   (boolean (dtype-ffi/library-loadable? %))
                                   (catch Throwable e false)))
                        (first))]
+      (errors/when-not-errorf
+       libname
+       "Failed to find a valid python library!")
       (log/infof "Loading python library: %s" libname)
       (py-ffi/initialize!
        libname (:python-home info)

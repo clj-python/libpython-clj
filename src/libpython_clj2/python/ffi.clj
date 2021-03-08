@@ -324,6 +324,9 @@ Each call must be matched with PyGILState_Release"}
 
 (defn set-library!
   [libpath]
+  (errors/when-not-error
+   (seq libpath)
+   "set-library! called with nil or empty libpath")
   (when @library*
     (log/warnf "Python library is being reinitialized to (%s).  Is this what you want?"
                libpath))
