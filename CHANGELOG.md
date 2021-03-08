@@ -1,5 +1,9 @@
 # Time for a ChangeLog!
 
+## 2.00-beta-7
+ * Upgrade to dtype-next to ensure that JNA is the preferred FFI framework.
+ * Re-introduce java.library.path shenanigans in order to support pyenv type systems.
+
 ## 2.00-beta-6
  * Revert initialize! back to v1 optional argument style.
 
