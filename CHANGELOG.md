@@ -1,5 +1,8 @@
 # Time for a ChangeLog!
 
+## 2.00-beta-8
+ * Add back in dynamically searching for libraries based on `java.library.path`.
+
 ## 2.00-beta-7
  * Upgrade to dtype-next to ensure that JNA is the preferred FFI framework.
  * Re-introduce java.library.path shenanigans in order to support pyenv type systems.

@@ -1,11 +1,11 @@
-(defproject clj-python/libpython-clj "2.00-beta-8-SNAPSHOT"
+(defproject clj-python/libpython-clj "2.00-beta-8"
   :description "libpython bindings for Clojure"
   :url "http://github.com/cnuernber/libpython-clj"
   :license {:name "Eclipse Public License"
             :url  "http://www.eclipse.org/legal/epl-v10.html"}
   :dependencies [[org.clojure/clojure    "1.10.2" :scope "provided"]
                  [camel-snake-kebab      "0.4.0"]
-                 [cnuernber/dtype-next   "6.08"]
+                 [cnuernber/dtype-next   "6.09"]
                  [net.java.dev.jna/jna "5.7.0"]
                  [org.clojure/data.json  "1.0.0"]]
   :profiles {:dev {:dependencies [[criterium "0.4.5"]

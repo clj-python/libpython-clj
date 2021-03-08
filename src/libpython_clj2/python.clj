@@ -78,9 +78,8 @@ user> (py/py. np linspace 2 3 :num 10)
               (py-ffi/append-java-library-path! lib-path))
           libname (->> (concat (when library-path [library-path]) (:libnames info))
                        (dechunk-map identity)
-                       (filter #(try
-                                  (boolean (dtype-ffi/library-loadable? %))
-                                  (catch Throwable e false)))
+                       (map dtype-ffi/find-library)
+                       (remove nil?)
                        (first))]
       (errors/when-not-errorf
        libname
