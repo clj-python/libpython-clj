@@ -1,4 +1,4 @@
-(defproject clj-python/libpython-clj "2.00-beta-8"
+(defproject clj-python/libpython-clj "2.00-beta-9-SNAPSHOT"
   :description "libpython bindings for Clojure"
   :url "http://github.com/cnuernber/libpython-clj"
   :license {:name "Eclipse Public License"
