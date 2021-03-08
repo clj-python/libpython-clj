@@ -1,5 +1,8 @@
 # Time for a ChangeLog!
 
+## 2.00-beta-6
+ * Revert initialize! back to v1 optional argument style.
+
 ## 2.00-beta-5
  * Fix codox document generation issue.
  * Added a document on environments.
@@ -7,7 +10,7 @@
 ## 2.00-beta-4
  * [static namespace generation](https://clj-python.github.io/libpython-clj/libpython-clj2.codegen.html#var-write-namespace.21) - Generate AOT-safe clojure code that will
  dynamically find the symbol and cache it upon first call.
- 
+
 ## 2.00-beta-3
  * Fixes to allow Conda to work - [cnuernber/facial-rec](https://github.com/cnuernber/facial-rec) lives again!!
 
@@ -23,7 +26,7 @@
 
 ## 1.45
  * tech.datatype - 5.0 release
- 
+
 ## 1.43
  * `tech.datatype` - latest version to work with `tech.ml.dataset`.
 
