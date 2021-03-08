@@ -7,6 +7,5 @@ source activate pyclj
 export LD_LIBRARY_PATH="$(python3-config --prefix)/lib"
 
 lein update-in :dependencies conj \[nrepl\ \"0.6.0\"\]\
-     -- update-in :plugins conj \[cider/cider-nrepl\ \"0.22.4\"\]\
+     -- update-in :plugins conj \[cider/cider-nrepl\ \"0.25.5\"\]\
      -- repl :headless :host localhost
-

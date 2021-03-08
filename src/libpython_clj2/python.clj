@@ -72,6 +72,10 @@ user> (py/py. np linspace 2 3 :num 10)
                  (= 1 (py-ffi/Py_IsInitialized)))
     (let [info (py-info/detect-startup-info options)
           _ (log/infof "Startup info %s" info)
+          _ (when-let [lib-path (:java-library-path-addendum
+                                 options (:java-library-path-addendum info))]
+              (log/infof "Prefixing java library path: %s" lib-path)
+              (py-ffi/append-java-library-path! lib-path))
           libname (->> (concat (when library-path [library-path]) (:libnames info))
                        (dechunk-map identity)
                        (filter #(try
@@ -86,7 +90,10 @@ user> (py/py. np linspace 2 3 :num 10)
        libname (:python-home info)
        (assoc options
               :program-name (:program-name options (:executable info))
-              :python-home (:python-home options (:python-home info))))
+              :python-home (:python-home options (:python-home info))
+              :java-library-path-addendum (:java-library-path-addendum
+                                           options
+                                           (:java-library-path-addendum info))))
 
       (when-not (nil? windows-anaconda-activate-bat)
         (win/setup-windows-conda! windows-anaconda-activate-bat

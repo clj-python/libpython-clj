@@ -531,6 +531,16 @@ Each call must be matched with PyGILState_Release"}
   @format-exc-pyfn*)
 
 
+(defn append-java-library-path!
+  [new-search-path]
+  (let [existing-paths (-> (System/getProperty "java.library.path")
+                           (s/split #":"))]
+    (when-not (contains? (set existing-paths) new-search-path)
+      (let [new-path-str (s/join ":" (concat [new-search-path]
+                                             existing-paths))]
+        (System/setProperty "java.library.path" new-path-str)))))
+
+
 (defn initialize!
   [libpath python-home & [{:keys [signals? program-name python-home]
                            :or {signals? true

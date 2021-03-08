@@ -73,7 +73,7 @@ print(json.dumps(
 
 
 (defn java-library-path-addendum
-  [system-info & [{:keys [python-home]}]]
+  [python-home]
   (when python-home
     (-> (Paths/get python-home
                    (into-array String ["lib"]))
@@ -87,7 +87,7 @@ print(json.dumps(
     (log/info "Detecting startup info"))
   (let [system-info (find-python-info options)
         python-home (find-python-home system-info options)
-        java-lib-path (java-library-path-addendum system-info options)
+        java-lib-path (java-library-path-addendum python-home)
         [ver-maj ver-med _ver-min] (:version system-info)
         lib-version                (format "%s.%s" ver-maj ver-med)
         libname                    (or library-path
