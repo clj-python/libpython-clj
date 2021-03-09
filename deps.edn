@@ -1,7 +1,7 @@
 {:paths ["src"]
  :deps {org.clojure/clojure  {:mvn/version "1.10.2" :scope "provided"}
         camel-snake-kebab/camel-snake-kebab    {:mvn/version "0.4.0"}
-        cnuernber/dtype-next {:mvn/version "6.09"}
+        cnuernber/dtype-next {:mvn/version "6.12"}
         net.java.dev.jna/jna {:mvn/version "5.7.0"}
         org.clojure/data.json  {:mvn/version "1.0.0"}}
 
@@ -11,7 +11,23 @@
            :codox
            {:extra-deps {codox-theme-rdash/codox-theme-rdash {:mvn/version "0.1.2"}
                          codox/codox {:mvn/version "0.10.7"
-                                      :exclusions [org.ow2.asm/asm-all]}}}
+                                      :exclusions [org.ow2.asm/asm-all]}}
+            :ns-default tech.v3.libs.lein-codox
+            :exec-fn tech.v3.libs.lein-codox/-main
+            :exec-args {:arg-paths [[:aliases :depstar :exec-args]]
+                        :description "Python bindings for Clojure"
+                        :metadata {:doc/format :markdown}
+                        :themes [:rdash]
+                        :source-paths ["src"]
+                        :output-path "docs"
+                        :doc-paths ["topics"]
+                        :source-uri "https://github.com/clj-python/libpython-clj/blob/master/{filepath}#L{line}"
+                        :namespaces [libpython-clj2.python
+                                     libpython-clj2.codegen
+                                     libpython-clj2.python.np-array
+                                     libpython-clj2.require
+                                     python.builtins
+                                     python.numpy]}}
            :test
            {:extra-deps {com.cognitect/test-runner
                          {:git/url "https://github.com/cognitect-labs/test-runner"
