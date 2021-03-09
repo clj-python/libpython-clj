@@ -39,13 +39,18 @@
   (when-not (= 1 (py-ffi/PySequence_Check pyobj))
     (errors/throwf "Object does not implement sequence protocol: %s"
                    (py-proto/python-type pyobj)))
-  (->> (range (py-ffi/PySequence_Length pyobj))
-       (mapv (fn [idx]
-               (let [pyitem (py-ffi/PySequence_GetItem pyobj idx)]
-                 (try
-                   (py-base/->jvm pyitem)
-                   (finally
-                     (py-ffi/Py_DecRef pyitem))))))))
+  ;; Unfortunately sometimes things that pass the sequence check will fail
+  ;; when you request their length.  In those cases we return an empty vector
+  ;; as that is what older versions of libpython-clj would do.
+  (try
+    (->> (range (py-ffi/with-error-check (py-ffi/PySequence_Length pyobj)))
+         (mapv (fn [idx]
+                 (let [pyitem (py-ffi/PySequence_GetItem pyobj idx)]
+                   (try
+                     (py-base/->jvm pyitem)
+                     (finally
+                       (py-ffi/Py_DecRef pyitem)))))))
+    (catch Throwable e [])))
 
 
 (defmethod py-proto/pyobject->jvm :str
@@ -176,16 +181,17 @@
     ;;Things could implement mapping and sequence logically so mapping
     ;;takes precedence
     (= 1 (py-ffi/PyMapping_Check pyobj))
-    (if-let [map-items (py-ffi/PyMapping_Items pyobj)]
-      (try
-        (python->jvm-copy-hashmap pyobj map-items)
-        (finally
-          (py-ffi/Py_DecRef map-items)))
-      (do
-        ;;Ignore error.  The mapping check isn't thorough enough to work for all
-        ;;python objects.
-        (py-ffi/PyErr_Clear)
-        (python->jvm-copy-persistent-vector pyobj)))
+    (do
+      (if-let [map-items (py-ffi/PyMapping_Items pyobj)]
+        (try
+          (python->jvm-copy-hashmap pyobj map-items)
+          (finally
+            (py-ffi/Py_DecRef map-items)))
+        (do
+          ;;Ignore error.  The mapping check isn't thorough enough to work for all
+          ;;python objects.
+          (py-ffi/PyErr_Clear)
+          (python->jvm-copy-persistent-vector pyobj))))
     ;;Sequences become persistent vectors
     (= 1 (py-ffi/PySequence_Check pyobj))
     (python->jvm-copy-persistent-vector pyobj)

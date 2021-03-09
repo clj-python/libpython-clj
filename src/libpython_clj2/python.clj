@@ -616,7 +616,7 @@ user> (py/call-attr inst \"addarg\" 10)
                              (catch Throwable e nil))]
       (if reload?
         (let [import-lib (import-module "importlib")]
-          (call-attr import-lib "reload" item-path))
+          (call-attr import-lib "reload" module-retval))
         module-retval)
       (let [butlast (module-path-string item-path)]
         (if-let [parent-mod (path->py-obj butlast :reload? reload?)]
