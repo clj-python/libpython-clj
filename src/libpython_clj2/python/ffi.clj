@@ -72,6 +72,11 @@ Required for some python modules"}
    :PyEval_SaveThread {:rettype :pointer
                        :requires-gil? false
                        :doc "Release the GIL on the current thread"}
+
+   :PyEval_RestoreThread {:rettype :void
+                          :requires-gil? false
+                          :argtypes [['threadstate :pointer]]
+                          :doc "Restore the python thread state thread"}
    :PyGILState_Ensure {:rettype :int32
                        :requires-gil? false
                        :doc "Ensure this thread owns the python GIL.
@@ -319,22 +324,17 @@ Each call must be matched with PyGILState_Release"}
 (defn reset-library!
   []
   (when @library-path*
-    (reset! library* (dt-ffi/instantiate-library @python-lib-def* @library-path*))))
+    (reset! library* (dt-ffi/instantiate-library @python-lib-def*
+                                                 (:libpath @library-path*)))))
 
 
 (defn set-library!
   [libpath]
-  (errors/when-not-error
-   (seq libpath)
-   "set-library! called with nil or empty libpath")
   (when @library*
     (log/warnf "Python library is being reinitialized to (%s).  Is this what you want?"
                libpath))
-  (reset! library-path* libpath)
+  (reset! library-path* {:libpath libpath})
   (reset-library!))
-
-
-
 
 ;;Useful for repling around - this regenerates the library function bindings
 (reset-library!)
