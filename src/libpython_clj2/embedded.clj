@@ -25,7 +25,7 @@ clojure -Sdeps '{:deps {nrepl/nrepl {:mvn/version \"0.8.3\"} cider/cider-nrepl {
 
 (defn stop-repl!
   "If an existing repl has been started, stop it.  This returns control to the
-  python process."
+  thread that called `start-repl!."
   []
   (swap! repl-server*
          (fn [server]
@@ -41,12 +41,15 @@ clojure -Sdeps '{:deps {nrepl/nrepl {:mvn/version \"0.8.3\"} cider/cider-nrepl {
 
 
 (defn start-repl!
-  "This is called to start a clojure repl from python.  Do not ever call this if
-  not from a python thread as it starts with releasing the GIL.  This function
-  does not return until another thread calls stop-embedded-repl!.
+  "This is called to start a clojure repl and block the thread.  This function does not return
+  control to the calling thread until another thread calls `stop-repl!; this design is
+  explicit to ensure the python GIL is released and thus when connected to the REPL you can
+  use Python.
 
   If an existing repl server has been started this returns the port of the previous
   server else it returns the port of the new server.
+
+  To return control to the calling thread call `stop-repl!`.
 
   Options are the same as the command line options found in nrepl.cmdline."
   ([options]

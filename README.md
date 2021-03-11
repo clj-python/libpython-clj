@@ -28,6 +28,7 @@
  * [Static code generation](https://clj-python.github.io/libpython-clj/libpython-clj2.codegen.html#var-write-namespace.21) - generate clojure namespaces 
    wrapping python modules that are safe to use with AOT and load much faster than analogous `require-python` calls.  These namespace will not
    automatically initialize the python subsystem -- initialize! must be called first (or a nice exception is throw).
+ * You can now [Embed Clojure in Python](https://clj-python.github.io/libpython-clj/embedded.html)
 
 ## libpython-clj features
 
