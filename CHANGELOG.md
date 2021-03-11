@@ -1,5 +1,14 @@
 # Time for a ChangeLog!
 
+## 2.00-beta-12
+ * Small refinements around embedding and documentation.
+
+## 2.00-beta-11
+ * Major improvements to get libpython-clj v2 to work as robustly as v1 did across
+   several operating systems.
+ * First release that includes embedded functionality (!!).  See the embedded topic
+   for more details.
+
 ## 2.00-beta-8
  * Add back in dynamically searching for libraries based on `java.library.path`.
 

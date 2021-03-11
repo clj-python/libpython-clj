@@ -51,21 +51,15 @@ clojure -Sdeps '{:deps {nrepl/nrepl {:mvn/version \"0.8.3\"} cider/cider-nrepl {
   Options are the same as the command line options found in nrepl.cmdline."
   ([options]
    (when-not @repl-server*
-     (let [tstate (when (== 1 (long (py-ffi/PyGILState_Check)))
-                    (py-ffi/PyEval_SaveThread))]
-       (try
-         (let [options (cmdline/server-opts
-                        (merge {:middleware '[cider.nrepl/cider-middleware]}
-                               options))
-               server (cmdline/start-server options)
-               _ (reset! repl-server* server)]
-           (cmdline/ack-server server options)
-           (cmdline/save-port-file server options)
-           (log/info (cmdline/server-started-message server options))
-           (locking #'repl-server*
-             (.wait ^Object #'repl-server*)))
-         (finally
-           (when tstate
-             (py-ffi/PyEval_RestoreThread tstate))))))
+     (let [options (cmdline/server-opts
+                    (merge {:middleware '[cider.nrepl/cider-middleware]}
+                           options))
+           server (cmdline/start-server options)
+           _ (reset! repl-server* server)]
+       (cmdline/ack-server server options)
+       (cmdline/save-port-file server options)
+       (log/info (cmdline/server-started-message server options))
+       (locking #'repl-server*
+         (.wait ^Object #'repl-server*))))
    (:port @repl-server*))
   ([] (start-repl! nil)))
