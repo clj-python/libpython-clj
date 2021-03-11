@@ -1,4 +1,4 @@
-`z# JNA libpython bindings to Clojure.
+# Deep Clojure/Python Integration.
 
 ### Version Info
 
