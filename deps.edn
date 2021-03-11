@@ -26,6 +26,7 @@
                                      libpython-clj2.codegen
                                      libpython-clj2.python.np-array
                                      libpython-clj2.require
+                                     libpython-clj2.embedded
                                      python.builtins
                                      python.numpy]}}
            :test

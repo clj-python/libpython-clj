@@ -18,13 +18,17 @@ except ImportError:
     from collections import Callable
 
 
-
-
 def init_clojure_runtime():
+    """Initialize the clojure runtime.  This needs to happen at least once before
+attempting to require a namespace or lookup a clojure var."""
     javabridge.static_call("clojure/lang/RT", "init", "()V")
 
 
-def find_clj_fn(fn_ns, fn_name):
+def find_clj_var(fn_ns, fn_name):
+    """Use the clojure runtime to find a var.  Clojure vars are placeholders in namespaces that forward their operations to the data they point to.  This allows someone to hold
+a var and but recompile a namespace to get different behavior.  They implement both
+`clojure.lang.IFn` and `clojure.lang.IDeref` so they can act like a function and
+you can dereference them to get to their original value."""
     return javabridge.static_call("clojure/lang/RT",
                                   "var",
                                   "(Ljava/lang/String;Ljava/lang/String;)Lclojure/lang/Var;",
@@ -33,16 +37,18 @@ def find_clj_fn(fn_ns, fn_name):
 
 
 class CLJFn(Callable):
+    """Construct a python callable from a clojure object.  This callable will forward
+function calls to it's Clojure object expecting a clojure.lang.IFn interface."""
     applyTo = javabridge.make_method("applyTo", "(clojure/lang/ISeq;)Ljava/lang/Object;")
-    def __init__(self, fn_ns, fn_name):
-        self.o = find_clj_fn(fn_ns, fn_name)
+    def __init__(self, ifn_obj):
+        self.o = ifn_obj
 
     def __call__(self, *args, **kw_args):
         if not kw_args:
             invoker = getattr(self, "invoke"+str(len(args)))
             return invoker(*args)
         else:
-            raise Exception("Unable to handle hwargs for now")
+            raise Exception("Unable to handle kw_args for now")
         print(len(args), len(kw_args))
 
 
@@ -55,28 +61,37 @@ for i in range(20):
 
 
 def resolve_fn(namespaced_name):
+    """Resolve a clojure var given a fully qualified namespace name.  The return value
+    is callable.  Note that the namespace itself needs to be required first."""
     ns_name, sym_name = namespaced_name.split("/")
-    return CLJFn(ns_name, sym_name)
+    return CLJFn(find_clj_var(ns_name, sym_name))
 
 
 def resolve_call_fn(namespaced_fn_name, *args):
+    """Resolve a function given a fully qualified namespace name and call it."""
     return resolve_fn(namespaced_fn_name)(*args)
 
 def symbol(sym_name):
+    """Create a clojure symbol from a string"""
     return javabridge.static_call("clojure/lang/Symbol", "intern",
                                   "(Ljava/lang/String;)Lclojure/lang/Symbol;", sym_name)
 
 __REQUIRE_FN = None
 
 def require(ns_name):
+    """Require a clojure namespace.  This needs to happen before you find symbols
+    in that namespace else you will be uninitialized var errors."""
     if not __REQUIRE_FN:
         _REQUIRE_FN = resolve_fn("clojure.core/require")
     return _REQUIRE_FN(symbol(ns_name))
 
 
 def init_libpy_embedded():
-    require("libpython-clj2.python")
-    return resolve_call_fn("libpython-clj2.embedded/initialize-embedded!")
+    """Initialize libpy on a mode where it looks for symbols in the local process and
+    it itself doesn't attempt to run the python intialization procedures but expects
+    the python system to be previously initialized."""
+    require("libpython-clj2.embedded")
+    return resolve_call_fn("libpython-clj2.embedded/initialize!")
 
 
 def classpath(classpath_args=[]):
@@ -84,8 +99,9 @@ def classpath(classpath_args=[]):
     strings.  Clojure will pick up a local deps.edn or deps can be specified inline."""
     return subprocess.check_output(['clojure'] + list(classpath_args) + ['-Spath']).decode("utf-8").strip().split(':')
 
-DEFAULT_NREPL_VERSION="0.8.3"
-DEFAULT_CIDER_NREPL_VERSION="0.25.5"
+
+DEFAULT_NREPL_VERSION = "0.8.3"
+DEFAULT_CIDER_NREPL_VERSION = "0.25.5"
 
 
 def repl_classpath(nrepl_version=DEFAULT_NREPL_VERSION,
@@ -94,39 +110,37 @@ def repl_classpath(nrepl_version=DEFAULT_NREPL_VERSION,
     """Return the classpath with the correct deps to run nrepl and cider.
     Positional arguments are added after the -Sdeps argument to start the
     nrepl server."""
-    return deps_classpath(classpath_args=["-Sdeps", '{:deps {nrepl/nrepl {:mvn/version "%s"} cider/cider-nrepl {:mvn/version "%s"}}}' % (nrepl_version, cider_nrepl_version)]
+    return classpath(classpath_args=["-Sdeps", '{:deps {nrepl/nrepl {:mvn/version "%s"} cider/cider-nrepl {:mvn/version "%s"}}}' % (nrepl_version, cider_nrepl_version)]
                         + list(classpath_args))
 
 
-def init_clojure(classpath_args=[])
-"""Initialize a vanilla clojure process using the clojure command line to output
-the classpath to use for the java vm. At the return of this function clojure is
-initialized and libpython-clj2.python's public functions will work.
+def init_clojure(classpath_args=[]):
+    """Initialize a vanilla clojure process using the clojure command line to output
+    the classpath to use for the java vm. At the return of this function clojure is
+    initialized and libpython-clj2.python's public functions will work.
 
-* classpath_args - List of arguments that will be passed to the clojure command line
-process when building the classpath.
-"""
+    * classpath_args - List of arguments that will be passed to the clojure command
+    line process when building the classpath. """
     javabridge.start_vm(run_headless=True,
-                        class_path=deps_classpath(classpath_args=classpath_args))
+                        class_path=classpath(classpath_args=classpath_args))
     init_clojure_runtime()
     init_libpy_embedded()
     return True
 
 
-def init_clojure_repl(**kw_args)
+def init_clojure_repl(**kw_args):
     """Initialize clojure with extra arguments specifically for embedding a cider-nrepl
-server.  Then start an nrepl server.  The port will both be printed to stdout and
-output to a .nrepl_server file.  This function does not return as it leaves the GIL
-released so that repl threads have access to Python.  libpython-clj2.python is
-initialized 'require-python' pathways should work.
+    server.  Then start an nrepl server.  The port will both be printed to stdout and
+    output to a .nrepl_server file.  This function does not return as it leaves the GIL
+    released so that repl threads have access to Python.  libpython-clj2.python is
+    initialized 'require-python' pathways should work.
 
-* classpath_args - List of additional arguments that be passed to the clojure process
-  when building the classpath.
-"""
+    * classpath_args - List of additional arguments that be passed to the clojure
+      process when building the classpath."""
     javabridge.start_vm(run_headless=True, class_path=repl_classpath(**kw_args))
     init_clojure_runtime()
     init_libpy_embedded()
-    resolve_call_fn("libpython-clj2.embedded/start-embedded-repl!")
+    resolve_call_fn("libpython-clj2.embedded/start-repl!")
 
 
 class GenericJavaObj:
