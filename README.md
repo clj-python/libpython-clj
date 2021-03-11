@@ -1,4 +1,4 @@
-# Deep Clojure/Python Integration.
+# Deep Clojure/Python Integration
 
 ### Version Info
 
