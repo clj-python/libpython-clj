@@ -1,4 +1,4 @@
-# JNA libpython bindings to Clojure.
+`z# JNA libpython bindings to Clojure.
 
 ### Version Info
 
@@ -6,14 +6,9 @@
 [![travis integration](https://travis-ci.com/clj-python/libpython-clj.svg?branch=master)](https://travis-ci.com/clj-python/libpython-clj)
 
 
- ## BETA 1 Is OUT!
-
+ ## BETA Versions Are HOT!  Huge New Features! You Can't Afford To Miss Out!
  
- This brings JDK-16 support as well as 32 bit support using a brand new 
- [ffi interface](https://cnuernber.github.io/dtype-next/tech.v3.datatype.ffi.html) and
- removing about 1/2 of the existing code.  The library's API has not changed majorly 
- aside from deprecated methods have been removed.
- 
+ * You can now [Embed Clojure in Python](https://clj-python.github.io/libpython-clj/embedded.html) - you can launch a Clojure REPL from a Python host process.
  * Main namespace is now `libpython-clj2` -- docs have not been updated.
  * **32 bit support**!!
  * Partial support for JDK-16 - The tests pass for core Python functionality but numpy
@@ -28,7 +23,7 @@
  * [Static code generation](https://clj-python.github.io/libpython-clj/libpython-clj2.codegen.html#var-write-namespace.21) - generate clojure namespaces 
    wrapping python modules that are safe to use with AOT and load much faster than analogous `require-python` calls.  These namespace will not
    automatically initialize the python subsystem -- initialize! must be called first (or a nice exception is throw).
- * You can now [Embed Clojure in Python](https://clj-python.github.io/libpython-clj/embedded.html)
+   
 
 ## libpython-clj features
 
