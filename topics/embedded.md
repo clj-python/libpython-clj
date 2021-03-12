@@ -33,7 +33,10 @@ Clojure into Python allowing the Python executable to be the host process.
 Python already had a nascent system for embedding Java in Python - the
 [javabridge module](https://pypi.org/project/javabridge/).  You will need to have
 javabridge installed in your Python environment.  In order to compile `javabridge`
-requires the JDK installed and **not just the JRE**.
+requires the JDK installed and **not just the JRE**.  [tristanstraub](https://github.com/tristanstraub/)
+had found a way to use this in order to work with [Blender](https://github.com/tristanstraub/blender-clj/).
+We took a bit more time and worked out ways to smooth out these interactions
+and make sure they were supported throught the system.
 
 ```console
 python3 -mpip install javabridge
@@ -46,7 +49,7 @@ If the installation cannot find 'jni.h' then most likely you have the Java runti
 ## From the Python REPL
 
 
-The next step involves starting a python repl from our libpython-clj3 base directory.
+The next step involves starting a python repl from our libpython-clj base directory.
 This is only required because we have a special
 [python script](https://github.com/clj-python/libpython-clj/blob/master/cljbridge.py)
 that has code to start a Java VM with a correct classpath.  So we start by importing
@@ -165,3 +168,4 @@ Python systems with some of the greatest tech the JVM has to offer :-).
 * [javabridge github](https://github.com/LeeKamentsky/python-javabridge)
 * [libpython-clj cljbridge.py](https://github.com/clj-python/libpython-clj/blob/94c72ca0ac94b210a9b126805cd4112024ad0b96/cljbridge.py)
 * [libpython-clj embedded docs](https://clj-python.github.io/libpython-clj/libpython-clj2.embedded.html)
+* [blender-clj - the inspiration](https://github.com/tristanstraub/blender-clj/)

@@ -10,12 +10,12 @@
 </ol>
 <p>Due to the above reasons there is a solid argument for, if possible, embedding Clojure into Python allowing the Python executable to be the host process.</p>
 <h2><a href="#enter-javabridge" name="enter-javabridge"></a>Enter: javabridge</h2>
-<p>Python already had a nascent system for embedding Java in Python - the <a href="https://pypi.org/project/javabridge/">javabridge module</a>. You will need to have javabridge installed in your Python environment. In order to compile <code>javabridge</code> requires the JDK installed and <strong>not just the JRE</strong>.</p>
+<p>Python already had a nascent system for embedding Java in Python - the <a href="https://pypi.org/project/javabridge/">javabridge module</a>. You will need to have javabridge installed in your Python environment. In order to compile <code>javabridge</code> requires the JDK installed and <strong>not just the JRE</strong>. <a href="https://github.com/tristanstraub/">tristanstraub</a> had found a way to use this in order to work with <a href="https://github.com/tristanstraub/blender-clj/">Blender</a>. We took a bit more time and worked out ways to smooth out these interactions and make sure they were supported throught the system.</p>
 <pre><code class="console">python3 -mpip install javabridge
 </code></pre>
 <p>If the installation cannot find ‘jni.h’ then most likely you have the Java runtime (JRE) installed as opposed to the Java development kit (JDK).</p>
 <h2><a href="#from-the-python-repl" name="from-the-python-repl"></a>From the Python REPL</h2>
-<p>The next step involves starting a python repl from our libpython-clj3 base directory. This is only required because we have a special <a href="https://github.com/clj-python/libpython-clj/blob/master/cljbridge.py">python script</a> that has code to start a Java VM with a correct classpath. So we start by importing that script:</p>
+<p>The next step involves starting a python repl from our libpython-clj base directory. This is only required because we have a special <a href="https://github.com/clj-python/libpython-clj/blob/master/cljbridge.py">python script</a> that has code to start a Java VM with a correct classpath. So we start by importing that script:</p>
 <pre><code class="python">Python 3.8.5 (default, Jan 27 2021, 15:41:15)
 [GCC 9.3.0] on linux
 Type "help", "copyright", "credits" or "license" for more information.
@@ -101,4 +101,5 @@ Printing from Clojure:  [1 2 3 4 Embedded Clojure FTW!!]
   <li><a href="https://github.com/LeeKamentsky/python-javabridge">javabridge github</a></li>
   <li><a href="https://github.com/clj-python/libpython-clj/blob/94c72ca0ac94b210a9b126805cd4112024ad0b96/cljbridge.py">libpython-clj cljbridge.py</a></li>
   <li><a href="https://clj-python.github.io/libpython-clj/libpython-clj2.embedded.html">libpython-clj embedded docs</a></li>
+  <li><a href="https://github.com/tristanstraub/blender-clj/">blender-clj - the inspiration</a></li>
 </ul></div></div></div></body></html>
