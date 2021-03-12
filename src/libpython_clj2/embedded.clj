@@ -25,7 +25,7 @@ clojure -Sdeps '{:deps {nrepl/nrepl {:mvn/version \"0.8.3\"} cider/cider-nrepl {
 
 (defn stop-repl!
   "If an existing repl has been started, stop it.  This returns control to the
-  thread that called `start-repl!."
+  thread that called `start-repl!`."
   []
   (swap! repl-server*
          (fn [server]
