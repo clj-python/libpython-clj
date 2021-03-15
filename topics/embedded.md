@@ -10,7 +10,7 @@ which this approach is less than ideal:
 
 
 1.  In some cases a mainly Python team wants to use some Clojure for a small part of
-    their work.  Telling them to host python from Clojur is for them a missive and
+    their work.  Telling them to host python from Clojure is for them a missive and
     potentially disruptive change.
 2.  The python ecosystem is moving away from the shared library and towards
     compiling a statically linked executable.  This can never work with
@@ -39,7 +39,7 @@ We took a bit more time and worked out ways to smooth out these interactions
 and make sure they were supported throught the system.
 
 ```console
-python3 -mpip install javabridge
+python3 -m pip install javabridge
 ```
 
 If the installation cannot find 'jni.h' then most likely you have the Java runtime
