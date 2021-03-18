@@ -3,15 +3,15 @@
 
 The initial development push for `libpython-clj` was simply to embed Python in
 Clojure allowing Clojure developers to use Python modules simply transparently.
-This approach relied on `libpython-clj` being able to find the python shared library
-and having some capability to setup various python system variables before loading
+This approach relied on `libpython-clj` being able to find the Python shared library
+and having some capability to setup various Python system variables before loading
 any modules.  While this works great most of the time there are several reasons for
 which this approach is less than ideal:
 
 
 1.  In some cases a mainly Python team wants to use some Clojure for a small part of
-    their work.  Telling them to host python from Clojur is for them a missive and
-    potentially disruptive change.
+    their work.  Telling them to host Python from Clojure is for them a potentially
+	very disruptive change.
 2.  The python ecosystem is moving away from the shared library and towards
     compiling a statically linked executable.  This can never work with
     libpython-clj's default pathway.
@@ -36,7 +36,7 @@ javabridge installed in your Python environment.  In order to compile `javabridg
 requires the JDK installed and **not just the JRE**.  [tristanstraub](https://github.com/tristanstraub/)
 had found a way to use this in order to work with [Blender](https://github.com/tristanstraub/blender-clj/).
 We took a bit more time and worked out ways to smooth out these interactions
-and make sure they were supported throught the system.
+and make sure they were supported throughout the system.
 
 ```console
 python3 -mpip install javabridge
