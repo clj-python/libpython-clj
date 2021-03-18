@@ -39,7 +39,7 @@ We took a bit more time and worked out ways to smooth out these interactions
 and make sure they were supported throughout the system.
 
 ```console
-python3 -mpip install javabridge
+python3 -m pip install javabridge
 ```
 
 If the installation cannot find 'jni.h' then most likely you have the Java runtime

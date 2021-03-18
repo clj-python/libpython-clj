@@ -11,7 +11,7 @@
 <p>Due to the above reasons there is a solid argument for, if possible, embedding Clojure into Python allowing the Python executable to be the host process.</p>
 <h2><a href="#enter-javabridge" name="enter-javabridge"></a>Enter: javabridge</h2>
 <p>Python already had a nascent system for embedding Java in Python - the <a href="https://pypi.org/project/javabridge/">javabridge module</a>. You will need to have javabridge installed in your Python environment. In order to compile <code>javabridge</code> requires the JDK installed and <strong>not just the JRE</strong>. <a href="https://github.com/tristanstraub/">tristanstraub</a> had found a way to use this in order to work with <a href="https://github.com/tristanstraub/blender-clj/">Blender</a>. We took a bit more time and worked out ways to smooth out these interactions and make sure they were supported throughout the system.</p>
-<pre><code class="console">python3 -mpip install javabridge
+<pre><code class="console">python3 -m pip install javabridge
 </code></pre>
 <p>If the installation cannot find ‘jni.h’ then most likely you have the Java runtime (JRE) installed as opposed to the Java development kit (JDK).</p>
 <h2><a href="#from-the-python-repl" name="from-the-python-repl"></a>From the Python REPL</h2>
