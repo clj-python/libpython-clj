@@ -1,7 +1,7 @@
 {:paths ["src"]
  :deps {org.clojure/clojure  {:mvn/version "1.10.2" :scope "provided"}
         camel-snake-kebab/camel-snake-kebab    {:mvn/version "0.4.0"}
-        cnuernber/dtype-next {:mvn/version "6.12"}
+        cnuernber/dtype-next {:mvn/version "6.23"}
         net.java.dev.jna/jna {:mvn/version "5.7.0"}
         org.clojure/data.json  {:mvn/version "1.0.0"}}
 

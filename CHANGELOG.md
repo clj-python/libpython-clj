@@ -1,5 +1,9 @@
 # Time for a ChangeLog!
 
+## 2.00-beta-13
+ * Update to dtype-next to support graal native static ffi and library generation.
+ * Update to dtype-next to have correct definitions of ptr-t, offset-t, and size-t types.
+
 ## 2.00-beta-12
  * Small refinements around embedding and documentation.
 

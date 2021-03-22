@@ -80,6 +80,7 @@ Required for some python modules"}
    :PyGILState_Ensure {:rettype :int32
                        :requires-gil? false
                        :doc "Ensure this thread owns the python GIL.
+
 Each call must be matched with PyGILState_Release"}
    :PyGILState_Check {:rettype :int32
                       :requires-gil? false
@@ -291,7 +292,17 @@ Each call must be matched with PyGILState_Release"}
    })
 
 
-(def python-lib-def* (delay (dt-ffi/define-library python-library-fns)))
+(def python-lib-def* (delay (dt-ffi/define-library
+                              python-library-fns
+                              ["_Py_NoneStruct"
+                               "_Py_FalseStruct"
+                               "_Py_TrueStruct"
+                               "PyType_Type"
+                               "PyExc_StopIteration"
+                               "PyRange_Type"
+                               "PyExc_Exception"]
+                              nil
+                              )))
 (defonce pyobject-struct-type*
   (delay (dt-struct/define-datatype!
            :pyobject [{:name :ob_refcnt :datatype (ffi-size-t/size-t-type)}
@@ -439,7 +450,7 @@ Each call must be matched with PyGILState_Release"}
 
 (defn- deref-ptr-ptr
   ^Pointer [^Pointer val]
-  (Pointer. (case (ffi-size-t/size-t-type)
+  (Pointer. (case (ffi-size-t/offset-t-type)
               :int32 (.getInt (native-buffer/unsafe) (.address val))
               :int64 (.getLong (native-buffer/unsafe) (.address val)))))
 
@@ -721,8 +732,8 @@ Each call must be matched with PyGILState_Release"}
 (defn pystr->str
   ^String [pyobj]
   ;;manually allocate/deallocate for speed; this gets called a lot
-  (let [size-obj (dt-ffi/make-ptr (ffi-size-t/size-t-type) 0 {:resource-type nil
-                                                              :uninitialized? true})
+  (let [size-obj (dt-ffi/make-ptr :pointer 0 {:resource-type nil
+                                              :uninitialized? true})
         ^Pointer str-ptr (PyUnicode_AsUTF8AndSize pyobj size-obj)
         nbuf (native-buffer/wrap-address (.address str-ptr)
                                          (size-obj 0)
