@@ -55,7 +55,7 @@ This code is a concrete example that generates an
 (ns facial-rec.face-feature
   (:require [libpython-clj2.require :refer [require-python]]
             [libpython-clj2.python :refer [py. py.. py.-] :as py]
-            [tech.v2.datatype :as dtype]))
+            [tech.v3.datatype :as dtype]))
 
 
 
