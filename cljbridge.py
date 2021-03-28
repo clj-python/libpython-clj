@@ -25,10 +25,11 @@ attempting to require a namespace or lookup a clojure var."""
 
 
 def find_clj_var(fn_ns, fn_name):
-    """Use the clojure runtime to find a var.  Clojure vars are placeholders in namespaces that forward their operations to the data they point to.  This allows someone to hold
-a var and but recompile a namespace to get different behavior.  They implement both
-`clojure.lang.IFn` and `clojure.lang.IDeref` so they can act like a function and
-you can dereference them to get to their original value."""
+    """Use the clojure runtime to find a var.  Clojure vars are placeholders in
+namespaces that forward their operations to the data they point to.  This allows
+someone to hold a var and but recompile a namespace to get different behavior.  They
+implement both `clojure.lang.IFn` and `clojure.lang.IDeref` so they can act like a
+function and you can dereference them to get to their original value."""
     return javabridge.static_call("clojure/lang/RT",
                                   "var",
                                   "(Ljava/lang/String;Ljava/lang/String;)Lclojure/lang/Var;",
@@ -106,7 +107,7 @@ DEFAULT_CIDER_NREPL_VERSION = "0.25.5"
 
 def repl_classpath(nrepl_version=DEFAULT_NREPL_VERSION,
                    cider_nrepl_version=DEFAULT_CIDER_NREPL_VERSION,
-                   classpath_args=[]):
+                   classpath_args=[], **kw_args):
     """Return the classpath with the correct deps to run nrepl and cider.
     Positional arguments are added after the -Sdeps argument to start the
     nrepl server."""
@@ -128,6 +129,15 @@ def init_clojure(classpath_args=[]):
     return True
 
 
+def py_dict_to_keyword_map(py_dict):
+    hash_map = None
+    keyword = resolve_fn("clojure.core/keyword")
+    assoc  = resolve_fn("clojure.core/assoc")
+    for k in py_dict:
+        hash_map = assoc(hash_map, keyword(k), py_dict[k])
+    return hash_map
+
+
 def init_clojure_repl(**kw_args):
     """Initialize clojure with extra arguments specifically for embedding a cider-nrepl
     server.  Then start an nrepl server.  The port will both be printed to stdout and
@@ -135,12 +145,21 @@ def init_clojure_repl(**kw_args):
     released so that repl threads have access to Python.  libpython-clj2.python is
     initialized 'require-python' pathways should work.
 
-    * classpath_args - List of additional arguments that be passed to the clojure
-      process when building the classpath."""
+
+    Keyword arguments in python are mapped to a hash-map of keyword options and
+    passed directly to clojure so any nrepl are valid arguments to this function.
+
+    * `classpath_args` - List of additional arguments that be passed to the clojure
+      process when building the classpath.
+    * `port` - Integer port to open up repl.  A random port will be found if not 
+      provided.
+    * `bind` - Bind address.  If you are having connectivity issues try 
+      bind=\"0.0.0.0\""""
     javabridge.start_vm(run_headless=True, class_path=repl_classpath(**kw_args))
     init_clojure_runtime()
     init_libpy_embedded()
-    resolve_call_fn("libpython-clj2.embedded/start-repl!")
+    resolve_call_fn("libpython-clj2.embedded/start-repl!",
+                    py_dict_to_keyword_map(kw_args))
 
 
 class GenericJavaObj:

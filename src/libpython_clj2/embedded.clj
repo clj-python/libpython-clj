@@ -4,7 +4,7 @@
   the classpath having nrepl and cider-nrepl on it.  For example:
 
 ```console
-clojure -Sdeps '{:deps {nrepl/nrepl {:mvn/version \"0.8.3\"} cider/cider-nrepl {:mvn/version \"0.25.5\"}}}' ...
+clojure -SPath '{:deps {nrepl/nrepl {:mvn/version \"0.8.3\"} cider/cider-nrepl {:mvn/version \"0.25.5\"}}}' ...
 ```"
   (:require [libpython-clj2.python.ffi :as py-ffi]
             [nrepl.server :as server]
