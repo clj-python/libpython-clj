@@ -626,3 +626,24 @@ user> (py/call-attr inst \"addarg\" 10)
           (get-attr parent-mod (module-path-last-string item-path))
           (throw (Exception. (format "Failed to find module or class %s"
                                      item-path))))))))
+
+
+(defmacro def-unpack
+  "Unpack a set of symbols into a set of defs.  Useful when trying to match Python
+  idioms - this is definitely not idiomatic Clojure.
+
+  Example:
+
+```clojure
+user> (py/def-unpack [a b c] (py/->py-tuple [1 2 3]))
+#'user/c
+user> a
+1
+user> b
+2
+user> c
+3
+```"
+  [symbols input]
+  `(let [~symbols ~input]
+     ~@(for [s symbols] `(def ~s ~s))))
