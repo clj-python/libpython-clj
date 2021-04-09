@@ -196,12 +196,16 @@
                (py-proto/set-item! @pyobj*# item-name# item-value#))))
          py-proto/PyCall
          (call [callable# arglist# kw-arg-map#]
-           (-> (py-fn/call-py-fn @pyobj*# arglist# kw-arg-map# py-base/->python)
-               (py-base/as-jvm)))
+           (with-gil
+             (-> (py-fn/call-py-fn @pyobj*# arglist# kw-arg-map# py-base/->python)
+                 (py-base/as-jvm))))
          (marshal-return [callable# retval#]
-           (py-base/as-jvm retval#))
+           (with-gil
+             (py-base/as-jvm retval#)))
          clj-proto/Datafiable
-         (datafy [callable#] (py-proto/pydatafy callable#))
+         (datafy [callable#]
+           (with-gil
+             (py-proto/pydatafy callable#)))
          Object
          (toString [this#]
            (with-gil

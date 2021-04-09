@@ -14,6 +14,7 @@
 
 
 (py/initialize!)
+(py-ffi/enable-gil-check!)
 ;; Useful to see how many times we convert a string to a python object.
 ;; (dt-ffi/enable-string->c-stats!)
 ;; (.addShutdownHook (Runtime/getRuntime) (Thread.
@@ -386,8 +387,19 @@ class Foo:
 
 (deftest numpy-all
   (let [np (py/import-module "numpy")]
-    (is (= true (py/call-attr np "all" (py/call-attr np "array" [true true true]))))
-    (is (= false (py/call-attr np "all" (py/call-attr np "array" [true false true]))))))
+    (is (= true (py/call-attr np "all"
+                              (py/call-attr np "array" [true true true]))))
+    (is (= false (py/call-attr np "all"
+                               (py/call-attr np "array" [true false true]))))))
+
+
+(deftest np-dot
+  (let [np (py/import-module "numpy")
+        np-dot (py/get-attr np "dot")
+        np-ary (py/call-attr np "array" [1 2 3])]
+    (is (== 14 (np-dot np-ary np-ary)))))
+
+
 
 
 (comment

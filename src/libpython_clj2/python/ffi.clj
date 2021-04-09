@@ -370,8 +370,11 @@ Each call must be matched with PyGILState_Release"}
 ;;When this is true, generated functions will throw an exception if called when the
 ;;GIL is not captured.  It makes sense to periodically enable this flag in order
 ;;to ensure we aren't getting away with sneaky non-GIL access to Python.
-(def enable-api-gilcheck false)
+(def enable-api-gilcheck* (atom false))
 
+(defn enable-gil-check!
+  ([] (reset! enable-api-gilcheck* true))
+  ([value] (reset! enable-api-gilcheck* (boolean value))))
 
 (defn- find-pylib-fn
   [fn-kwd]
@@ -409,7 +412,7 @@ Each call must be matched with PyGILState_Release"}
            (let [fn-symbol (symbol (name fn-name))
                  requires-resctx? (first (filter #(= :string %)
                                                  (map second argtypes)))
-                 gilcheck? (when enable-api-gilcheck
+                 gilcheck? (when @enable-api-gilcheck*
                              (if (contains? fn-data :requires-gil?)
                                (fn-data :requires-gil?)
                                true))]
