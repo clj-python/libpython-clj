@@ -326,8 +326,7 @@
       (py-proto/->python (dtype/->reader item) opts)
       ;;There is one more case here for iterables (sequences)
       (instance? Iterable item)
-      ;;Iterables we *have* to convert lazily; we cannot copy them.
-      (py-proto/as-python item opts)
+      (py-proto/->python (vec item) opts)
       (instance? IFn item)
       (py-proto/as-python item opts)
       :else

@@ -400,6 +400,11 @@ class Foo:
     (is (== 14 (np-dot np-ary np-ary)))))
 
 
+(deftest ->python-expands-sequences
+  (let [test-dict {:a (seq [1 2 3 4 5 7 8 9])}
+        py-dict (py/->python test-dict)
+        py-data (py/get-item py-dict "a")]
+    (is (= 8 (py/call-attr py-data "__len__")))))
 
 
 (comment
