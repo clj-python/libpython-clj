@@ -1,5 +1,9 @@
 # Time for a ChangeLog!
 
+## 2.00-beta-15
+ * Fix for [issue 160](https://github.com/clj-python/libpython-clj/issues/160) - ->python has to realize lazy seqs.
+ * Remove camel-snake-kebab as direct dependency; it comes in via dtype-next.
+
 ## 2.00-beta-13
  * Update to dtype-next to support graal native static ffi and library generation.
  * Update to dtype-next to have correct definitions of ptr-t, offset-t, and size-t types.
