@@ -1,5 +1,9 @@
 # Time for a ChangeLog!
 
+## 2.00-beta-16
+ * Fix for [issue 162](https://github.com/clj-python/libpython-clj/issues/162) - many things failing when using JDK-16.
+   Note there is now a :jdk-16 alias in deps.edn that shows how to use libpython-clj with JDK-16.
+
 ## 2.00-beta-15
  * Fix for [issue 160](https://github.com/clj-python/libpython-clj/issues/160) - ->python has to realize lazy seqs.
  * Remove camel-snake-kebab as direct dependency; it comes in via dtype-next.
