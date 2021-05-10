@@ -1,8 +1,12 @@
 # Time for a ChangeLog!
 
-## 2.00-beta-17
+## 2.00-beta-18
  * Additional fix for 162 to allow booleans to be considered primitives and be output inline.
- * Experimental fix for [issue 164](https://github.com/clj-python/libpython-clj/issues/164).
+ * Experimental fix for [issue 164](https://github.com/clj-python/libpython-clj/issues/164) - Unsigned int64 fails with
+   `OverflowError: int too big to convert`.
+ 
+## 2.00-beta-17
+ * Almost fix fo [issue 163](https://github.com/clj-python/libpython-clj/issues/163) - codegen fails with JVM primitives.
 
 ## 2.00-beta-16
  * Fix for [issue 162](https://github.com/clj-python/libpython-clj/issues/162) - many things failing when using JDK-16.
