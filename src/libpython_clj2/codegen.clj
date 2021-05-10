@@ -69,6 +69,7 @@
   [^Writer writer clj-name k v vv]
   (if (or (number? vv)
           (string? vv)
+          (boolean? vv)
           (nil? vv))
         (.write writer
             (format "

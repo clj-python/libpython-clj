@@ -1,5 +1,9 @@
 # Time for a ChangeLog!
 
+## 2.00-beta-17
+ * Additional fix for 162 to allow booleans to be considered primitives and be output inline.
+ * Experimental fix for [issue 164](https://github.com/clj-python/libpython-clj/issues/164).
+
 ## 2.00-beta-16
  * Fix for [issue 162](https://github.com/clj-python/libpython-clj/issues/162) - many things failing when using JDK-16.
    Note there is now a :jdk-16 alias in deps.edn that shows how to use libpython-clj with JDK-16.

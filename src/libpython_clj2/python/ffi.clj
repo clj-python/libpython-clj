@@ -230,6 +230,9 @@ Each call must be matched with PyGILState_Release"}
    :PyLong_AsLongLong {:rettype :int64
                        :argtypes [['pyobj :pointer]]
                        :doc "Get the long value from a python integer"}
+   :PyLong_AsUnsignedLongLongMask {:rettype :int64
+                                   :argtypes [['pyobj :pointer]]
+                                   :doc "Get the unsigned long value from a python integer with no overflow checking"}
    :PyLong_FromLongLong {:rettype :pointer
                          :argtypes [['data :int64]]
                          :doc "Get a pyobject form a long."}
@@ -910,7 +913,7 @@ Object's refcount is bad.  Crash is imminent"
           nil)
       (case (pyobject-type-kwd pyobj)
         :int (with-decref [pyobj pyobj]
-               (PyLong_AsLongLong pyobj))
+               (PyLong_AsUnsignedLongLongMask pyobj))
         :float (with-decref [pyobj pyobj]
                  (PyFloat_AsDouble pyobj))
         :str (with-decref [pyobj pyobj]
