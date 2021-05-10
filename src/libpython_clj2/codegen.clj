@@ -66,20 +66,37 @@
 
 
 (defn- output-module-generic
-  [^Writer writer clj-name k v]
-  (.write writer
-          (format "
+  [^Writer writer clj-name k v vv]
+  (if (or (number? vv)
+          (string? vv)
+          (nil? vv))
+        (.write writer
+            (format "
+
+(def ^{:doc \"%s\"} %s %s)"
+                    (get-docs v)
+                    clj-name
+                    (if (string? vv)
+                      (format "\"%s\"" vv)
+                      vv)))
+    (.write writer
+            (format "
 
 (def ^{:doc \"%s\"} %s (as-jvm/generic-pyobject (py-global-delay (py/get-attr @src-obj* \"%s\"))))"
-                  (get-docs v)
-                  clj-name
-                  k)))
+                    (get-docs v)
+                    clj-name
+                    k))))
 
 
 (def ^:no-doc default-exclude
   '[+ - * / float double int long mod byte test char short take partition require
     max min identity empty mod repeat str load cast type sort conj
-    map range list next hash eval bytes filter compile print set format])
+    map range list next hash eval bytes filter compile print set format
+    compare reduce merge])
+
+
+(def ^:private invalid-symbol-names
+  #{"__cached__" "__file__"})
 
 
 (defn write-namespace!
@@ -164,26 +181,19 @@ user> (doto (python/list)
                            py-mod-or-cls))
            (doseq [[k v] target-metadata]
              (when (and (string? k)
+                        (not= "__cached__" k)
+                        (not= 0 (count k))
                         (map? v)
                         (py/has-attr? target k))
                (let [clj-name (get symbol-name-remaps k k)]
-                 ;;If the value is atomic
-                 (if (or (string? v)
-                         (number? v)
-                         (boolean? v))
-                   (.write writer (format "\n\n(def ^{:doc %s} %s %s)"
-                                          (escape-quotes (:doc v "No documentation"))
-                                          clj-name
-                                          (if (string? v)
-                                            (str "\"" (escape-quotes v) "\"")
-                                            v)))
-                   (case (:type v)
-                     :list (output-module-list writer clj-name k v)
-                     :tuple (output-module-tuple writer clj-name k v)
-                     :dict (output-module-dict writer clj-name k v)
-                     (if (:callable? (:flags v))
-                       (output-module-callable writer clj-name k v)
-                       (output-module-generic writer clj-name k v))))))))
+                 (case (:type v)
+                   :list (output-module-list writer clj-name k v)
+                   :tuple (output-module-tuple writer clj-name k v)
+                   :dict (output-module-dict writer clj-name k v)
+                   (if (:callable? (:flags v))
+                     (output-module-callable writer clj-name k v)
+                     (output-module-generic writer clj-name k v
+                                            (py/get-attr target k))))))))
          :ok))))
   ([py-mod-or-cls]
    (write-namespace! py-mod-or-cls nil)))
