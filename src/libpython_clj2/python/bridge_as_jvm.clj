@@ -310,7 +310,10 @@
                iterator-seq
                set)))
        (get [this obj-key]
-            (py-call "__getitem__" obj-key))
+            ;;Specifically return nil to match java map expectations
+            ;;and thus allow destructuring.
+            (when (py-call "__contains__" obj-key)
+              (py-call "__getitem__" obj-key)))
        (getOrDefault [item obj-key obj-default-value]
                      (if (.containsKey item obj-key)
                        (.get item obj-key)

@@ -1,5 +1,8 @@
 # Time for a ChangeLog!
 
+## 2.00-beta-19
+ * [issue 126](https://github.com/clj-python/libpython-clj/issues/126) - Python maps sometimes fail to destructure.
+
 ## 2.00-beta-18
  * Additional fix for 162 to allow booleans to be considered primitives and be output inline.
  * Experimental fix for [issue 164](https://github.com/clj-python/libpython-clj/issues/164) - Unsigned int64 fails with

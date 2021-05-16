@@ -407,6 +407,13 @@ class Foo:
     (is (= 8 (py/call-attr py-data "__len__")))))
 
 
+(deftest python-as-jvm-destructuring
+  (let [py-dict (py/->python {:a 1})
+        jvm-py-dict (py/as-jvm py-dict)
+        {:keys [a b]} jvm-py-dict]
+    (is (nil? b))))
+
+
 (comment
   (require '[libpython-clj.require :refer [require-python]])
 
