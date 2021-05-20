@@ -64,29 +64,28 @@
                   (get-docs v)
                   (:arglists v))))
 
-
 (defn- output-module-generic
   [^Writer writer clj-name k v vv]
-  (if (or (number? vv)
-          (string? vv)
-          (boolean? vv)
-          (nil? vv))
-        (.write writer
-            (format "
-
-(def ^{:doc \"%s\"} %s %s)"
-                    (get-docs v)
-                    clj-name
-                    (if (string? vv)
-                      (format "\"%s\"" vv)
-                      vv)))
+  (let [output-value (cond
+                       ;;nils and boolean require no extra formatting
+                       (or (nil? vv) (boolean? vv)) vv
+                       ;;string values should be output surrounded by double quotes
+                       (string? vv) (format "\"%s\"" vv)
+                       ;;NaN is a number and should use the proper reader macro
+                       (and (number? vv) (Double/isNaN vv)) "##NaN"
+                       ;;Finite, non NAN numbers should be treated as literals
+                       (and (number? vv) (Double/isFinite vv)) vv
+                       ;;Positive and negative infinity are numbers and should use the proper reader macros
+                       (and (number? vv) (not (neg? vv)) (Double/isInfinite vv)) "##Inf"
+                       (and (number? vv) (neg? vv) (Double/isInfinite vv)) "##-Inf"
+                       ;;Anything else should be derefed by name from Python
+                       :else (format "(as-jvm/generic-pyobject (py-global-delay (py/get-attr @src-obj* \"%s\")))" k)
+                       )]
     (.write writer
-            (format "
-
-(def ^{:doc \"%s\"} %s (as-jvm/generic-pyobject (py-global-delay (py/get-attr @src-obj* \"%s\"))))"
-                    (get-docs v)
-                    clj-name
-                    k))))
+      (format "\n\n(def ^{:doc \"%s\"} %s %s)"
+        (get-docs v)
+        clj-name
+        output-value))))
 
 
 (def ^:no-doc default-exclude
