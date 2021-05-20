@@ -490,8 +490,10 @@ user> (py/call-attr inst \"addarg\" 10)
 (defmacro py.
   "Class/object method syntax.  (py. obj method arg1 arg2 ... argN)
   is equivalent to Python's obj.method(arg1, arg2, ..., argN) syntax."
-  [x & args]
-  (list* (into (vector #'$a x) args)))
+  [x method-name & args]
+  ;; method-name cast to a string specifically for go and go-loop
+  ;; compatability
+  `(~#'$a ~x ~(str method-name) ~@args))
 
 
 (defmacro py*
