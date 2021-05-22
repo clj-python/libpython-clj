@@ -1,5 +1,8 @@
 # Time for a ChangeLog!
 
+## 2.00-beta-22
+ * Fix to PR-166 - strings in docs weren't properly escaped.
+
 ## 2.00-beta-20
  * [Issue 167] - `py.` fails in a go-loop.
  * [PR 166](https://github.com/clj-python/libpython-clj/pull/166) - Fix codegen for special double values such
