@@ -1,5 +1,12 @@
 # Time for a ChangeLog!
 
+## 2.00-beta-20
+ * [Issue 167] - `py.` fails in a go-loop.
+ * [PR 166](https://github.com/clj-python/libpython-clj/pull/166) - Fix codegen for special double values such
+   as Nan and infinity.
+ * [PR 165](https://github.com/clj-python/libpython-clj/pull/165) - remove codegen builtins and numpy due to
+   codegen pathway not being stable and potential version conflicts between e.g. numpy versions.
+
 ## 2.00-beta-19
  * [issue 126](https://github.com/clj-python/libpython-clj/issues/126) - Python maps sometimes fail to destructure.
 
