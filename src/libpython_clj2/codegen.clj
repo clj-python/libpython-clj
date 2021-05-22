@@ -70,7 +70,7 @@
                        ;;nils and boolean require no extra formatting
                        (or (nil? vv) (boolean? vv)) vv
                        ;;string values should be output surrounded by double quotes
-                       (string? vv) (format "\"%s\"" vv)
+                       (string? vv) (format "\"%s\"" (escape-quotes vv))
                        ;;NaN is a number and should use the proper reader macro
                        (and (number? vv) (Double/isNaN vv)) "##NaN"
                        ;;Finite, non NAN numbers should be treated as literals
