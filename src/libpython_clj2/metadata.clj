@@ -347,6 +347,7 @@
                  (map? v)
                  (has-attr? target-item k))
         (let [att-val (get-attr target-item k)]
+          (ns-unmap ns-symbol (symbol k))
           (intern ns-symbol
                   (with-meta (symbol k)
                     (if no-arglists?
@@ -370,9 +371,13 @@
     (when (map? v)
       (cond
         (contains? (:flags v) :callable?)
-        (intern ns-symbol (with-meta (symbol k) v)
-                (fn [inst & args]
-                  (apply (get-attr inst k) args)))
+        (do
+          (ns-unmap ns-symbol (symbol k))
+          (intern ns-symbol (with-meta (symbol k) v)
+                  (fn [inst & args]
+                    (apply (get-attr inst k) args))))
         (contains? v :value)
-        (intern ns-symbol (with-meta (symbol k) v) (:value v)))))
+        (do
+          (ns-unmap ns-symbol (symbol k))
+          (intern ns-symbol (with-meta (symbol k) v) (:value v))))))
   ns-symbol)
