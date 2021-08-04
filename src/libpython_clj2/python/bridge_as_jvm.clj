@@ -15,7 +15,8 @@
   (:import [java.util Map Set]
            [clojure.lang IFn MapEntry Fn]
            [tech.v3.datatype.ffi Pointer]
-           [tech.v3.datatype ObjectBuffer]))
+           [tech.v3.datatype ObjectBuffer]
+           [libpython_clj2.python.protocols PBridgeToPython]))
 
 
 (extend-protocol py-proto/PBridgeToJVM
@@ -241,6 +242,8 @@
   "Slightly clever so we can pass ranges and such as function arguments."
   ([item opts]
    (cond
+     (instance? PBridgeToPython item)
+     (py-proto/as-python item opts)
      (dt-proto/convertible-to-range? item)
      (py-copy/->py-range item)
      (dtype/reader? item)

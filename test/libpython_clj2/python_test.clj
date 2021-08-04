@@ -414,6 +414,15 @@ class Foo:
     (is (nil? b))))
 
 
+(deftest incorrect-numpy-marshal
+  (let [np (py/import-module "numpy")
+        p (py/$a np full [2 5] 7)
+        tp (py/get-attr np "transpose")
+        pp (tp p)]
+    (is (= [5 2]
+           (py/->jvm (py/get-attr pp "shape"))))))
+
+
 (comment
   (require '[libpython-clj.require :refer [require-python]])
 
