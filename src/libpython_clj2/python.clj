@@ -384,9 +384,20 @@ Options:
   "Make an callable instance function - a function which will be passed the 'this'
   object as it's first argument.  In addition, this function calls `make-callable`
   with a `arg-converter` defaulted to `as-jvm`.  See documentation for
-  make-callable."
+  [[libpython-clj2.python.class/make-instance-fn."
   ([ifn options] (py-class/make-tuple-instance-fn ifn options))
   ([ifn] (make-instance-fn ifn nil)))
+
+
+(defn make-kw-instance-fn
+  "Make an kw callable instance function - function by default is passed 2 arguments,
+  the positional argument vector and a map of keyword arguments.  Results are marshalled
+  back to python using [[libpython-clj2.python.fn/bridged-fn-arg->python]] which is also
+  used when bridging an object into python.  See documentation for
+  [[libpython-clj2.python.class/make-kw-instance-fn]]."
+  ([ifn options] (py-class/make-kw-instance-fn ifn options))
+  ([ifn] (make-kw-instance-fn ifn nil)))
+
 
 
 (defn ^:no-doc make-tuple-instance-fn

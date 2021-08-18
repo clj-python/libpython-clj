@@ -9,12 +9,17 @@
             [libpython-clj2.python.base :as py-base]
             [libpython-clj2.python.protocols :as py-proto]
             [libpython-clj2.python.gc :as pygc]
+            [libpython-clj2.python.copy :as py-copy]
             [tech.v3.datatype.ffi :as dt-ffi]
             [tech.v3.datatype.ffi.size-t :as ffi-size-t]
             [tech.v3.datatype.struct :as dt-struct]
+            [tech.v3.datatype :as dtype]
+            [tech.v3.datatype.protocols :as dt-proto]
             [clojure.tools.logging :as log]
             [clojure.stacktrace :as st])
-  (:import [tech.v3.datatype.ffi Pointer]))
+  (:import [tech.v3.datatype.ffi Pointer]
+           [java.util Map Set]
+           [libpython_clj2.python.protocols PBridgeToPython]))
 
 (set! *warn-on-reflection* true)
 
@@ -26,13 +31,97 @@
                        {:name :ml_doc :datatype (ffi-size-t/ptr-t-type)}]))
 
 
-(def tuple-fn-iface* (delay  (dt-ffi/define-foreign-interface :pointer? [:pointer :pointer])))
+(def tuple-fn-iface*
+  (delay (dt-ffi/define-foreign-interface :pointer? [:pointer :pointer])))
+(def kw-fn-iface*
+  (delay (dt-ffi/define-foreign-interface :pointer? [:pointer :pointer :pointer])))
 
 
 (def ^{:tag 'long} METH_VARARGS  0x0001)
 (def ^{:tag 'long} METH_KEYWORDS 0x0002)
 ;; METH_NOARGS and METH_O must not be combined with the flags above.
 (def ^{:tag 'long} METH_NOARGS   0x0004)
+
+
+(defn- internal-make-py-c-fn
+  [ifn fn-iface raw-arg-converter meth-type
+   {:keys [name doc result-converter]
+    :or {name "_unamed"
+         doc "no documentation provided"}}]
+  (py-ffi/with-gil
+    (let [fn-inst
+          (dt-ffi/instantiate-foreign-interface
+           fn-iface
+           (fn [self tuple-args & [kw-args]]
+             (try
+               (let [retval (apply ifn (raw-arg-converter tuple-args kw-args))]
+                 (if result-converter
+                   (py-ffi/untracked->python retval result-converter)
+                   retval))
+               (catch Throwable e
+                 (log/error e "Error executing clojure function.")
+                 (py-ffi/PyErr_SetString
+                  (py-ffi/py-exc-type)
+                  (format "%s:%s" e (with-out-str
+                                      (st/print-stack-trace e))))))))
+          fn-ptr (dt-ffi/foreign-interface-instance->c fn-iface fn-inst)
+          ;;no resource tracking - we leak the struct
+          method-def (dt-struct/new-struct :pymethoddef {:resource-type nil
+                                                         :container-type :native-heap})
+          name (dt-ffi/string->c name {:resource-type nil})
+          doc (dt-ffi/string->c doc {:resource-type nil})]
+      (.put method-def :ml_name (.address (dt-ffi/->pointer name)))
+      (.put method-def :ml_meth (.address (dt-ffi/->pointer fn-ptr)))
+      (.put method-def :ml_flags meth-type)
+      (.put method-def :ml_doc (.address (dt-ffi/->pointer doc)))
+      ;;the method def cannot ever go out of scope
+      (py-ffi/retain-forever (gensym) {:md method-def
+                                       :name name
+                                       :doc doc
+                                       :fn-ptr fn-ptr
+                                       :fn-inst fn-inst})
+      ;;no self, no module reference
+      (-> (py-ffi/PyCFunction_NewEx method-def nil nil)
+          (py-ffi/track-pyobject)))))
+
+
+(defn raw-tuple-arg-converter
+  [arg-converter tuple-args kw-args]
+  ;;no kw arguments
+  (->> (range (py-ffi/PyTuple_Size tuple-args))
+       (mapv (fn [idx]
+               (-> (py-ffi/PyTuple_GetItem tuple-args idx)
+                   (arg-converter))))))
+
+
+(defn bridged-fn-arg->python
+  "Slightly clever so we can pass ranges and such as function arguments."
+  ([item opts]
+   (cond
+     (instance? PBridgeToPython item)
+     (py-proto/as-python item opts)
+     (dt-proto/convertible-to-range? item)
+     (py-copy/->py-range item)
+     (dtype/reader? item)
+     (py-proto/->python (dtype/->reader item) opts)
+     ;;There is one more case here for iterables that aren't anything else -
+     ;; - specifically for sequences.
+     (and (instance? Iterable item)
+          (not (instance? Map item))
+          (not (instance? String item))
+          (not (instance? Set item)))
+     (py-proto/as-python item opts)
+     :else
+     (py-base/->python item opts)))
+  ([item]
+   (bridged-fn-arg->python item nil)))
+
+
+(defn convert-kw-args
+  [{:keys [arg-converter] :as options} tuple-args kw-args]
+  [(raw-tuple-arg-converter arg-converter tuple-args nil)
+   (->> (py-proto/as-jvm kw-args options)
+        (into {}))])
 
 
 (defn make-tuple-fn
@@ -42,50 +131,46 @@
          :or {arg-converter py-base/->jvm
               result-converter py-base/->python
               name "_unamed"
-              doc "no documentation provided"}}]
-   (py-ffi/with-gil
-     (let [arg-converter (or arg-converter identity)
-           fn-inst
-           (dt-ffi/instantiate-foreign-interface
-            @tuple-fn-iface*
-            (fn [self tuple-args]
-              (try
-                (let [retval
-                      (apply ifn
-                             (->> (range (py-ffi/PyTuple_Size tuple-args))
-                                  (map (fn [idx]
-                                         (-> (py-ffi/PyTuple_GetItem tuple-args idx)
-                                             (arg-converter))))))]
-                  (if result-converter
-                    (py-ffi/untracked->python retval result-converter)
-                    retval))
-                (catch Throwable e
-                  (log/error e "Error executing clojure function.")
-                  (py-ffi/PyErr_SetString
-                   (py-ffi/py-exc-type)
-                   (format "%s:%s" e (with-out-str
-                                       (st/print-stack-trace e))))))))
-           fn-ptr (dt-ffi/foreign-interface-instance->c @tuple-fn-iface* fn-inst)
-           ;;no resource tracking - we leak the struct
-           method-def (dt-struct/new-struct :pymethoddef {:resource-type nil
-                                                          :container-type :native-heap})
-           name (dt-ffi/string->c name {:resource-type nil})
-           doc (dt-ffi/string->c doc {:resource-type nil})]
-       (.put method-def :ml_name (.address (dt-ffi/->pointer name)))
-       (.put method-def :ml_meth (.address (dt-ffi/->pointer fn-ptr)))
-       (.put method-def :ml_flags METH_VARARGS)
-       (.put method-def :ml_doc (.address (dt-ffi/->pointer doc)))
-       ;;the method def cannot ever go out of scope
-       (py-ffi/retain-forever (gensym) {:md method-def
-                                        :name name
-                                        :doc doc
-                                        :fn-ptr fn-ptr
-                                        :fn-inst fn-inst})
-       ;;no self, no module reference
-       (-> (py-ffi/PyCFunction_NewEx method-def nil nil)
-           (py-ffi/track-pyobject)))))
+              doc "no documentation provided"}
+         :as options}]
+   (let [arg-converter (or arg-converter identity)
+         ;;apply defaults to options map.
+         options (assoc options
+                        :arg-converter arg-converter
+                        :result-converter result-converter
+                        :name name
+                        :doc doc)]
+     (internal-make-py-c-fn ifn @tuple-fn-iface*
+                            #(raw-tuple-arg-converter arg-converter %1 %2)
+                            METH_VARARGS
+                            options)))
   ([ifn]
    (make-tuple-fn ifn nil)))
+
+
+(defn make-kw-fn
+  ([ifn {:keys [arg-converter
+                result-converter
+                name doc
+                kw-arg-converter]
+         :or {arg-converter py-base/->jvm
+              result-converter py-base/->python
+              name "_unamed"
+              doc "no documentation provided"}
+         :as options}]
+   (let [arg-converter (or arg-converter :identity)
+         options (assoc options
+                        :arg-converter arg-converter
+                        :result-converter result-converter
+                        :name name
+                        :doc doc)
+         kw-arg-converter (or kw-arg-converter #(convert-kw-args options %1 %2))]
+     (internal-make-py-c-fn ifn @kw-fn-iface*
+                            kw-arg-converter
+                            (bit-or METH_VARARGS METH_KEYWORDS)
+                            options)))
+  ([ifn]
+   (make-kw-fn ifn nil)))
 
 
 (defn call-py-fn

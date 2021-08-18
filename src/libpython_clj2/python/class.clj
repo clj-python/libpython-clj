@@ -10,7 +10,7 @@
   (:import [clojure.lang IFn]))
 
 
-(defn- py-fn->instance-fn
+(defn py-fn->instance-fn
   "Given a python callable, return an instance function meant to be used
   in class definitions."
   [py-fn]
@@ -37,6 +37,36 @@
      (-> (py-fn/make-tuple-fn clj-fn (assoc options :arg-converter arg-converter))
          ;;Mark this as an instance function.
          (py-fn->instance-fn)))))
+
+
+(defn make-kw-instance-fn
+  "Make an instance function - a function which will be passed the 'this' object as
+  it's first argument.  In this case the default behavior is to
+  pass as-jvm bridged python object ptr args and kw dict args to the clojure function without
+  marshalling.  Self will be the first argument of the arg vector.
+
+
+
+  Options:
+
+  * `:kw-arg-converter` - passed two arguments, the positional arguments as a python ptr
+  and the keyword arguments as a python pointer.  The clj-fn is 'applied' to the result
+  of `:arg-converter` which has the same default as [[make-tuple-fn]].
+
+  * `:result-converter` - defaults to the same argument conversion rules of bridged
+     objects."
+  ([clj-fn & [{:keys [arg-converter
+                      result-converter]
+               :or {arg-converter py-base/as-jvm}
+               :as options}]]
+   (let [options (assoc options :arg-converter arg-converter)
+         result-converter (or result-converter #(py-fn/bridged-fn-arg->python % options))]
+     (py-ffi/with-gil
+       ;;Explicity set arg-converter to override make-tuple-fn's default
+       ;;->jvm arg-converter.
+       (-> (py-fn/make-kw-fn clj-fn (assoc options :result-converter result-converter))
+           ;;Mark this as an instance function.
+           (py-fn->instance-fn))))))
 
 
 (defn create-class

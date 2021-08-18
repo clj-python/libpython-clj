@@ -33,10 +33,18 @@
                                (pr-str {"name" (py/py.- self name)
                                         "shares" (py/py.- self shares)
                                         "price" (py/py.- self price)})))
+                  "kw_clj_fn" (py/make-kw-instance-fn
+                               (fn [pos-args kw-args]
+                                 (let [self (first pos-args)
+                                       price (double (py/py.- self price))]
+                                   ;;keywords become strings!!
+                                   (apply + price (kw-args "a")
+                                          (drop 1 pos-args)))))
                   "clsattr" 55})
         new-instance (cls-obj "ACME" 50 90)]
     (is (= 4500
            (py/$a new-instance cost)))
     (is (= 55 (py/py.- new-instance clsattr)))
     (is (= {"name" "ACME", "shares" 50, "price" 90}
-           (edn/read-string (.toString new-instance))))))
+           (edn/read-string (.toString new-instance))))
+    (is (= 116.0 (py/call-attr-kw new-instance "kw_clj_fn" [1 2 3] {:a 20})))))

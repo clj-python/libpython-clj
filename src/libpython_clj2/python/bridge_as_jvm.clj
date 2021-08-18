@@ -201,7 +201,7 @@
          py-proto/PyCall
          (call [callable# arglist# kw-arg-map#]
            (with-gil
-             (-> (py-fn/call-py-fn @pyobj*# arglist# kw-arg-map# fn-arg->python)
+             (-> (py-fn/call-py-fn @pyobj*# arglist# kw-arg-map# py-fn/bridged-fn-arg->python)
                  (py-base/as-jvm))))
          (marshal-return [callable# retval#]
            (with-gil
@@ -238,35 +238,12 @@
   (.write ^java.io.Writer w ^String (.toString ^Object pyobj)))
 
 
-(defn fn-arg->python
-  "Slightly clever so we can pass ranges and such as function arguments."
-  ([item opts]
-   (cond
-     (instance? PBridgeToPython item)
-     (py-proto/as-python item opts)
-     (dt-proto/convertible-to-range? item)
-     (py-copy/->py-range item)
-     (dtype/reader? item)
-     (py-proto/->python (dtype/->reader item) opts)
-     ;;There is one more case here for iterables that aren't anything else -
-     ;; - specifically for sequences.
-     (and (instance? Iterable item)
-          (not (instance? Map item))
-          (not (instance? String item))
-          (not (instance? Set item)))
-     (py-proto/as-python item opts)
-     :else
-     (py-base/->python item opts)))
-  ([item]
-   (fn-arg->python item nil)))
-
-
 (defn call-impl-fn
   [fn-name att-map args]
   (if-let [py-fn* (get att-map fn-name)]
     ;;laziness is carefully constructed here in order to allow the arguments to
     ;;be released within the context of the function call during fn.clj call-py-fn.
-    (-> (py-fn/call-py-fn @py-fn* args nil fn-arg->python)
+    (-> (py-fn/call-py-fn @py-fn* args nil py-fn/bridged-fn-arg->python)
         (py-base/as-jvm))
     (throw (UnsupportedOperationException.
             (format "Python object has no attribute: %s"

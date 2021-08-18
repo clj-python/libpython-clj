@@ -1,4 +1,11 @@
 # Time for a ChangeLog!
+## 2.000
+ * You can now create instance functions that accept both positional and keyword arguments -
+   libpython-clj2.python/make-kw-instance-fn.  See test at
+   test/libpython-clj2.python.classes-test.
+ * latest dtype-next - see documentation for tech.v3.datatype/set-value!.
+ * Fix for using ffi on arm64 platforms.
+
 
 ## 2.00-beta-22
  * Fix to PR-166 - strings in docs weren't properly escaped.
@@ -17,7 +24,7 @@
  * Additional fix for 162 to allow booleans to be considered primitives and be output inline.
  * Experimental fix for [issue 164](https://github.com/clj-python/libpython-clj/issues/164) - Unsigned int64 fails with
    `OverflowError: int too big to convert`.
- 
+
 ## 2.00-beta-17
  * Almost fix fo [issue 163](https://github.com/clj-python/libpython-clj/issues/163) - codegen fails with JVM primitives.
 
