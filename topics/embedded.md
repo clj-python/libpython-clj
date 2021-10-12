@@ -154,6 +154,15 @@ in the main module -
 Printing from Clojure:  [1 2 3 4 Embedded Clojure FTW!!]
 >>>
 ```
+## Loading and running a Clojure file in embedded mode
+
+We can runs as well a .clj file in embedded mode. 
+The following does this without an interactive pytho shell, it just runs the provided clj file with
+`clojure.core/load-file`
+
+```bash
+python3 -c 'import cljbridge;cljbridge.load_clojure_file(clj_file="my-file.clj")'
+```
 
 
 ## Are You Not Entertained???
