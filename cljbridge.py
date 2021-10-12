@@ -174,9 +174,12 @@ def load_clojure_file(**kw_args):
     javabridge.start_vm(run_headless=True, class_path=repl_classpath(**kw_args))
     init_clojure_runtime()
     init_libpy_embedded()
-    resolve_call_fn("clojure.core/load-file",
-                    kw_args["clj_file"])
-    javabridge.kill_vm()
+    try:
+        resolve_call_fn("clojure.core/load-file",
+                        kw_args["clj_file"])
+
+    finally:
+        javabridge.kill_vm()
 
 
 class GenericJavaObj:
