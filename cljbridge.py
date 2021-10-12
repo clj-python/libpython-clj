@@ -161,6 +161,23 @@ def init_clojure_repl(**kw_args):
     resolve_call_fn("libpython-clj2.embedded/start-repl!",
                     py_dict_to_keyword_map(kw_args))
 
+def load_clojure_file(**kw_args):
+    """Initializes clojure and loads and runs a Clojure file. This function load the specified clojure file
+    and kills then the jvm and returns.
+
+    Keyword arguments are:
+
+     * `classpath_args` - List of additional arguments that be passed to the clojure
+      process when building the classpath.
+     * `clj_file` Clojure file to be loaded with Clojure `load-file` fn
+    """
+    javabridge.start_vm(run_headless=True, class_path=repl_classpath(**kw_args))
+    init_clojure_runtime()
+    init_libpy_embedded()
+    resolve_call_fn("clojure.core/load-file",
+                    kw_args["clj_file"])
+    javabridge.kill_vm()
+
 
 class GenericJavaObj:
     __str__ = javabridge.make_method("toString", "()Ljava/lang/String;")
