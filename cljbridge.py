@@ -138,7 +138,7 @@ def py_dict_to_keyword_map(py_dict):
     return hash_map
 
 
-def init_clojure(**kw_args):
+def init_jvm(**kw_args):
     """Initialize clojure with extra arguments specifically for embedding a cider-nrepl
     server.  Then start an nrepl server.  The port will both be printed to stdout and
     output to a .nrepl_server file.  This function does not return as it leaves the GIL
@@ -157,7 +157,7 @@ def init_clojure(**kw_args):
       bind=\"0.0.0.0\""""
     javabridge.start_vm(run_headless=True, class_path=repl_classpath(**kw_args))
     init_clojure_runtime()
-    if "run_user_clj" in kw_args:
+    if "load_user_clj" in kw_args:
         resolve_call_fn("clojure.core/load-file",
                             "user.clj")
     init_libpy_embedded()
