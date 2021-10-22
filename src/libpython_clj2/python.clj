@@ -629,7 +629,9 @@ user> (py/call-attr inst \"addarg\" 10)
   (when (seq item-path)
     (if-let [module-retval (try
                              (import-module item-path)
-                             (catch Throwable e nil))]
+                             (catch Exception e
+                               (when-not (seq (module-path-string item-path))
+                                 (throw e))))]
       (if reload?
         (let [import-lib (import-module "importlib")]
           (call-attr import-lib "reload" module-retval))
