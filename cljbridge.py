@@ -138,7 +138,7 @@ def py_dict_to_keyword_map(py_dict):
     return hash_map
 
 
-def init_clojure_repl(**kw_args):
+def init_jvm(**kw_args):
     """Initialize clojure with extra arguments specifically for embedding a cider-nrepl
     server.  Then start an nrepl server.  The port will both be printed to stdout and
     output to a .nrepl_server file.  This function does not return as it leaves the GIL
@@ -157,10 +157,36 @@ def init_clojure_repl(**kw_args):
       bind=\"0.0.0.0\""""
     javabridge.start_vm(run_headless=True, class_path=repl_classpath(**kw_args))
     init_clojure_runtime()
+    if "load_user_clj" in kw_args:
+        resolve_call_fn("clojure.core/load-file",
+                            "user.clj")
     init_libpy_embedded()
-    resolve_call_fn("libpython-clj2.embedded/start-repl!",
-                    py_dict_to_keyword_map(kw_args))
 
+    if "start_repl" in kw_args:
+        resolve_call_fn("libpython-clj2.embedded/start-repl!",
+                        py_dict_to_keyword_map(kw_args))
+
+    if "kill_vm_after" in kw_args:
+        javabridge.kill_vm()
+
+def load_clojure_file(**kw_args):
+    """Initializes clojure and loads and runs a Clojure file. This function load the specified clojure file
+    and kills then the jvm and returns.
+
+    Keyword arguments are:
+
+     * `classpath_args` - List of additional arguments that be passed to the clojure
+      process when building the classpath.
+     * `clj_file` Clojure file to be loaded with Clojure `load-file` fn
+    """
+    javabridge.start_vm(run_headless=True, class_path=repl_classpath(**kw_args))
+    init_clojure_runtime()
+    init_libpy_embedded()
+    try:
+        resolve_call_fn("clojure.core/load-file",
+                        kw_args["clj_file"])
+    finally:
+        javabridge.kill_vm()
 
 class GenericJavaObj:
     __str__ = javabridge.make_method("toString", "()Ljava/lang/String;")
