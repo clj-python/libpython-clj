@@ -227,6 +227,12 @@ user> (py/py. np linspace 2 3 :num 10)
   pyobj)
 
 
+(defn has-item?
+  "Return true if the python object has an item.  Calls __hasitem__."
+  [pyobj item-name]
+  (with-gil (py-proto/has-item? pyobj item-name)))
+
+
 (defn set-items!
   "Set a sequence of [name value]. Returns pyobj"
   [pyobj item-seq]
@@ -274,6 +280,29 @@ user> (py/py. np linspace 2 3 :num 10)
   "Get the type (as a keyword) of a python object"
   [v]
   (py-ffi/with-gil (py-proto/python-type v)))
+
+
+(defmacro import-as
+  "Import a module and assign it to a var.  Documentation is included."
+  [module-path varname]
+  `(let [~'mod-data (import-module ~(name module-path))]
+     (def ~varname (import-module ~(name module-path)))
+     (alter-meta! #'~varname assoc :doc (get-attr ~'mod-data "__doc__"))
+     #'~varname))
+
+
+(defmacro from-import
+  "Support for the from a import b,c style of importing modules and symbols in python.
+  Documentation is included."
+  [module-path item & args]
+  `(do
+     (let [~'mod-data (import-module ~(name module-path))]
+       ~@(map (fn [varname]
+                `(let [~'var-data (get-attr ~'mod-data ~(name varname))]
+                   (def ~varname ~'var-data)
+                   (alter-meta! #'~varname assoc :doc (get-attr ~'var-data "__doc__"))
+                   #'~varname))
+              (concat [item] args)))))
 
 
 (defn is-instance?
