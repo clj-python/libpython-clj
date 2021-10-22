@@ -46,7 +46,7 @@
             :exec-fn hf.depstar/jar
             :exec-args {:group-id "clj-python"
                         :artifact-id "libpython-clj"
-                        :version "2.001"
+                        :version "2.002"
                         :sync-pom true
                         :jar "target/libpython-clj.jar"}}
            :deploy
