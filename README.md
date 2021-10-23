@@ -6,8 +6,11 @@
 [![travis integration](https://travis-ci.com/clj-python/libpython-clj.svg?branch=master)](https://travis-ci.com/clj-python/libpython-clj)
 
 
- ## BETA Versions Are HOT!  Huge New Features! You Can't Afford To Miss Out!
- 
+ ## New Versions Are HOT!  Huge New Features! You Can't Afford To Miss Out!
+
+ * JDK-17 and Mac M-1 support.  To use libpython-clj2 with jdk-17 you need to enable the foreign module -
+   see [deps.edn](https://github.com/clj-python/libpython-clj/blob/6e7368b44aaabddf565a5bbf3a240e60bf3dcbf8/deps.edn#L10)
+   for a working alias.
  * You can now [Embed Clojure in Python](https://clj-python.github.io/libpython-clj/embedded.html) - you can launch a Clojure REPL from a Python host process.
  * Main namespace is now `libpython-clj2` -- docs have not been updated.
  * **32 bit support**!!
@@ -18,12 +21,12 @@
  * - Note - Please avoid deprecated versions such as `[cnuernber/libpython-clj "1.36"]` (***note name change***).
  * [API Documentation](https://clj-python.github.io/libpython-clj/)
  * This library, which has received the efforts of many excellent people, is built mainly upon
-   [cnuernber/dtype-next](https://github.com/cnuernber/dtype-next/) and the 
+   [cnuernber/dtype-next](https://github.com/cnuernber/dtype-next/) and the
    [JNA library](https://github.com/java-native-access/jna).
- * [Static code generation](https://clj-python.github.io/libpython-clj/libpython-clj2.codegen.html#var-write-namespace.21) - generate clojure namespaces 
+ * [Static code generation](https://clj-python.github.io/libpython-clj/libpython-clj2.codegen.html#var-write-namespace.21) - generate clojure namespaces
    wrapping python modules that are safe to use with AOT and load much faster than analogous `require-python` calls.  These namespace will not
    automatically initialize the python subsystem -- initialize! must be called first (or a nice exception is throw).
-   
+
 
 ## libpython-clj features
 
@@ -115,7 +118,7 @@ This code is a concrete example that generates an
 #### Update project.clj
 ```clojure
 {...
-  ;; This namespace going to run when the REPL is up. 
+  ;; This namespace going to run when the REPL is up.
   :repl-options {:init-ns my-py-clj.config}
 ...}
 ```
