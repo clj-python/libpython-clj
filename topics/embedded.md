@@ -62,7 +62,7 @@ Python 3.8.5 (default, Jan 27 2021, 15:41:15)
 Type "help", "copyright", "credits" or "license" for more information.
 >>> import cljbridge
 >>> test_var=10
->>> cljbridge.init_clojure_repl()
+>>> cljbridge.init_jvm(start_repl=True)
 Mar 11, 2021 9:08:47 AM clojure.tools.logging$eval3186$fn__3189 invoke
 INFO: nREPL server started on port 40241 on host localhost - nrepl://localhost:40241
 ```
