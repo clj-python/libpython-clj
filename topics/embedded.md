@@ -33,7 +33,7 @@ Clojure into Python allowing the Python executable to be the host process.
 Python already had a nascent system for embedding Java in Python - the
 [javabridge module](https://pypi.org/project/javabridge/). 
 
-We went a step further and provide cljbridge.
+We went a step further and provide `cljbridge` python module.
 
 In order to compile `javabridge`
 a JDK is required and **not just the JRE**.  [tristanstraub](https://github.com/tristanstraub/)
