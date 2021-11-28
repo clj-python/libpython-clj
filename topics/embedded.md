@@ -49,10 +49,17 @@ If the installation cannot find 'jni.h' then most likely you have the Java runti
 ## From the Python REPL
 
 
-The next step involves starting a python repl from our libpython-clj base directory.
-This is only required because we have a special
-[python script](https://github.com/clj-python/libpython-clj/blob/master/cljbridge.py)
-that has code to start a Java VM with a correct classpath.  So we start by importing
+The next step involves starting a python repl.
+
+This requires a python library `cljbridge`,
+which can be installed via
+
+```
+export JAVA_HOME=<--YOUR JAVA HOME-->
+python3 -m pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple  cljbridge
+```
+
+So we start by importing
 that script:
 
 
@@ -60,7 +67,7 @@ that script:
 Python 3.8.5 (default, Jan 27 2021, 15:41:15)
 [GCC 9.3.0] on linux
 Type "help", "copyright", "credits" or "license" for more information.
->>> import cljbridge
+>>> from clojurebridge import cljbridge
 >>> test_var=10
 >>> cljbridge.init_jvm(start_repl=True)
 Mar 11, 2021 9:08:47 AM clojure.tools.logging$eval3186$fn__3189 invoke
