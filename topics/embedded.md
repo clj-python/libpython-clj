@@ -52,7 +52,7 @@ which can be installed via
 
 ```
 export JAVA_HOME=<--YOUR JAVA HOME-->
-python3 -m pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple  cljbridge
+python3 -m pip install cljbridge
 ```
 
 This will install and eventually compile `javabridge` as well.
