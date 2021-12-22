@@ -69,7 +69,7 @@ print(json.dumps(
     (seq (System/getenv "PYTHONHOME"))
     (System/getenv "PYTHONHOME")
     :else
-    (:prefix system-info)))
+    (:base-prefix system-info)))
 
 
 (defn java-library-path-addendum
