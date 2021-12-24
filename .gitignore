@@ -18,3 +18,5 @@ a.out
 *.pom.asc
 /.idea
 *.iml
+.lsp
+.clj-kondo
