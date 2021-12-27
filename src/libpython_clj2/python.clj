@@ -144,8 +144,7 @@ user> (py/py. np linspace 2 3 :num 10)
 
 
 (defn import-module
-  "Import a python module returning an implementation of java.util.Map wrapping
-  the module object and consisting of module attributes."
+  "Import a python module.  Module entries can be accessed via get-attr."
   [modname]
   (with-gil
     (if-let [mod (py-ffi/PyImport_ImportModule modname)]
