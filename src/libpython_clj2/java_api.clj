@@ -1,4 +1,23 @@
 (ns libpython-clj2.java-api
+  "A java api is exposed for libpython-clj2.  The methods below are statically callable without the leading '-'.
+  Note that returned python objects implement the respective java interfaces so a python dict will implement
+  java.util.Map, etc.  There is some startup time as Clojure dynamically compiles the source code but
+  this binding should have great runtime characteristics in comparison to any other java python engine.
+
+```java
+import libpython_clj2.java_api;
+
+
+
+  java_api.initialize(null);
+  np = java_api.importModule(\"numpy\");
+  clojure.lang.IFn ones = (clojure.lang.IFn)java_api.getAttr(np, \"ones\");
+  ArrayList dims = new ArrayList();
+  dims.add(2);
+  dims.add(3);
+  Object npArray = ones.invoke(dims);
+
+```"
   (:import [java.util Map Map$Entry]
            [java.util.function Supplier]
            [clojure.java.api Clojure])
