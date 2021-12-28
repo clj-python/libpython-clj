@@ -4,6 +4,8 @@
             [tech.v3.datatype.jvm-map :as jvm-map]
             [libpython-clj2.python :as py]
             [libpython-clj2.python.fn :as py-fn]
+            [libpython-clj2.python.ffi :as py-ffi]
+            [libpython-clj2.python.gc :as pygc]
             ;; numpy support
             [libpython-clj2.python.np-array])
   (:import [java.util Map]
@@ -13,6 +15,8 @@
    :main false
    :methods [#^{:static true} [initialize [java.util.Map] Object]
              #^{:static true} [runString [String] java.util.Map]
+             #^{:static true} [lockGIL [] int]
+             #^{:static true} [unlockGIL [int] Object]
              #^{:static true} [inPyContext [java.util.function.Supplier] Object]
              #^{:static true} [hasAttr [Object String] Boolean]
              #^{:static true} [getAttr [Object String] Object]
@@ -42,6 +46,29 @@
                              (mapcat (fn [entry]
                                        [(keyword (jvm-map/entry-key entry))
                                         (jvm-map/entry-value entry)])))))
+
+
+(defn -lockGIL
+  "Attempt to lock the gil.  This is safe to call in a reentrant manner.
+  Returns an integer representing the gil state that must be passed into unlockGIL.
+
+  See documentation for [pyGILState_Ensure](https://docs.python.org/3/c-api/init.html#c.PyGILState_Ensure).
+
+  Note that the API will do this for you but locking
+  the GIL before doing a string of operations is faster than having each operation lock
+  the GIL individually."
+  []
+  (int (py-ffi/PyGILState_Ensure)))
+
+
+(defn -unlockGIL
+  "Unlock the gil passing in the gilstate returned from lockGIL.  Each call to lockGIL must
+  be paired to a call to unlockGIL."
+  [gilstate]
+  (let [gilstate (int gilstate)]
+    (when (== 1 gilstate)
+      (pygc/clear-reference-queue))
+    (py-ffi/PyGILState_Release gilstate)))
 
 
 (defn -runString
@@ -96,14 +123,9 @@
   (py/get-item pyobj itemName))
 
 
-(defn -getItem
-  [pyobj itemName]
-  (py/get-item pyobj itemName))
-
-
 (defn -setItem
   [pyobj itemName itemVal]
-  (py/get-item pyobj itemName itemVal))
+  (py/set-item! pyobj itemName itemVal))
 
 
 (defn -importModule
