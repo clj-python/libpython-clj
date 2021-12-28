@@ -52,8 +52,9 @@ print(json.dumps(
 
 (defn find-python-info
   [& [{:keys [python-executable]}]]
-  (->> (concat (when python-executable [python-executable])
-               default-python-executables)
+  (->> (if python-executable
+         [python-executable]
+         default-python-executables)
        (map #(try
                (python-system-info %)
                (catch Throwable e nil)))
@@ -86,6 +87,14 @@ print(json.dumps(
     (log/infof "Detecting startup info for Python executable %s" python-executable)
     (log/info "Detecting startup info"))
   (let [system-info (find-python-info options)
+        _ (when-not system-info
+            (if python-executable
+              (throw (Exception. (format
+                                  "Failed to find value python executable.  Tried \"%s\""
+                                  python-executable)))
+              (throw (Exception. (format
+                                  "Failed to find value python executable.  Tried %s"
+                                  default-python-executables)))))
         python-home (find-python-home system-info options)
         java-lib-path (java-library-path-addendum python-home)
         [ver-maj ver-med _ver-min] (:version system-info)

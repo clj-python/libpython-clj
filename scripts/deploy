@@ -4,6 +4,7 @@
 set -e
 
 rm -rf classes
+clj -M:test
 clj -X:codox
-clj -X:depstar-aot
-clj -X:deploy-aot
+clj -X:depstar
+clj -X:deploy

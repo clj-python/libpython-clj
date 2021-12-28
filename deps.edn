@@ -45,10 +45,12 @@
            {:replace-deps
             {com.github.seancorfield/depstar {:mvn/version "2.0.193"}}
             :ns-default hf.depstar
+            :aot true
+            :compile-ns [libpython-clj2.java-api]
             :exec-fn hf.depstar/jar
             :exec-args {:group-id "clj-python"
                         :artifact-id "libpython-clj"
-                        :version "2.004"
+                        :version "2.005"
                         :sync-pom true
                         :jar "target/libpython-clj.jar"}}
            :deploy
@@ -57,23 +59,5 @@
             :exec-args {:installer :remote
                         :sign-releases? true
                         :artifact "target/libpython-clj.jar"}}
-           :depstar-aot
-           {:replace-deps
-            {com.github.seancorfield/depstar {:mvn/version "2.0.193"}}
-            :ns-default hf.depstar
-            :exec-fn hf.depstar/jar
-            :exec-args {:group-id "clj-python"
-                        :artifact-id "libpython-clj"
-                        :version "2.004-aot-1"
-                        :sync-pom true
-                        :aot true
-                        :compile-ns [libpython-clj2.java-api]
-                        :jar "target/libpython-clj-aot.jar"}}
-           :deploy-aot
-           {:replace-deps {slipset/deps-deploy {:mvn/version "0.1.5"}}
-            :exec-fn deps-deploy.deps-deploy/deploy
-            :exec-args {:installer :remote
-                        :sign-releases? true
-                        :artifact "target/libpython-clj-aot.jar"}}
 
            }}

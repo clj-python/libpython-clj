@@ -1,5 +1,6 @@
 (ns libpython-clj2.java-api-test
   (:require [libpython-clj2.java-api :as japi]
+            [libpython-clj2.python.ffi :as py-ffi]
             [tech.v3.datatype.jvm-map :as jvm-map]
             [clojure.test :refer [deftest is]]))
 
@@ -8,7 +9,10 @@
   (japi/-initialize nil)
   (let [rs-retval (japi/-runString "data = 5")
         globals (get rs-retval "globals")]
-    (is (= 5 (get globals "data"))))
+    (is (= 5 (get globals "data")))
+    (japi/-setItem globals "data" 6)
+    (is (= 6 (get globals "data"))))
+  (is (= 0 (py-ffi/PyGILState_Check)))
   (let [np (japi/-importModule "numpy")
         ones-fn (japi/-getAttr np "ones")
         ;;also works with int-array
@@ -17,8 +21,10 @@
     (is (= "float64" (get jvm-data "datatype")))
     (is (= (vec (repeat 6 1.0))
            (vec (get jvm-data "data"))))
+    (is (= 0 (py-ffi/PyGILState_Check)))
     (let [base-data (japi/-callKw ones-fn [[2 3]] {"dtype" "int32"})
           jvm-data (japi/-arrayToJVM base-data)]
           (is (= "int32" (get jvm-data "datatype")))
           (is (= (vec (repeat 6 1))
-                 (vec (get jvm-data "data")))))))
+                 (vec (get jvm-data "data"))))
+          (is (= 0 (py-ffi/PyGILState_Check))))))

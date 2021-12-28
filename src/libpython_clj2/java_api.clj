@@ -1,15 +1,7 @@
 (ns libpython-clj2.java-api
-  (:require [tech.v3.datatype :as dtype]
-            [tech.v3.tensor :as dtt]
-            [tech.v3.datatype.jvm-map :as jvm-map]
-            [libpython-clj2.python :as py]
-            [libpython-clj2.python.fn :as py-fn]
-            [libpython-clj2.python.ffi :as py-ffi]
-            [libpython-clj2.python.gc :as pygc]
-            ;; numpy support
-            [libpython-clj2.python.np-array])
-  (:import [java.util Map]
-           [java.util.function Supplier])
+  (:import [java.util Map Map$Entry]
+           [java.util.function Supplier]
+           [clojure.java.api Clojure])
   (:gen-class
    :name libpython_clj2.java_api
    :main false
@@ -35,6 +27,18 @@
 (set! *warn-on-reflection* true)
 
 
+(def requires* (delay
+                 (let [require (Clojure/var "clojure.core" "require")]
+                   (doseq [clj-ns ["tech.v3.datatype"
+                                   "tech.v3.tensor"
+                                   "libpython-clj2.python"
+                                   "libpython-clj2.python.fn"
+                                   "libpython-clj2.python.ffi"
+                                   "libpython-clj2.python.gc"
+                                   "libpython-clj2.python.np-array"]]
+                     (require (Clojure/read clj-ns))))))
+
+
 (defn -initialize
   "See options for [[libpython-clj2.python/initialize!]].  Note that the keyword
   option arguments can be provided by using strings so `:library-path` becomes
@@ -42,10 +46,11 @@
   all of the further operations so java should access python via single-threaded
   pathways."
   [options]
-  (apply py/initialize! (->> options
-                             (mapcat (fn [entry]
-                                       [(keyword (jvm-map/entry-key entry))
-                                        (jvm-map/entry-value entry)])))))
+  @requires*
+  (apply (Clojure/var "libpython-clj2.python" "initialize!")
+         (->> options
+              (mapcat (fn [^Map$Entry entry]
+                        [(keyword (.getKey entry)) (.getValue entry)])))))
 
 
 (defn -lockGIL
@@ -58,7 +63,7 @@
   the GIL before doing a string of operations is faster than having each operation lock
   the GIL individually."
   []
-  (int (py-ffi/PyGILState_Ensure)))
+  (int ((Clojure/var "libpython-clj2.python.ffi" "PyGILState_Ensure"))))
 
 
 (defn -unlockGIL
@@ -67,8 +72,8 @@
   [gilstate]
   (let [gilstate (int gilstate)]
     (when (== 1 gilstate)
-      (pygc/clear-reference-queue))
-    (py-ffi/PyGILState_Release gilstate)))
+      ((Clojure/var "libpython-clj2.python.gc" "clear-reference-queue")))
+    ((Clojure/var "libpython-clj2.python.ffi" "PyGILState_Release") gilstate)))
 
 
 (defn -runString
@@ -78,7 +83,7 @@
   the result of the last statement ran - you need to set a value in the global or local
   context."
   ^java.util.Map [^String code]
-  (->> (py/run-simple-string code)
+  (->> ((Clojure/var "libpython-clj2.python" "run-simple-string") code)
        (map (fn [[k v]]
               [(name k) v]))
        (into {})))
@@ -89,49 +94,47 @@
   will be deallocated once the context is released.  The code must not return references
   to live python objects."
   [^Supplier fn]
-  (py/with-gil-stack-rc-context
-    (-> (.get fn)
-        (py/->jvm))))
+  ((Clojure/var "libpython-clj2.python" "in-py-ctx") fn))
 
 
 (defn -hasAttr
   "Returns true if this python object has this attribute."
   [pyobj attname]
-  (boolean (py/has-attr? pyobj attname)))
+  (boolean ((Clojure/var "libpython-clj2.python" "has-attr?") pyobj attname)))
 
 
 (defn -getAttr
   "Get a python attribute.  This corresponds to the python '.' operator."
   [pyobj attname]
-  (py/get-attr pyobj attname))
+  ((Clojure/var "libpython-clj2.python" "get-attr") pyobj attname))
 
 
 (defn -setAttr
   "Set an attribute on a python object.  This corresponds to the `__setattr` python call."
   [pyobj attname objval]
-  (py/set-attr! pyobj attname objval))
+  ((Clojure/var "libpython-clj2.python" "set-attr!") pyobj attname objval))
 
 
 (defn -hasItem
   "Return true if this pyobj has this item"
   [pyobj itemName]
-  (boolean (py/has-item? pyobj itemName)))
+  (boolean ((Clojure/var "libpython-clj2.python" "has-item?") pyobj itemName)))
 
 
 (defn -getItem
   [pyobj itemName]
-  (py/get-item pyobj itemName))
+  ((Clojure/var "libpython-clj2.python" "get-item") pyobj itemName))
 
 
 (defn -setItem
   [pyobj itemName itemVal]
-  (py/set-item! pyobj itemName itemVal))
+  ((Clojure/var "libpython-clj2.python" "set-item!") pyobj itemName itemVal))
 
 
 (defn -importModule
   "Import a python module.  Module entries can be accessed via `getAttr`."
   [modname]
-  (py/import-module modname))
+  ((Clojure/var "libpython-clj2.python" "import-module") modname))
 
 
 (defn -callKw
@@ -139,39 +142,47 @@
   to call python methods if you do not need keyword arguments; if the python object is
   callable then it will implement `clojure.lang.IFn` and you can use `invoke`."
   [pyobj pos-args kw-args]
-  (py/with-gil (py-fn/call-kw pyobj pos-args (->> kw-args
-                                                  (map (fn [entry]
-                                                         [(jvm-map/entry-key entry)
-                                                          (jvm-map/entry-value entry)]))
-                                                  (into {})))))
+  (let [gstate (-lockGIL)]
+    (try
+      ((Clojure/var "libpython-clj2.python.fn" "call-kw")
+       pyobj pos-args (->> kw-args
+                           (map (fn [^Map$Entry entry]
+                                  [(.getKey entry)
+                                   (.getValue entry)]))
+                           (into {})))
+      (finally
+        (-unlockGIL gstate)))))
+
 
 (defn -copyToPy
   "Copy a basic jvm object, such as an implementation of java.util.Map or java.util.List to
   a python object."
   [object]
-  (py/->python object))
+  ((Clojure/var "libpython-clj2.python" "->python") object))
 
 
 (defn -copyToJVM
   "Copy a python object such as a dict or a list into a comparable JVM object."
   [object]
-  (py/->jvm object))
+  ((Clojure/var "libpython-clj2.python" "->jvm") object))
 
 
 (defn -createArray
   "Create a numpy array from a tuple of string datatype, shape and data.
   * `datatype` - One of \"int8\" \"uint8\"  "
   [datatype shape data]
-  (-> (dtt/->tensor data :datatype (keyword datatype))
-      (dtt/reshape shape)
-      (py/->python)))
+  (let [reshape (Clojure/var "tech.v3.tensor" "reshape")
+        ->python (Clojure/var "libpython-clj2" "->python")]
+    (-> ((Clojure/var "tech.v3.tensor" "->tensor") data :datatype (keyword datatype))
+        (reshape shape)
+        (->python))))
 
 
 (defn -arrayToJVM
   "Copy (efficiently) a numeric numpy array into a jvm map containing keys \"datatype\",
   \"shape\", and \"data\"."
   [pyobj]
-  (let [tens-data (py/as-jvm pyobj)]
-    {"datatype" (name (dtype/elemwise-datatype tens-data))
-     "shape" (int-array (dtype/shape tens-data))
-     "data" (dtype/->array tens-data)}))
+  (let [tens-data ((Clojure/var "libpython-clj2.python" "as-jvm") pyobj)]
+    {"datatype" (name ((Clojure/var "tech.v3.datatype" "elemwise-datatype") tens-data))
+     "shape" (int-array ((Clojure/var "tech.v3.datatype" "shape") tens-data))
+     "data" ((Clojure/var "tech.v3.datatype" "->array") tens-data)}))

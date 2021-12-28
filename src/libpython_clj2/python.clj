@@ -140,7 +140,15 @@ user> (py/py. np linspace 2 3 :num 10)
   [& body]
   `(py-ffi/with-gil
      (pygc/with-stack-context
-      ~@body)))
+       ~@body)))
+
+(declare ->jvm)
+
+(defn ^:no-doc in-py-ctx
+  [^java.util.function.Supplier supplier]
+  (with-gil-stack-rc-context
+    (-> (.get supplier)
+        (->jvm))))
 
 
 (defn import-module
