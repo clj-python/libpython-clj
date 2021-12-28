@@ -45,13 +45,13 @@
            {:replace-deps
             {com.github.seancorfield/depstar {:mvn/version "2.0.193"}}
             :ns-default hf.depstar
-            :aot true
-            :compile-ns [libpython-clj2.java-api]
             :exec-fn hf.depstar/jar
             :exec-args {:group-id "clj-python"
                         :artifact-id "libpython-clj"
-                        :version "2.005"
+                        :version "2.006"
                         :sync-pom true
+                        :aot true
+                        :compile-ns [libpython-clj2.java-api]
                         :jar "target/libpython-clj.jar"}}
            :deploy
            {:replace-deps {slipset/deps-deploy {:mvn/version "0.1.5"}}
