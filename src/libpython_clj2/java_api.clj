@@ -8,18 +8,20 @@
 
   Performance:
 
-  * If you are certain you are correctly calling lockGIL and unlockGIL then you can
-  define a variable, `-Dlibpython_clj.manual_gil=true` that will disable automatic GIL
-  lock/unlock.  This is useful, for instance, if you are going to lock libpython-clj to
-  a thread and control all access to it yourself.
-
   * `fastcall` - For the use case of repeatedly calling a single function, for instance
   for each row of a table or in a tight loop, use `allocateFastcallContext` before the loop,
   use fastcall to call your function noting that it takes an additional context parameter
   the user can pass in as the first argument, and use `releaseFastcallContext` afterwords.  This
   pathway eliminates nearly all of the overhead of calling python from Java and uses the
-  absolutely minimal number of C api calls in order to call a python function.
+  absolutely minimal number of C api calls in order to call a python function.  This is
+  about twice as fast as using the generic architecture to call a python function.
 
+
+  * HAIR ON FIRE MODE - If you are certain you are correctly calling lockGIL and unlockGIL
+  then you can define a variable, `-Dlibpython_clj.manual_gil=true` that will disable
+  automatic GIL lock/unlock checking.  This is useful, for instance, if you are going to
+  lock libpython-clj to a thread and control all access to it yourself.  This pathway
+  will get at most 10% above using fastcall by itself.
 
 ```java
 
@@ -29,7 +31,7 @@
   ArrayList dims = new ArrayList();
   dims.add(2);
   dims.add(3);
-  Object npArray = java_api.call(ones dims); //see fastcall notes above
+  Object npArray = java_api.call(ones, dims); //see fastcall notes above
 ```"
   (:import [java.util Map Map$Entry List]
            [java.util.function Supplier]
@@ -229,7 +231,8 @@
 
 
 (defn -allocateFastcallContext
-  "Allocate a fastcall context.  See docs for [[-fastcall]]."
+  "Allocate a fastcall context.  See docs for [[-fastcall]].  The returned context must be
+  release via [[-releaseFastcallContext]]."
   []
   (@allocate-fastcall-context*))
 
@@ -248,7 +251,8 @@
   via [[-allocateFastcallContext]] and furthermore the caller may choose to deallocate the
   fastcall context with [[-releaseFastcallContext]].
 
-  Current overloads support arities up to 4 arguments."
+  Current overloads support arities up to 4 arguments.  You must not use the same context
+  with different arities - contexts are allocated in an arity-specific manner."
   ([ctx item]
    ;;ctx is unused but placed here to allow rapid search/replace to be correct.
    (@fastcall* item))
