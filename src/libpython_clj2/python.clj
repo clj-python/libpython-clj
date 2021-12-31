@@ -96,13 +96,17 @@ user> (py/py. np linspace 2 3 :num 10)
               :java-library-path-addendum (:java-library-path-addendum
                                            options
                                            (:java-library-path-addendum info))))
+      (let [gilstate (py-ffi/lock-gil)]
+        (try
 
-      (when-not (nil? windows-anaconda-activate-bat)
-        (win/setup-windows-conda! windows-anaconda-activate-bat
-                                  py-ffi/run-simple-string))
+          (when-not (nil? windows-anaconda-activate-bat)
+            (win/setup-windows-conda! windows-anaconda-activate-bat
+                                      py-ffi/run-simple-string))
 
-      (when-not no-io-redirect?
-        (io-redirect/redirect-io!))
+          (when-not no-io-redirect?
+            (io-redirect/redirect-io!))
+          (finally
+            (py-ffi/unlock-gil gilstate))))
       :ok)
     :already-initialized))
 

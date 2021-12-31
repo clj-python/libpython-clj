@@ -27,4 +27,22 @@
           (is (= "int32" (get jvm-data "datatype")))
           (is (= (vec (repeat 6 1))
                  (vec (get jvm-data "data"))))
-          (is (= 0 (py-ffi/PyGILState_Check))))))
+          (is (= 0 (py-ffi/PyGILState_Check)))))
+  (let [gilstate (japi/-lockGIL)]
+    (try
+      (let [test-fn (-> (japi/-runString "def calcSpread(bid,ask):\n\treturn bid-ask\n\n")
+                        (get "globals")
+                        (get "calcSpread"))
+            call-ctx (japi/-allocateFastcallContext)
+            _ (println test-fn)
+            n-calls 100000
+            start-ns (System/nanoTime)
+            _ (is (= -1  (japi/-fastcall call-ctx test-fn 1 2)))
+            _ (dotimes [iter n-calls]
+                (japi/-fastcall call-ctx test-fn 1 2))
+            end-ns (System/nanoTime)
+            ms (/ (- end-ns start-ns) 10e6)]
+        (japi/-releaseFastcallContext call-ctx)
+        (println "Python fn calls/ms" (/ n-calls ms)))
+      (finally
+        (japi/-unlockGIL gilstate)))))

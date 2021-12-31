@@ -1,24 +1,37 @@
 (ns libpython-clj2.java-api
-  "A java api is exposed for libpython-clj2.  The methods below are statically callable without the leading '-'.
-  Note that returned python objects implement the respective java interfaces so a python dict will implement
-  java.util.Map, etc.  There is some startup time as Clojure dynamically compiles the source code but
-  this binding should have great runtime characteristics in comparison to any other java python engine.
+  "A java api is exposed for libpython-clj2.  The methods below are statically callable
+  without the leading '-'.  Note that returned python objects implement the respective
+  java interfaces so a python dict will implement java.util.Map, etc.  There is some
+  startup time as Clojure dynamically compiles the source code but this binding should
+  have great runtime characteristics in comparison to any other java python engine.
+
+
+  Performance:
+
+  * If you are certain you are correctly calling lockGIL and unlockGIL then you can
+  define a variable, `-Dlibpython_clj.manual_gil=true` that will disable automatic GIL
+  lock/unlock.  This is useful, for instance, if you are going to lock libpython-clj to
+  a thread and control all access to it yourself.
+
+  * `fastcall` - For the use case of repeatedly calling a single function, for instance
+  for each row of a table or in a tight loop, use `allocateFastcallContext` before the loop,
+  use fastcall to call your function noting that it takes an additional context parameter
+  the user can pass in as the first argument, and use `releaseFastcallContext` afterwords.  This
+  pathway eliminates nearly all of the overhead of calling python from Java and uses the
+  absolutely minimal number of C api calls in order to call a python function.
+
 
 ```java
-import libpython_clj2.java_api;
-
-
 
   java_api.initialize(null);
   np = java_api.importModule(\"numpy\");
-  clojure.lang.IFn ones = (clojure.lang.IFn)java_api.getAttr(np, \"ones\");
+  Object ones = java_api.getAttr(np, \"ones\");
   ArrayList dims = new ArrayList();
   dims.add(2);
   dims.add(3);
-  Object npArray = ones.invoke(dims);
-
+  Object npArray = java_api.call(ones dims); //see fastcall notes above
 ```"
-  (:import [java.util Map Map$Entry]
+  (:import [java.util Map Map$Entry List]
            [java.util.function Supplier]
            [clojure.java.api Clojure])
   (:gen-class
@@ -37,10 +50,26 @@ import libpython_clj2.java_api;
              #^{:static true} [setItem [Object Object Object] Object]
              #^{:static true} [importModule [String] Object]
              #^{:static true} [callKw [Object java.util.List java.util.Map] Object]
+             #^{:static true} [callPos [Object java.util.List] Object]
+             #^{:static true} [call [Object] Object]
+             #^{:static true} [call [Object Object] Object]
+             #^{:static true} [call [Object Object Object] Object]
+             #^{:static true} [call [Object Object Object Object] Object]
+             #^{:static true} [call [Object Object Object Object Object] Object]
+             #^{:static true} [allocateFastcallContext [] Object]
+             #^{:static true} [releaseFastcallContext [Object] Object]
+             ;;args require context
+             #^{:static true} [fastcall [Object Object] Object]
+             #^{:static true} [fastcall [Object Object Object] Object] ;;1
+             #^{:static true} [fastcall [Object Object Object Object] Object] ;;2
+             #^{:static true} [fastcall [Object Object Object Object Object] Object] ;;3
+             #^{:static true} [fastcall [Object Object Object Object Object Object] Object] ;;4
              #^{:static true} [copyToPy [Object] Object]
              #^{:static true} [copyToJVM [Object] Object]
              #^{:static true} [createArray [String Object Object] Object]
-             #^{:static true} [arrayToJVM [Object] java.util.Map]]))
+             #^{:static true} [arrayToJVM [Object] java.util.Map]
+
+             ]))
 
 
 (set! *warn-on-reflection* true)
@@ -56,6 +85,11 @@ import libpython_clj2.java_api;
                                    "libpython-clj2.python.gc"
                                    "libpython-clj2.python.np-array"]]
                      (require (Clojure/read clj-ns))))))
+
+
+(def fastcall* (delay (Clojure/var "libpython-clj2.python.fn" "fastcall")))
+(def allocate-fastcall-context* (delay (Clojure/var "libpython-clj2.python.fn" "allocate-fastcall-context")))
+(def release-fastcall-context* (delay (Clojure/var "libpython-clj2.python.fn" "release-fastcall-context")))
 
 
 (defn -initialize
@@ -82,17 +116,14 @@ import libpython_clj2.java_api;
   the GIL before doing a string of operations is faster than having each operation lock
   the GIL individually."
   []
-  (int ((Clojure/var "libpython-clj2.python.ffi" "PyGILState_Ensure"))))
+  (int ((Clojure/var "libpython-clj2.python.ffi" "lock-gil"))))
 
 
 (defn -unlockGIL
   "Unlock the gil passing in the gilstate returned from lockGIL.  Each call to lockGIL must
   be paired to a call to unlockGIL."
   [gilstate]
-  (let [gilstate (int gilstate)]
-    (when (== 1 gilstate)
-      ((Clojure/var "libpython-clj2.python.gc" "clear-reference-queue")))
-    ((Clojure/var "libpython-clj2.python.ffi" "PyGILState_Release") gilstate)))
+  ((Clojure/var "libpython-clj2.python.ffi" "unlock-gil") gilstate))
 
 
 (defn -runString
@@ -171,6 +202,64 @@ import libpython_clj2.java_api;
                            (into {})))
       (finally
         (-unlockGIL gstate)))))
+
+
+(defn -callPos
+  "Call a python callable with keyword arguments.  Note that you don't need this pathway
+  to call python methods if you do not need keyword arguments; if the python object is
+  callable then it will implement `clojure.lang.IFn` and you can use `invoke`."
+  [pyobj pos-args]
+  (apply pyobj pos-args))
+
+
+(defn -call
+  "Call a python callable.  Note this can also be done by by calling the python object's
+  implementation of clojure.lang.IFn directly.  Overloaded for up to 4 arities."
+  ([item]
+   (item))
+  ([item arg1]
+   (item arg1))
+  ([item arg1 arg2]
+   (item arg1 arg2))
+  ([item arg1 arg2 arg3]
+   (item arg1 arg2 arg3))
+  ([item arg1 arg2 arg3 arg4]
+   (item arg1 arg2 arg3 arg4))
+  ([item arg1 arg2 arg3 arg4 & args]))
+
+
+(defn -allocateFastcallContext
+  "Allocate a fastcall context.  See docs for [[-fastcall]]."
+  []
+  (@allocate-fastcall-context*))
+
+
+(defn -releaseFastcallContext
+  "Release a fastcall context.  See docs for [[-fastcall]].  This is safe to call with
+  null and to call multiple times on the same context."
+  [ctx]
+  (when ctx
+    (@release-fastcall-context* ctx)))
+
+
+(defn -fastcall
+  "Call a python function as fast as possible using a fixed number of positional arguments.
+  The caller must provide an allocated fastcall context
+  via [[-allocateFastcallContext]] and furthermore the caller may choose to deallocate the
+  fastcall context with [[-releaseFastcallContext]].
+
+  Current overloads support arities up to 4 arguments."
+  ([ctx item]
+   ;;ctx is unused but placed here to allow rapid search/replace to be correct.
+   (@fastcall* item))
+  ([ctx item arg1]
+   (@fastcall* ctx item arg1))
+  ([ctx item arg1 arg2]
+   (@fastcall* ctx item arg1 arg2))
+  ([ctx item arg1 arg2 arg3]
+   (@fastcall* ctx item arg1 arg2 arg3))
+  ([ctx item arg1 arg2 arg3 arg4]
+   (@fastcall* ctx item arg1 arg2 arg3 arg4)))
 
 
 (defn -copyToPy

@@ -2,6 +2,8 @@
   "A set of tests meant to crash the system or just run the system out of
   memory if it isn't setup correctly."
   (:require [libpython-clj2.python :as py]
+            [libpython-clj2.python.ffi :as py-ffi]
+            [libpython-clj2.python.fn :as py-fn]
             [libpython-clj2.python.class :as py-class]
             [clojure.test :refer :all]
             [clojure.edn :as edn]))
@@ -137,3 +139,23 @@ def getmultidata():
 
         (is (= {"name" "ACME", "shares" 50, "price" 90}
                (edn/read-string (.toString new-inst))))))))
+
+
+(deftest fastcall
+  (let [gilstate (py-ffi/lock-gil)]
+    (try
+      (let [test-fn (-> (py/run-simple-string "def calcSpread(bid,ask):\n\treturn bid-ask\n\n")
+                        :globals
+                        (get "calcSpread"))
+            call-ctx (py-fn/allocate-fastcall-context)
+            n-calls 100000
+            start-ns (System/nanoTime)
+            _ (is (= -1  (py-fn/fastcall call-ctx test-fn 1 2)))
+            _ (dotimes [iter n-calls]
+                (py-fn/fastcall call-ctx test-fn 1 2))
+            end-ns (System/nanoTime)
+            ms (/ (- end-ns start-ns) 10e6)]
+        (py-fn/release-fastcall-context call-ctx)
+        (println "Python fn calls/ms" (/ n-calls ms)))
+      (finally
+        (py-ffi/unlock-gil gilstate)))))

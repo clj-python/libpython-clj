@@ -281,6 +281,57 @@
     (call-kw item pos-args kw-args)))
 
 
+(defn allocate-fastcall-context
+  ^objects []
+  (object-array 1))
+
+
+(defn release-fastcall-context
+  [call-ctx]
+  (when-let [arglist (aget ^objects call-ctx 0)]
+    (py-ffi/Py_DecRef arglist)
+    (aset ^objects call-ctx 0 nil)))
+
+
+(defmacro implement-fastcall
+  []
+  `(defn ~'fastcall
+     "Call a python function as fast as possible reusing the argument tuple.  This function
+  takes an object array of length 1 for the call context cache.
+
+  Use allocate-fastcall-context and release-fastcall-context in order to manage the
+  context's lifetime.  Do not use same context with fastcall invokations of differing
+  arities."
+     ([~'item]
+      (py-ffi/with-gil
+        (-> (py-ffi/PyObject_CallObject ~'item nil)
+            (py-ffi/simplify-or-track))))
+     ~@(->> (range 10)
+            (map
+             (fn [n-args]
+               (let [arity-args (map (comp symbol #(str "arg-" %)) (range n-args))
+                     argdef (->> (concat [(with-meta 'call-ctx
+                                            {:tag 'objects})
+                                          'item] arity-args)
+                                 (vec))]
+                 `(~argdef
+                   (py-ffi/with-gil
+                     (let [~'arglist (if-let [call-tuple# (aget ^objects ~'call-ctx 0)]
+                                       call-tuple#
+                                       (let [new-t# (py-ffi/PyTuple_New ~n-args)]
+                                         (aset ^objects ~'call-ctx 0 new-t#)))
+                           ~@(mapcat (fn [argsym]
+                                       [argsym `(py-ffi/untracked->python ~argsym)])
+                                     arity-args)]
+                       ~@(map-indexed (fn [idx argsym]
+                                        `(py-ffi/PyTuple_SetItem ~'arglist ~idx ~argsym))
+                                      arity-args)
+                       (-> (py-ffi/PyObject_CallObject ~'item ~'arglist)
+                           (py-ffi/simplify-or-track)))))))))))
+
+(implement-fastcall)
+
+
 (defn key-sym-str->str
   [attr-name]
   (cond

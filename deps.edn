@@ -1,4 +1,4 @@
-{:paths ["src"]
+{:paths ["src" "classes"]
  :deps {org.clojure/clojure  {:mvn/version "1.10.2" :scope "provided"}
         cnuernber/dtype-next {:mvn/version "8.053"}
         net.java.dev.jna/jna {:mvn/version "5.10.0"}
@@ -7,6 +7,8 @@
  :aliases {:dev
            {:extra-deps {criterium/criterium {:mvn/version"0.4.5"}
                          ch.qos.logback/logback-classic {:mvn/version "1.1.3"}}}
+           :fastcall
+           {:jvm-opts ["-Dlibpython_clj.manual_gil=false"]}
            :jdk-17
            {:jvm-opts ["--add-modules" "jdk.incubator.foreign"
                        "--enable-native-access=ALL-UNNAMED"]}

@@ -362,12 +362,16 @@ Each call must be matched with PyGILState_Release"}
   @library*)
 
 
+(def manual-gil (= "true" (System/getProperty "libpython_clj.manual_gil")))
+
+
 (defmacro check-gil
   "Maybe the most important insurance policy"
   []
-  `(errors/when-not-error
-    (= 1 (PyGILState_Check))
-    "GIL is not captured"))
+  (when-not manual-gil
+    `(errors/when-not-error
+      (= 1 (PyGILState_Check))
+      "GIL is not captured")))
 
 
 ;;When this is true, generated functions will throw an exception if called when the
@@ -701,20 +705,39 @@ Each call must be matched with PyGILState_Release"}
     (check-error-throw)))
 
 
+(defn ^:no-doc lock-gil
+  ^long []
+  (if-not (== 1 (unchecked-long (PyGILState_Check)))
+    (PyGILState_Ensure)
+    (Long/MIN_VALUE)))
+
+
+(defn ^:no-doc unlock-gil
+  [^long gilstate]
+  (when-not (== Long/MIN_VALUE gilstate)
+    (when (== 1 gilstate)
+      (pygc/clear-reference-queue))
+    (PyGILState_Release gilstate)))
+
+
 (defmacro with-gil
   "Grab the gil and use the main interpreter using reentrant acquire-gil pathway."
   [& body]
-  `(let [gil-state# (when-not (== 1 (long (PyGILState_Check)))
-                      (PyGILState_Ensure))]
-     (try
-       (let [retval# (do ~@body)]
-         (check-error-throw)
-         retval#)
-       (finally
-         (when gil-state#
-           #_(System/gc)
-           (pygc/clear-reference-queue)
-           (PyGILState_Release gil-state#))))))
+  (if manual-gil
+    `(let [retval# (do ~@body)]
+       (check-error-throw)
+       retval#)
+    `(let [gil-state# (when-not (== 1 (unchecked-long (PyGILState_Check)))
+                        (PyGILState_Ensure))]
+       (try
+         (let [retval# (do ~@body)]
+           (check-error-throw)
+           retval#)
+         (finally
+           (when gil-state#
+             #_(System/gc)
+             (pygc/clear-reference-queue)
+             (PyGILState_Release gil-state#)))))))
 
 
 (defn pyobject-type
