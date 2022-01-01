@@ -8,7 +8,7 @@
            {:extra-deps {criterium/criterium {:mvn/version"0.4.5"}
                          ch.qos.logback/logback-classic {:mvn/version "1.1.3"}}}
            :fastcall
-           {:jvm-opts ["-Dlibpython_clj.manual_gil=false"]}
+           {:jvm-opts ["-Dlibpython_clj.manual_gil=true"]}
            :jdk-17
            {:jvm-opts ["--add-modules" "jdk.incubator.foreign"
                        "--enable-native-access=ALL-UNNAMED"]}
