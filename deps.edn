@@ -50,7 +50,7 @@
             :exec-fn hf.depstar/jar
             :exec-args {:group-id "clj-python"
                         :artifact-id "libpython-clj"
-                        :version "2.006"
+                        :version "2.007"
                         :sync-pom true
                         :aot true
                         :compile-ns [libpython-clj2.java-api]
