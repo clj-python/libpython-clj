@@ -137,6 +137,15 @@ Each call must be matched with PyGILState_Release"}
    :PyImport_AddModule {:rettype :pointer
                         :argtypes [['modname :string]]
                         :doc "Add a python module"}
+   :Py_CompileString {:rettype :pointer
+                      :argtypes [['strdata :string]
+                                 ['filename :string]
+                                 ['start :int32]]}
+
+   :PyEval_EvalCode {:rettype :pointer
+                     :argtypes [['co :pointer]
+                                ['globals :pointer]
+                                ['locals :pointer]]}
    :PyModule_GetDict {:rettype :pointer
                       :argtypes [['module :pointer]]
                       :doc "Get the module dictionary"}

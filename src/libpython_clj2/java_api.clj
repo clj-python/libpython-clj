@@ -43,16 +43,15 @@
   dims.add(3);
   Object npArray = java_api.call(ones, dims); //see fastcall notes above
 ```"
-  (:import [java.util Map Map$Entry List]
+  (:import [java.util Map Map$Entry List HashMap]
            [java.util.function Supplier]
            [clojure.java.api Clojure])
   (:gen-class
    :name libpython_clj2.java_api
    :main false
    :methods [#^{:static true} [initialize [java.util.Map] Object]
-             #^{:static true} [runString [String] java.util.Map]
-             #^{:static true} [lockGIL [] int]
-             #^{:static true} [unlockGIL [int] Object]
+             #^{:static true} [lockGIL [] long]
+             #^{:static true} [unlockGIL [long] Object]
              #^{:static true} [inPyContext [java.util.function.Supplier] Object]
              #^{:static true} [hasAttr [Object String] Boolean]
              #^{:static true} [getAttr [Object String] Object]
@@ -60,6 +59,10 @@
              #^{:static true} [hasItem [Object Object] Boolean]
              #^{:static true} [getItem [Object Object] Object]
              #^{:static true} [setItem [Object Object Object] Object]
+             #^{:static true} [getGlobal [Object String] Object]
+             #^{:static true} [setGlobal [Object String Object] Object]
+             #^{:static true} [runStringAsInput [String] Object]
+             #^{:static true} [runStringAsFile [String] java.util.Map]
              #^{:static true} [importModule [String] Object]
              #^{:static true} [callKw [Object java.util.List java.util.Map] Object]
              #^{:static true} [callPos [Object java.util.List] Object]
@@ -100,10 +103,65 @@
                      (require (Clojure/read clj-ns))))))
 
 
+(def ->python* (delay (Clojure/var "libpython-clj2.python" "->python")))
 (def fastcall* (delay (Clojure/var "libpython-clj2.python.fn" "fastcall")))
 (def allocate-fastcall-context* (delay (Clojure/var "libpython-clj2.python.fn" "allocate-fastcall-context")))
 (def release-fastcall-context* (delay (Clojure/var "libpython-clj2.python.fn" "release-fastcall-context")))
 (def make-fastcallable* (delay (Clojure/var "libpython-clj2.python.fn" "make-fastcallable")))
+(def check-error-throw* (delay (Clojure/var "libpython-clj2.python.ffi" "check-error-throw")))
+(def simplify-or-track* (delay (Clojure/var "libpython-clj2.python.ffi" "simplify-or-track")))
+(def as-jvm* (delay (Clojure/var "libpython-clj2.python" "as-jvm")))
+(def eval-code* (delay (Clojure/var "libpython-clj2.python.ffi" "PyEval_EvalCode")))
+(def untracked->python* (delay (Clojure/var "libpython-clj2.python.ffi" "untracked->python")))
+
+(def ^{:tag HashMap} string-cache (HashMap.))
+(declare -lockGIL -unlockGIL)
+(def globals*
+  (delay
+    (let [gstate (-lockGIL)
+          main-mod ((Clojure/var "libpython-clj2.python.ffi" "PyImport_AddModule") "__main__")]
+      (-> ((Clojure/var "libpython-clj2.python.ffi" "PyModule_GetDict") main-mod)
+          (@as-jvm*)))))
+
+(def strcomp* (delay (let [->python @->python*]
+                       (reify java.util.function.Function
+                         (apply [this data]
+                           (->python data))))))
+
+
+(def fast-dict-set-item*
+  (delay (let [untracked->python (Clojure/var "libpython-clj2.python.ffi"
+                                              "untracked->python")
+               decref (Clojure/var "libpython-clj2.python.ffi"
+                                   "Py_DecRef")
+               pydict-setitem (Clojure/var "libpython-clj2.python.ffi"
+                                           "PyDict_SetItem")]
+           (fn [dict k v]
+             (let [v (untracked->python v)]
+               (pydict-setitem dict k v)
+               (decref v))))))
+
+(defn- cached-string
+  [strval]
+  (when strval
+    (.computeIfAbsent string-cache strval @strcomp*)))
+
+
+(def ^{:tag HashMap} compile-cache (HashMap.))
+
+(def compiler* (delay
+                 (let [compile-fn (Clojure/var "libpython-clj2.python.ffi"
+                                               "Py_CompileString")]
+                   (reify java.util.function.Function
+                     (apply [this [strdata run-type]]
+                       (compile-fn strdata "unnamed.py" (case run-type
+                                                          :file 257
+                                                          :input 258)))))))
+
+(defn compile-string
+  [strval run-type]
+  (when strval
+    (.computeIfAbsent compile-cache [strval run-type] @compiler*)))
 
 
 (defn -initialize
@@ -122,7 +180,7 @@
 
 (defn -lockGIL
   "Attempt to lock the gil.  This is safe to call in a reentrant manner.
-  Returns an integer representing the gil state that must be passed into unlockGIL.
+  Returns an long representing the gil state that must be passed into unlockGIL.
 
   See documentation for [pyGILState_Ensure](https://docs.python.org/3/c-api/init.html#c.PyGILState_Ensure).
 
@@ -130,7 +188,7 @@
   the GIL before doing a string of operations is faster than having each operation lock
   the GIL individually."
   []
-  (int ((Clojure/var "libpython-clj2.python.ffi" "lock-gil"))))
+  ((Clojure/var "libpython-clj2.python.ffi" "lock-gil")))
 
 
 (defn -unlockGIL
@@ -138,19 +196,6 @@
   be paired to a call to unlockGIL."
   [gilstate]
   ((Clojure/var "libpython-clj2.python.ffi" "unlock-gil") gilstate))
-
-
-(defn -runString
-  "Run a string returning a map of two keys -\"globals\" and \"locals\" which each point to
-  a java.util.Map of the respective contexts.  See documentation under
-  [[libpython-clj2.python/run-simple-string]] - specifically this will never return
-  the result of the last statement ran - you need to set a value in the global or local
-  context."
-  ^java.util.Map [^String code]
-  (->> ((Clojure/var "libpython-clj2.python" "run-simple-string") code)
-       (map (fn [[k v]]
-              [(name k) v]))
-       (into {})))
 
 
 (defn -inPyContext
@@ -193,6 +238,66 @@
 (defn -setItem
   [pyobj itemName itemVal]
   ((Clojure/var "libpython-clj2.python" "set-item!") pyobj itemName itemVal))
+
+
+(defn -setGlobal
+  "Set a value in the global dict.  This function expects the GIL to be locked - it will
+  not lock/unlock it for you."
+  [^String varname varval]
+  (@fast-dict-set-item* @globals* (cached-string varname) varval)
+  nil)
+
+
+(defn -getGlobal
+  "Get a value from the global dict.  This function expects the GIL to be locked - it will
+  not lock/unlock it for you."
+  [^String varname]
+  (-getItem @globals* (cached-string varname)))
+
+
+(defn -runStringAsInput
+  "Run a string returning the result of the last expression.  Strings are compiled and
+  live for the life of the interpreter.
+
+  This function expects the GIL to be locked - it will not lock/unlock it for you.
+
+  Example:
+
+```java
+  java_api.setGlobal(\"bid\", 1);
+  java_api.setGlobal(\"ask\", 2);
+  java_api.runStringAsInput(\"bid-ask\"); //Returns -1
+```
+  "
+  [strdata]
+  (let [pyobj (compile-string strdata :input)]
+    (when-not pyobj
+      (@check-error-throw*))
+    (if-let [script-rt (@eval-code* pyobj @globals* @globals*)]
+      (@simplify-or-track* script-rt))))
+
+
+(defn -runStringAsFile
+  "Run a string returning the result of the last expression.  Strings are compiled and
+  live for the life of the interpreter.
+
+  The global context is returned as a java map.
+
+  This function expects the GIL to be locked - it will not lock/unlock it for you.
+
+```java
+   Map globals = java_api.runStringAsFile(\"def calcSpread(bid,ask):\n\treturn bid-ask\n\n\");
+   Object spreadFn = globals.get(\"calcSpread\");
+   java_api.call(spreadFn, 1 2); // Returns -1
+```
+  "
+  [strdata]
+  (let [pyobj (compile-string strdata :file)]
+    (when-not pyobj
+      (@check-error-throw*))
+    (@eval-code* pyobj @globals* @globals*)
+    (@check-error-throw*)
+    @globals*))
 
 
 (defn -importModule
