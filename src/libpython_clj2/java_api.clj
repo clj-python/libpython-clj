@@ -16,15 +16,17 @@
   absolutely minimal number of C api calls in order to call a python function.  This is
   about twice as fast as using the generic architecture to call a python function.
 
+  * `makeFastcallable` - A simplified version of fastcall to be used with try-with-resources.
+  This is a safer but equally-as-fast pathway as `fastcall`.
 
   * HAIR ON FIRE MODE - If you are certain you are correctly calling lockGIL and unlockGIL
   then you can define a variable, `-Dlibpython_clj.manual_gil=true` that will disable
-  automatic GIL lock/unlock checking.  This is useful, for instance, if you are going to
-  lock libpython-clj to a thread and control all access to it yourself.  This pathway
-  will get at most 10% above using fastcall by itself.
+  automatic GIL lock/unlock system and correctness checking.  This is useful, for instance,
+  if you are going to lock libpython-clj to a thread and control all access to it yourself.
+  This pathway will get at most 10% above using fastcall by itself.
+
 
 ```java
-
   java_api.initialize(null);
   np = java_api.importModule(\"numpy\");
   Object ones = java_api.getAttr(np, \"ones\");
@@ -66,6 +68,7 @@
              #^{:static true} [fastcall [Object Object Object Object] Object] ;;2
              #^{:static true} [fastcall [Object Object Object Object Object] Object] ;;3
              #^{:static true} [fastcall [Object Object Object Object Object Object] Object] ;;4
+             #^{:static true} [makeFastcallable [Object] java.lang.AutoCloseable]
              #^{:static true} [copyToPy [Object] Object]
              #^{:static true} [copyToJVM [Object] Object]
              #^{:static true} [createArray [String Object Object] Object]
@@ -92,6 +95,7 @@
 (def fastcall* (delay (Clojure/var "libpython-clj2.python.fn" "fastcall")))
 (def allocate-fastcall-context* (delay (Clojure/var "libpython-clj2.python.fn" "allocate-fastcall-context")))
 (def release-fastcall-context* (delay (Clojure/var "libpython-clj2.python.fn" "release-fastcall-context")))
+(def make-fastcallable* (delay (Clojure/var "libpython-clj2.python.fn" "make-fastcallable")))
 
 
 (defn -initialize
@@ -264,6 +268,23 @@
    (@fastcall* ctx item arg1 arg2 arg3))
   ([ctx item arg1 arg2 arg3 arg4]
    (@fastcall* ctx item arg1 arg2 arg3 arg4)))
+
+
+(defn -makeFastcallable
+  "Given a normal python callable, make a fastcallable object that needs to be closed.
+  This should be seen as a callsite optimization for repeatedly calling a specific python
+  function in a tight loop.  It is not intended to be used in a context where you will
+  then pass this object around as this is not a reentrant optimization.
+
+```java
+  try (AutoCloseable fastcaller = java_api.makeFastcallable(pycallable)) {
+     tightloop {
+       java_api.call(fastcaller, arg1, arg2);
+     }
+  }
+```"
+  ^java.lang.AutoCloseable [item]
+  (@make-fastcallable* item))
 
 
 (defn -copyToPy

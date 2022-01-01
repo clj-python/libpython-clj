@@ -144,18 +144,36 @@ def getmultidata():
 (deftest fastcall
   (let [gilstate (py-ffi/lock-gil)]
     (try
+      ;;Without fastcall callsite optimization
       (let [test-fn (-> (py/run-simple-string "def calcSpread(bid,ask):\n\treturn bid-ask\n\n")
                         :globals
                         (get "calcSpread"))
-            call-ctx (py-fn/allocate-fastcall-context)
-            n-calls 100000
-            start-ns (System/nanoTime)
-            _ (is (= -1  (py-fn/fastcall call-ctx test-fn 1 2)))
-            _ (dotimes [iter n-calls]
-                (py-fn/fastcall call-ctx test-fn 1 2))
-            end-ns (System/nanoTime)
-            ms (/ (- end-ns start-ns) 10e6)]
-        (py-fn/release-fastcall-context call-ctx)
-        (println "Python fn calls/ms" (/ n-calls ms)))
+            n-calls 100000]
+        (let [start-ns (System/nanoTime)
+              _ (dotimes [iter n-calls]
+                  (test-fn 1 2))
+              end-ns (System/nanoTime)
+              ms (/ (- end-ns start-ns) 10e6)]
+          (println "Python calls/ms" (/ n-calls ms)))
+        ;;low level api
+        (let [call-ctx (py-fn/allocate-fastcall-context)
+              _ (is (= -1  (py-fn/fastcall call-ctx test-fn 1 2)))
+              start-ns (System/nanoTime)
+
+              _ (dotimes [iter n-calls]
+                  (py-fn/fastcall call-ctx test-fn 1 2))
+              end-ns (System/nanoTime)
+              ms (/ (- end-ns start-ns) 10e6)]
+          (py-fn/release-fastcall-context call-ctx)
+          (println "Python fastcall calls/ms" (/ n-calls ms)))
+        ;;high level api
+        (with-open [callable (py-fn/make-fastcallable test-fn)]
+          (is (= -1  (callable 1 2)))
+          (let [start-ns (System/nanoTime)
+                _ (dotimes [iter n-calls]
+                    (callable 1 2))
+                end-ns (System/nanoTime)
+                ms (/ (- end-ns start-ns) 10e6)]
+            (println "Python fastcallable calls/ms" (/ n-calls ms)))))
       (finally
         (py-ffi/unlock-gil gilstate)))))

@@ -19,7 +19,8 @@
             [clojure.stacktrace :as st])
   (:import [tech.v3.datatype.ffi Pointer]
            [java.util Map Set]
-           [libpython_clj2.python.protocols PBridgeToPython]))
+           [libpython_clj2.python.protocols PBridgeToPython]
+           [java.lang AutoCloseable]))
 
 (set! *warn-on-reflection* true)
 
@@ -281,6 +282,9 @@
     (call-kw item pos-args kw-args)))
 
 
+(def ^{:tag 'long} max-fastcall-args 10)
+
+
 (defn allocate-fastcall-context
   ^objects []
   (object-array 1))
@@ -288,9 +292,10 @@
 
 (defn release-fastcall-context
   [call-ctx]
-  (when-let [arglist (aget ^objects call-ctx 0)]
-    (py-ffi/Py_DecRef arglist)
-    (aset ^objects call-ctx 0 nil)))
+  (when call-ctx
+    (when-let [arglist (aget ^objects call-ctx 0)]
+      (py-ffi/Py_DecRef arglist)
+      (aset ^objects call-ctx 0 nil))))
 
 
 (defmacro implement-fastcall
@@ -306,7 +311,7 @@
       (py-ffi/with-gil
         (-> (py-ffi/PyObject_CallObject ~'item nil)
             (py-ffi/simplify-or-track))))
-     ~@(->> (range 10)
+     ~@(->> (range 1 (inc max-fastcall-args))
             (map
              (fn [n-args]
                (let [arity-args (map (comp symbol #(str "arg-" %)) (range n-args))
@@ -330,6 +335,67 @@
                            (py-ffi/simplify-or-track)))))))))))
 
 (implement-fastcall)
+
+
+(defmacro reify-fastcallable
+  [item]
+  `(let [~'ctx-list (object-array max-fastcall-args)]
+     (reify
+       AutoCloseable
+       (close [this#] (dotimes [idx# (alength ~'ctx-list)]
+                        (release-fastcall-context (aget ~'ctx-list idx#))
+                        (aset ~'ctx-list idx# nil)))
+       clojure.lang.IFn
+       (invoke [this#] (fastcall ~item))
+       ~@(->> (range 1 (inc max-fastcall-args))
+           (map
+            (fn [argc]
+              (let [arglist (mapv #(symbol (str "arg-" %)) (range argc))
+                    ctx-idx (dec argc)]
+                `(invoke [this# ~@arglist]
+                         (let [~'ctx (if-let [ctx# (aget ~'ctx-list ~ctx-idx)]
+                                       ctx#
+                                       (let [ctx# (allocate-fastcall-context)]
+                                         (aset ~'ctx-list ~ctx-idx ctx#)
+                                         ctx#))]
+                           (fastcall ~'ctx ~item ~@arglist)))))))
+
+       (applyTo [this# ~'argseq]
+         (let [~'argseq (vec ~'argseq)
+               ~'n-args (count ~'argseq)]
+           (when (> ~'n-args max-fastcall-args)
+             (throw (Exception. (format "Maximum fastcall arguments is %d - %d provided"
+                                        max-fastcall-args ~'n-args))))
+           (if (== 0 ~'n-args)
+             (fastcall ~item)
+             (let [~'ctx-idx (dec ~'n-args)
+                   ~'ctx (if-let [ctx# (aget ~'ctx-list ~'ctx-idx)]
+                           ctx#
+                           (let [ctx# (allocate-fastcall-context)]
+                             (aset ~'ctx-list ~'ctx-idx ctx#)
+                             ctx#))]
+               (case ~'n-args
+                 ~@(->> (range 1 max-fastcall-args)
+                        (mapcat
+                         (fn [argc]
+                           [argc `(fastcall ~'ctx ~item
+                                            ~@(->> (range argc)
+                                                   (map (fn [idx]
+                                                          `(~'argseq ~idx)))))])))))))))))
+
+
+(defn make-fastcallable
+  "Make an auto-disposable fastcallable object that will override the IFn interface and
+  always use the fastcall pathways.  This object *must* be closed and thus should be used
+  in a with-open scenario but there is no need to specifically allocate fastcall context
+  objects.
+
+  See [[fastcall]] for more information."
+  ^AutoCloseable [item]
+  (py-ffi/with-gil
+    (when-not (= 1 (py-ffi/PyCallable_Check item))
+      (throw (Exception. "Item passed in does not appear to be a callable python object")))
+    (reify-fastcallable item)))
 
 
 (defn key-sym-str->str
