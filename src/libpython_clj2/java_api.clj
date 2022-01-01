@@ -6,6 +6,14 @@
   have great runtime characteristics in comparison to any other java python engine.
 
 
+  Note that you can pass java objects into python.  An implementation of java.util.Map will
+  appear to python as a dict-like object an implementation of java.util.List will look
+  like a sequence and if the thing is iterable then it will be iterable in python.
+  To receive callbacks from python you can provide an implementation of the
+  interface `clojure.lang.IFn` - see `clojure.lang.AFn` for a base class that makes this
+  easier.
+
+
   Performance:
 
   * `fastcall` - For the use case of repeatedly calling a single function, for instance
@@ -60,6 +68,8 @@
              #^{:static true} [call [Object Object Object] Object]
              #^{:static true} [call [Object Object Object Object] Object]
              #^{:static true} [call [Object Object Object Object Object] Object]
+             #^{:static true} [call [Object Object Object Object Object Object] Object]
+             #^{:static true} [call [Object Object Object Object Object Object Object] Object]
              #^{:static true} [allocateFastcallContext [] Object]
              #^{:static true} [releaseFastcallContext [Object] Object]
              ;;args require context
@@ -72,9 +82,7 @@
              #^{:static true} [copyToPy [Object] Object]
              #^{:static true} [copyToJVM [Object] Object]
              #^{:static true} [createArray [String Object Object] Object]
-             #^{:static true} [arrayToJVM [Object] java.util.Map]
-
-             ]))
+             #^{:static true} [arrayToJVM [Object] java.util.Map]]))
 
 
 (set! *warn-on-reflection* true)
@@ -211,16 +219,17 @@
 
 
 (defn -callPos
-  "Call a python callable with keyword arguments.  Note that you don't need this pathway
-  to call python methods if you do not need keyword arguments; if the python object is
-  callable then it will implement `clojure.lang.IFn` and you can use `invoke`."
+  "Call a python callable with only positional arguments.  Note that you don't need this pathway
+  to call python methods - you can also cast the python object to `clojure.lang.IFn` and call
+  `invoke` directly."
   [pyobj pos-args]
   (apply pyobj pos-args))
 
 
 (defn -call
-  "Call a python callable.  Note this can also be done by by calling the python object's
-  implementation of clojure.lang.IFn directly.  Overloaded for up to 4 arities."
+  "Call a clojure `IFn` object.  Python callables implement this interface so this works for
+  python objects.  This is a convenience method around casting implementation of
+  `clojure.lang.IFn` and calling `invoke` directly."
   ([item]
    (item))
   ([item arg1]
@@ -231,7 +240,10 @@
    (item arg1 arg2 arg3))
   ([item arg1 arg2 arg3 arg4]
    (item arg1 arg2 arg3 arg4))
-  ([item arg1 arg2 arg3 arg4 & args]))
+  ([item arg1 arg2 arg3 arg4 arg5]
+   (item item arg1 arg2 arg3 arg4 arg5))
+  ([item arg1 arg2 arg3 arg4 arg5 arg6]
+   (item item arg1 arg2 arg3 arg4 arg5 arg6)))
 
 
 (defn -allocateFastcallContext
@@ -256,7 +268,9 @@
   fastcall context with [[-releaseFastcallContext]].
 
   Current overloads support arities up to 4 arguments.  You must not use the same context
-  with different arities - contexts are allocated in an arity-specific manner."
+  with different arities - contexts are allocated in an arity-specific manner.
+
+  For a more condensed version see [[makeFastcallable]]."
   ([ctx item]
    ;;ctx is unused but placed here to allow rapid search/replace to be correct.
    (@fastcall* item))
@@ -273,8 +287,8 @@
 (defn -makeFastcallable
   "Given a normal python callable, make a fastcallable object that needs to be closed.
   This should be seen as a callsite optimization for repeatedly calling a specific python
-  function in a tight loop.  It is not intended to be used in a context where you will
-  then pass this object around as this is not a reentrant optimization.
+  function in a tight loop with positional arguments.  It is not intended to be used in a
+  context where you will then pass this object around as this is not a reentrant optimization.
 
 ```java
   try (AutoCloseable fastcaller = java_api.makeFastcallable(pycallable)) {
@@ -302,7 +316,11 @@
 
 (defn -createArray
   "Create a numpy array from a tuple of string datatype, shape and data.
-  * `datatype` - One of \"int8\" \"uint8\"  "
+  * `datatype` - One of \"int8\" \"uint8\" \"int16\" \"uint16\" \"int32\" \"uint32\"
+  \"int64\" \"uint64\" \"float32\" \"float64\".
+  * `shape` - integer array of shapes.
+  * `data` - list or array of data.  This will of course be fastest if the datatype
+  of the array matches the datatype."
   [datatype shape data]
   (let [reshape (Clojure/var "tech.v3.tensor" "reshape")
         ->python (Clojure/var "libpython-clj2" "->python")]
