@@ -201,7 +201,7 @@ Python eval pathway calls/ms 2646.0478013509883
     typeset))
 
 
-(defn- to-python
+#_(defn- to-python
   "Support for auto-converting primitive arrays and array-of-arrays into python."
   [item]
   (let [item-type (type item)]
@@ -250,7 +250,7 @@ Python eval pathway calls/ms 2646.0478013509883
                pydict-setitem (Clojure/var "libpython-clj2.python.ffi"
                                            "PyDict_SetItem")]
            (fn [dict k v]
-             (let [v (untracked->python v to-python)]
+             (let [v (untracked->python v ->python)]
                (pydict-setitem dict k v)
                (decref v))))))
 
@@ -361,9 +361,8 @@ Python eval pathway calls/ms 2646.0478013509883
   not lock/unlock it for you.
 
   In addition to numbers and strings, this method can take an implementation of
-  `clojure.lang.IFn` that will be converted to a python callable, primitive arrays which
-  will be converted to numpy arrays and primitive array-of-arrays which, if all inner
-  arrays are non-nil and have matching lengths, will be converted to a numpy matrix."
+  `clojure.lang.IFn` that will be converted to a python callable, arrays and lists
+  will be converted to python lists.  If you would like numpy arrays use [[-createArray]]."
   [^String varname varval]
   (@fast-dict-set-item* @globals* (cached-string varname) varval)
   nil)

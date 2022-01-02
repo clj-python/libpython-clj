@@ -33,9 +33,7 @@
                                      libpython-clj2.python.np-array
                                      libpython-clj2.require
                                      libpython-clj2.embedded
-                                     libpython-clj2.java-api
-                                     python.builtins
-                                     python.numpy]}}
+                                     libpython-clj2.java-api]}}
            :test
            {:extra-deps {com.cognitect/test-runner
                          {:git/url "https://github.com/cognitect-labs/test-runner"
@@ -50,7 +48,7 @@
             :exec-fn hf.depstar/jar
             :exec-args {:group-id "clj-python"
                         :artifact-id "libpython-clj"
-                        :version "2.012"
+                        :version "2.013"
                         :sync-pom true
                         :aot true
                         :compile-ns [libpython-clj2.java-api]
