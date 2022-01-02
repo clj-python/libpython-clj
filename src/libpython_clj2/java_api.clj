@@ -56,7 +56,7 @@ Python eval pathway calls/ms 2646.0478013509883
   dims.add(3);
   Object npArray = java_api.call(ones, dims); //see fastcall notes above
 ```"
-  (:import [java.util Map Map$Entry List HashMap LinkedHashMap]
+  (:import [java.util Map Map$Entry List HashMap LinkedHashMap Set HashSet]
            [java.util.function Supplier]
            [clojure.java.api Clojure]
            [com.google.common.cache CacheBuilder RemovalListener])
@@ -157,17 +157,103 @@ Python eval pathway calls/ms 2646.0478013509883
                                      (->python data))))))
 
 
+(declare -createArray)
+
+
+(def ^{:tag 'Map
+       :private true}
+  primitive-arrays
+  (let [base-arrays [[(byte-array 0) {:length #(alength ^bytes %)
+                                      :datatype "int8"}]
+                     [(short-array 0) {:length #(alength ^shorts %)
+                                       :datatype "int16"}]
+                     [(int-array 0) {:length #(alength ^ints %)
+                                     :datatype "int32"}]
+                     [(long-array 0) {:length #(alength ^longs %)
+                                      :datatype "int64"}]
+                     [(float-array 0) {:length #(alength ^floats %)
+                                       :datatype "float32"}]
+                     [(double-array 0) {:length #(alength ^doubles %)
+                                        :datatype "float64"}]]
+        typeset (HashMap.)]
+    (doseq [[ary getter] base-arrays]
+      (.put typeset (type ary) getter))
+    typeset))
+
+
+(def ^{:tag 'Set
+       :private true}
+  array-types
+  (let [base-arrays [(byte-array 0)
+                     (short-array 0)
+                     (int-array 0)
+                     (long-array 0)
+                     (float-array 0)
+                     (double-array 0)]
+        array-of-arrays (->> base-arrays
+                             (map (fn [ary]
+                                    (into-array [ary]))))
+        typeset (HashSet.)]
+
+    (doseq [t array-of-arrays]
+      (.add typeset (type t)))
+    (.addAll typeset (.keySet primitive-arrays))
+    typeset))
+
+
+(defn- to-python
+  "Support for auto-converting primitive arrays and array-of-arrays into python."
+  [item]
+  (let [item-type (type item)]
+    (if (.contains array-types item-type)
+      (if-let [len-getter (get primitive-arrays item-type)]
+        (-createArray (len-getter :datatype)
+                      [((len-getter :length) item)]
+                      item)
+        ;;potential 2d array if all lengths match
+        (let [^objects item item
+              item-len (alength item)
+              [datatype shape]
+              (when-let [fitem (when-not (== 0 item-len)
+                                 (aget item 0))]
+                (let [ary-entry (get primitive-arrays (type fitem))
+                      inner-len (get ary-entry :length)
+                      ary-dt (get ary-entry :datatype)
+                      fitem-len (unchecked-long (inner-len fitem))
+                      matching?
+                      (loop [idx 1
+                             matching? true]
+                        (if (< idx item-len)
+                          (recur (unchecked-inc idx)
+                                 (and matching?
+                                      (== fitem-len
+                                          (unchecked-long
+                                           (if-let [inner-item (aget item idx)]
+                                             (inner-len inner-item)
+                                             0)))))
+                          matching?))]
+                  (when matching?
+                    [ary-dt [item-len fitem-len]])))]
+          (if shape
+            (-createArray datatype shape item)
+            ;;slower fallback for ragged arrays
+            (@->python* item))))
+      (@->python* item))))
+
+
 (def ^:private fast-dict-set-item*
   (delay (let [untracked->python (Clojure/var "libpython-clj2.python.ffi"
                                               "untracked->python")
+               ->python @->python*
                decref (Clojure/var "libpython-clj2.python.ffi"
                                    "Py_DecRef")
                pydict-setitem (Clojure/var "libpython-clj2.python.ffi"
                                            "PyDict_SetItem")]
            (fn [dict k v]
-             (let [v (untracked->python v)]
+             (let [v (untracked->python v to-python)]
                (pydict-setitem dict k v)
                (decref v))))))
+
 
 (defn- cached-string
   [strval]
@@ -450,10 +536,13 @@ Example:
   \"int64\" \"uint64\" \"float32\" \"float64\".
   * `shape` - integer array of dimension e.g. `[2,3]`.
   * `data` - list or array of data.  This will of course be fastest if the datatype
-  of the array matches the requested datatype."
+  of the array matches the requested datatype.
+
+  This does work with array-of-array structures assuming the shape is correct but those
+  will be slower than a single primitive array and a shape."
   [datatype shape data]
   (let [reshape (Clojure/var "tech.v3.tensor" "reshape")
-        ->python (Clojure/var "libpython-clj2" "->python")]
+        ->python @->python*]
     (-> ((Clojure/var "tech.v3.tensor" "->tensor") data :datatype (keyword datatype))
         (reshape shape)
         (->python))))
@@ -480,6 +569,9 @@ Example:
   and the jvm array must match.
 
   Note this copies *from* the first argument *to* the second argument -- this is reverse the
-  normal memcpy argument order!!.  Returns the destination (to) argument."
+  normal memcpy argument order!!.  Returns the destination (to) argument.
+
+  Not this does *not* work with array-of-arrays.  It will work with, for instance,
+  a numpy matrix of shape [2, 2] and an double array of length 4."
   [from to]
   (@copyfn* from to))

@@ -601,26 +601,29 @@ Each call must be matched with PyGILState_Release"}
 
 
 (defn untracked->python
-  ^Pointer [item & [conversion-fallback]]
-  (cond
-    (instance? Pointer item)
-    (-> (if (.isNil ^Pointer item)
-          (py-none)
-          item)
-        (incref))
-    (instance? Number item) (if (integer? item)
-                              (PyLong_FromLongLong (long item))
-                              (PyFloat_FromDouble (double item)))
-    (instance? Boolean item) (-> (if item (py-true) (py-false))
-                                 (incref))
-    (instance? String item) (PyUnicode_FromString item)
-    (instance? Keyword item) (PyUnicode_FromString (name item))
-    (instance? Symbol item) (PyUnicode_FromString (name item))
-    (nil? item) (incref (py-none))
-    :else
-    (if conversion-fallback
-      (incref (conversion-fallback item))
-      (throw (Exception. "Unable to convert value %s" item)))))
+  ^Pointer
+  ([item conversion-fallback]
+   (cond
+     (instance? Pointer item)
+     (-> (if (.isNil ^Pointer item)
+           (py-none)
+           item)
+         (incref))
+     (instance? Number item) (if (integer? item)
+                               (PyLong_FromLongLong (long item))
+                               (PyFloat_FromDouble (double item)))
+     (instance? Boolean item) (-> (if item (py-true) (py-false))
+                                  (incref))
+     (instance? String item) (PyUnicode_FromString item)
+     (instance? Keyword item) (PyUnicode_FromString (name item))
+     (instance? Symbol item) (PyUnicode_FromString (name item))
+     (nil? item) (incref (py-none))
+     :else
+     (if conversion-fallback
+       (incref (conversion-fallback item))
+       (throw (Exception. (format "Unable to convert value %s" item))))))
+  ([item]
+   (untracked->python item nil)))
 
 
 (defn untracked-tuple

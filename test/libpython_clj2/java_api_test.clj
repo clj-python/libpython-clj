@@ -1,6 +1,7 @@
 (ns libpython-clj2.java-api-test
   (:require [libpython-clj2.java-api :as japi]
             [libpython-clj2.python.ffi :as py-ffi]
+            [libpython-clj2.python :as py]
             [tech.v3.datatype.jvm-map :as jvm-map]
             [clojure.test :refer [deftest is]]))
 
@@ -12,6 +13,13 @@
     (is (= 5 (japi/-getGlobal "data")))
     (japi/-setGlobal "data" 6)
     (is (= 6 (japi/-getGlobal "data")))
+    (japi/-setGlobal "bdata" (byte-array (range 100)))
+    (is (= :ndarray (py/python-type (japi/-getGlobal "bdata"))))
+    (japi/-setGlobal "bdata" (into-array (repeat 4 (byte-array (range 100)))))
+    (is (= :ndarray (py/python-type (japi/-getGlobal "bdata"))))
+    (japi/-setGlobal "bdata" (into-array (concat (repeat 4 (byte-array (range 100)))
+                                                 [(byte-array (range 10))])))
+    (is (not= :ndarray (py/python-type (japi/-getGlobal "bdata"))))
 
     (let [np (japi/-importModule "numpy")
           ones-fn (japi/-getAttr np "ones")
