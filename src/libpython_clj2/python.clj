@@ -502,6 +502,44 @@ user> (py/call-attr inst \"addarg\" 10)
   (apply py-fn/afn item attr args))
 
 
+(defn make-fastcallable
+  "Wrap a python callable such that calling it in a tight loop with purely positional
+  arguments is a bit (2x-3x) faster.
+
+  Example:
+
+```clojure
+user> (def test-fn (-> (py/run-simple-string \"def spread(bid,ask):\n\treturn bid-ask\n\n\")
+                       (get :globals)
+                       (get \"spread\")))
+#'user/test-fn
+user> test-fn
+<function spread at 0x7f330c046040>
+user> (py/with-gil (time (dotimes [iter 10000]
+                           (test-fn 1 2))))
+\"Elapsed time: 85.140418 msecs\"
+nil
+user> (py/with-gil (time (dotimes [iter 10000]
+                           (test-fn 1 2))))
+\"Elapsed time: 70.894275 msecs\"
+nil
+user> (with-open [test-fn (py/make-fastcallable test-fn)]
+        (py/with-gil (time (dotimes [iter 10000]
+                             (test-fn 1 2)))))
+
+\"Elapsed time: 39.442622 msecs\"
+nil
+user> (with-open [test-fn (py/make-fastcallable test-fn)]
+        (py/with-gil (time (dotimes [iter 10000]
+                             (test-fn 1 2)))))
+
+\"Elapsed time: 35.492965 msecs\"
+nil
+```"
+  ^java.lang.AutoCloseable [item]
+  (py-fn/make-fastcallable item))
+
+
 (defmacro with
   "Support for the 'with' statement in python:
   (py/with [item (py/call-attr testcode-module \"WithObjClass\" true fn-list)]

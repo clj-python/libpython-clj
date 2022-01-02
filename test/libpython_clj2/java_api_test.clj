@@ -22,10 +22,16 @@
       (is (= (vec (repeat 6 1.0))
              (vec (get jvm-data "data"))))
       (let [base-data (japi/-callKw ones-fn [[2 3]] {"dtype" "int32"})
-            jvm-data (japi/-arrayToJVM base-data)]
+            jvm-data (japi/-arrayToJVM base-data)
+            data-ary (get jvm-data "data")]
         (is (= "int32" (get jvm-data "datatype")))
         (is (= (vec (repeat 6 1))
-               (vec (get jvm-data "data"))))))
+               (vec data-ary)))
+        (java.util.Arrays/fill ^ints data-ary 25)
+        (japi/-copyData data-ary base-data)
+        (let [jvm-data (japi/-arrayToJVM base-data)]
+          (is (= (vec (repeat 6 25))
+                 (vec (get jvm-data "data")))))))
     (try
       (let [test-fn (-> (japi/-runStringAsFile "def calcSpread(bid,ask):\n\treturn bid-ask\n\n")
                         (get "calcSpread"))

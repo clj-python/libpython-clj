@@ -342,9 +342,11 @@
   `(let [~'ctx-list (object-array max-fastcall-args)]
      (reify
        AutoCloseable
-       (close [this#] (dotimes [idx# (alength ~'ctx-list)]
-                        (release-fastcall-context (aget ~'ctx-list idx#))
-                        (aset ~'ctx-list idx# nil)))
+       (close [this#]
+         (py-ffi/with-gil
+           (dotimes [idx# (alength ~'ctx-list)]
+             (release-fastcall-context (aget ~'ctx-list idx#))
+             (aset ~'ctx-list idx# nil))))
        clojure.lang.IFn
        (invoke [this#] (fastcall ~item))
        ~@(->> (range 1 (inc max-fastcall-args))

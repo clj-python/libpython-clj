@@ -10,26 +10,39 @@
   appear to python as a dict-like object an implementation of java.util.List will look
   like a sequence and if the thing is iterable then it will be iterable in python.
   To receive callbacks from python you can provide an implementation of the
-  interface `clojure.lang.IFn` - see `clojure.lang.AFn` for a base class that makes this
-  easier.
+  interface [clojure.lang.IFn](https://clojure.github.io/clojure/javadoc/clojure/lang/IFn.html)
+  - see [clojure.lang.AFn](https://github.com/clojure/clojure/blob/master/src/jvm/clojure/lang/AFn.java) for a base class that makes this easier.
 
 
   Performance:
 
-  * `fastcall` - For the use case of repeatedly calling a single function, for instance
-  for each row of a table or in a tight loop, use `allocateFastcallContext` before the loop,
-  use fastcall to call your function noting that it takes an additional context parameter
-  the user can pass in as the first argument, and use `releaseFastcallContext` afterwords.  This
-  pathway eliminates nearly all of the overhead of calling python from Java and uses the
-  absolutely minimal number of C api calls in order to call a python function.  This is
-  about twice as fast as using the generic architecture to call a python function.
+  There are a two logical ways to repeatedly invoking python functionality.  The first is
+  to set some globals and repeatedly [[runStringAsInput]] a script.  The second is
+  'exec'ing a script, finding an exported function in the global dict and calling
+  that.  With libpython-clj, the second pathway -- repeatedly calling a function --
+  is going to be faster than the first if the user makes a fastcallable out of the function
+  to be invoked.  Here are some sample timings for an extremely simple function with two
+  arguments:
 
-  * `makeFastcallable` - A simplified version of fastcall to be used with try-with-resources.
-  This is a safer but equally-as-fast pathway as `fastcall`.
+
+```console
+Python fn calls/ms 1923.2490094806021
+Python fastcallable calls/ms 3776.767751742239
+Python eval pathway calls/ms 2646.0478013509883
+```
+
+
+  * [[makeFastcallable]] - - For the use case of repeatedly calling a single function - this
+  will cache the argument tuple for repeated use as opposed to allocating the argument tuple
+  every call.  This can be a surprising amount faster -- 2x-3x -- than directly calling the
+  python callable.  Once a fastcallable object is made you can either cast it to a
+  [clojure.lang.IFn](https://clojure.github.io/clojure/javadoc/clojure/lang/IFn.html)
+  or call it via the provided `call` static method.
+
 
   * HAIR ON FIRE MODE - If you are certain you are correctly calling lockGIL and unlockGIL
   then you can define a variable, `-Dlibpython_clj.manual_gil=true` that will disable
-  automatic GIL lock/unlock system and correctness checking.  This is useful, for instance,
+  automatic GIL lock/unlock system and gil correctness checking.  This is useful, for instance,
   if you are going to lock libpython-clj to a thread and control all access to it yourself.
   This pathway will get at most 10% above using fastcall by itself.
 
@@ -43,16 +56,17 @@
   dims.add(3);
   Object npArray = java_api.call(ones, dims); //see fastcall notes above
 ```"
-  (:import [java.util Map Map$Entry List HashMap]
+  (:import [java.util Map Map$Entry List HashMap LinkedHashMap]
            [java.util.function Supplier]
-           [clojure.java.api Clojure])
+           [clojure.java.api Clojure]
+           [com.google.common.cache CacheBuilder RemovalListener])
   (:gen-class
    :name libpython_clj2.java_api
    :main false
    :methods [#^{:static true} [initialize [java.util.Map] Object]
+             #^{:static true} [initializeEmbedded [] Object]
              #^{:static true} [lockGIL [] long]
              #^{:static true} [unlockGIL [long] Object]
-             #^{:static true} [inPyContext [java.util.function.Supplier] Object]
              #^{:static true} [hasAttr [Object String] Boolean]
              #^{:static true} [getAttr [Object String] Object]
              #^{:static true} [setAttr [Object String Object] Object]
@@ -65,7 +79,6 @@
              #^{:static true} [runStringAsFile [String] java.util.Map]
              #^{:static true} [importModule [String] Object]
              #^{:static true} [callKw [Object java.util.List java.util.Map] Object]
-             #^{:static true} [callPos [Object java.util.List] Object]
              #^{:static true} [call [Object] Object]
              #^{:static true} [call [Object Object] Object]
              #^{:static true} [call [Object Object Object] Object]
@@ -85,51 +98,66 @@
              #^{:static true} [copyToPy [Object] Object]
              #^{:static true} [copyToJVM [Object] Object]
              #^{:static true} [createArray [String Object Object] Object]
-             #^{:static true} [arrayToJVM [Object] java.util.Map]]))
+             #^{:static true} [arrayToJVM [Object] java.util.Map]
+             #^{:static true} [copyData [Object Object] Object]]
+   ))
 
 
 (set! *warn-on-reflection* true)
 
 
-(def requires* (delay
-                 (let [require (Clojure/var "clojure.core" "require")]
-                   (doseq [clj-ns ["tech.v3.datatype"
-                                   "tech.v3.tensor"
-                                   "libpython-clj2.python"
-                                   "libpython-clj2.python.fn"
-                                   "libpython-clj2.python.ffi"
-                                   "libpython-clj2.python.gc"
-                                   "libpython-clj2.python.np-array"]]
-                     (require (Clojure/read clj-ns))))))
+(def ^:private requires* (delay
+                           (let [require (Clojure/var "clojure.core" "require")]
+                             (doseq [clj-ns ["tech.v3.datatype"
+                                             "tech.v3.tensor"
+                                             "libpython-clj2.python"
+                                             "libpython-clj2.python.fn"
+                                             "libpython-clj2.python.ffi"
+                                             "libpython-clj2.python.gc"
+                                             "libpython-clj2.python.np-array"]]
+                               (require (Clojure/read clj-ns))))))
 
 
-(def ->python* (delay (Clojure/var "libpython-clj2.python" "->python")))
-(def fastcall* (delay (Clojure/var "libpython-clj2.python.fn" "fastcall")))
-(def allocate-fastcall-context* (delay (Clojure/var "libpython-clj2.python.fn" "allocate-fastcall-context")))
-(def release-fastcall-context* (delay (Clojure/var "libpython-clj2.python.fn" "release-fastcall-context")))
-(def make-fastcallable* (delay (Clojure/var "libpython-clj2.python.fn" "make-fastcallable")))
-(def check-error-throw* (delay (Clojure/var "libpython-clj2.python.ffi" "check-error-throw")))
-(def simplify-or-track* (delay (Clojure/var "libpython-clj2.python.ffi" "simplify-or-track")))
-(def as-jvm* (delay (Clojure/var "libpython-clj2.python" "as-jvm")))
-(def eval-code* (delay (Clojure/var "libpython-clj2.python.ffi" "PyEval_EvalCode")))
-(def untracked->python* (delay (Clojure/var "libpython-clj2.python.ffi" "untracked->python")))
+(def ^:private ->python* (delay (Clojure/var "libpython-clj2.python" "->python")))
+(def ^:private fastcall* (delay (Clojure/var "libpython-clj2.python.fn" "fastcall")))
+(def ^:private allocate-fastcall-context* (delay (Clojure/var "libpython-clj2.python.fn" "allocate-fastcall-context")))
+(def ^:private release-fastcall-context* (delay (Clojure/var "libpython-clj2.python.fn" "release-fastcall-context")))
+(def ^:private make-fastcallable* (delay (Clojure/var "libpython-clj2.python.fn" "make-fastcallable")))
+(def ^:private check-error-throw* (delay (Clojure/var "libpython-clj2.python.ffi" "check-error-throw")))
+(def ^:private simplify-or-track* (delay (Clojure/var "libpython-clj2.python.ffi" "simplify-or-track")))
+(def ^:private as-jvm* (delay (Clojure/var "libpython-clj2.python" "as-jvm")))
+(def ^:private eval-code* (delay (Clojure/var "libpython-clj2.python.ffi" "PyEval_EvalCode")))
+(def ^:private untracked->python* (delay (Clojure/var "libpython-clj2.python.ffi" "untracked->python")))
+(def ^:private decref* (delay (Clojure/var "libpython-clj2.python.ffi" "Py_DecRef")))
 
-(def ^{:tag HashMap} string-cache (HashMap.))
+
+(defn- decref-lru-cache
+  ^Map [^long max-size]
+  (let [builder (CacheBuilder/newBuilder)]
+    (.maximumSize builder max-size)
+    (.removalListener builder (reify RemovalListener
+                                (onRemoval [this notification]
+                                  (@decref* (.getValue notification)))))
+    (-> (.build builder)
+        (.asMap))))
+
+
+(def ^{:tag Map :private true} string-cache (decref-lru-cache 1024))
 (declare -lockGIL -unlockGIL)
-(def globals*
+(def ^:private globals*
   (delay
     (let [gstate (-lockGIL)
           main-mod ((Clojure/var "libpython-clj2.python.ffi" "PyImport_AddModule") "__main__")]
       (-> ((Clojure/var "libpython-clj2.python.ffi" "PyModule_GetDict") main-mod)
           (@as-jvm*)))))
 
-(def strcomp* (delay (let [->python @->python*]
-                       (reify java.util.function.Function
-                         (apply [this data]
-                           (->python data))))))
+(def ^:private strcomp* (delay (let [->python @->python*]
+                                 (reify java.util.function.Function
+                                   (apply [this data]
+                                     (->python data))))))
 
 
-(def fast-dict-set-item*
+(def ^:private fast-dict-set-item*
   (delay (let [untracked->python (Clojure/var "libpython-clj2.python.ffi"
                                               "untracked->python")
                decref (Clojure/var "libpython-clj2.python.ffi"
@@ -147,18 +175,19 @@
     (.computeIfAbsent string-cache strval @strcomp*)))
 
 
-(def ^{:tag HashMap} compile-cache (HashMap.))
+(def ^{:tag Map :private true} compile-cache (decref-lru-cache 1024))
 
-(def compiler* (delay
-                 (let [compile-fn (Clojure/var "libpython-clj2.python.ffi"
-                                               "Py_CompileString")]
-                   (reify java.util.function.Function
-                     (apply [this [strdata run-type]]
-                       (compile-fn strdata "unnamed.py" (case run-type
-                                                          :file 257
-                                                          :input 258)))))))
+(def ^:private compiler*
+  (delay
+    (let [compile-fn (Clojure/var "libpython-clj2.python.ffi"
+                                  "Py_CompileString")]
+      (reify java.util.function.Function
+        (apply [this [strdata run-type]]
+          (compile-fn strdata "unnamed.py" (case run-type
+                                             :file 257
+                                             :input 258)))))))
 
-(defn compile-string
+(defn- compile-string
   [strval run-type]
   (when strval
     (.computeIfAbsent compile-cache [strval run-type] @compiler*)))
@@ -178,9 +207,18 @@
                         [(keyword (.getKey entry)) (.getValue entry)])))))
 
 
+(defn -initializeEmbedded
+  "Initialize python when this library is being called *from* a python program.  In
+  that case the system will look for the python symbols in the current executable.
+  See the [embedded topic](https://clj-python.github.io/libpython-clj/embedded.html)"
+  []
+  @requires*
+  ((Clojure/var "libpython-clj2.python.ffi" "set-library!") nil))
+
+
 (defn -lockGIL
   "Attempt to lock the gil.  This is safe to call in a reentrant manner.
-  Returns an long representing the gil state that must be passed into unlockGIL.
+  Returns a long representing the gil state that must be passed into unlockGIL.
 
   See documentation for [pyGILState_Ensure](https://docs.python.org/3/c-api/init.html#c.PyGILState_Ensure).
 
@@ -196,14 +234,6 @@
   be paired to a call to unlockGIL."
   [gilstate]
   ((Clojure/var "libpython-clj2.python.ffi" "unlock-gil") gilstate))
-
-
-(defn -inPyContext
-  "Run some code in a python context where all python objects allocated within the context
-  will be deallocated once the context is released.  The code must not return references
-  to live python objects."
-  [^Supplier fn]
-  ((Clojure/var "libpython-clj2.python" "in-py-ctx") fn))
 
 
 (defn -hasAttr
@@ -257,7 +287,8 @@
 
 (defn -runStringAsInput
   "Run a string returning the result of the last expression.  Strings are compiled and
-  live for the life of the interpreter.
+  live for the life of the interpreter.  This is the equivalent to the python
+  [eval](https://docs.python.org/3/library/functions.html#eval) call.
 
   This function expects the GIL to be locked - it will not lock/unlock it for you.
 
@@ -267,8 +298,7 @@
   java_api.setGlobal(\"bid\", 1);
   java_api.setGlobal(\"ask\", 2);
   java_api.runStringAsInput(\"bid-ask\"); //Returns -1
-```
-  "
+```"
   [strdata]
   (let [pyobj (compile-string strdata :input)]
     (when-not pyobj
@@ -279,18 +309,20 @@
 
 (defn -runStringAsFile
   "Run a string returning the result of the last expression.  Strings are compiled and
-  live for the life of the interpreter.
+  live for the life of the interpreter.  This is the equivalent to the python
+  [exec](https://docs.python.org/3/library/functions.html#exec) all.
 
   The global context is returned as a java map.
 
   This function expects the GIL to be locked - it will not lock/unlock it for you.
 
+Example:
+
 ```java
    Map globals = java_api.runStringAsFile(\"def calcSpread(bid,ask):\n\treturn bid-ask\n\n\");
    Object spreadFn = globals.get(\"calcSpread\");
-   java_api.call(spreadFn, 1 2); // Returns -1
-```
-  "
+   java_api.call(spreadFn, 1, 2); // Returns -1
+```"
   [strdata]
   (let [pyobj (compile-string strdata :file)]
     (when-not pyobj
@@ -309,7 +341,7 @@
 (defn -callKw
   "Call a python callable with keyword arguments.  Note that you don't need this pathway
   to call python methods if you do not need keyword arguments; if the python object is
-  callable then it will implement `clojure.lang.IFn` and you can use `invoke`."
+  callable then it will implement [clojure.lang.IFn](https://clojure.github.io/clojure/javadoc/clojure/lang/IFn.html) and you can use `invoke`."
   [pyobj pos-args kw-args]
   (let [gstate (-lockGIL)]
     (try
@@ -323,18 +355,11 @@
         (-unlockGIL gstate)))))
 
 
-(defn -callPos
-  "Call a python callable with only positional arguments.  Note that you don't need this pathway
-  to call python methods - you can also cast the python object to `clojure.lang.IFn` and call
-  `invoke` directly."
-  [pyobj pos-args]
-  (apply pyobj pos-args))
-
-
 (defn -call
   "Call a clojure `IFn` object.  Python callables implement this interface so this works for
   python objects.  This is a convenience method around casting implementation of
-  `clojure.lang.IFn` and calling `invoke` directly."
+  [clojure.lang.IFn](https://clojure.github.io/clojure/javadoc/clojure/lang/IFn.html) and
+  calling `invoke` directly."
   ([item]
    (item))
   ([item arg1]
@@ -351,14 +376,14 @@
    (item item arg1 arg2 arg3 arg4 arg5 arg6)))
 
 
-(defn -allocateFastcallContext
+(defn ^:no-doc -allocateFastcallContext
   "Allocate a fastcall context.  See docs for [[-fastcall]].  The returned context must be
   release via [[-releaseFastcallContext]]."
   []
   (@allocate-fastcall-context*))
 
 
-(defn -releaseFastcallContext
+(defn ^:no-doc -releaseFastcallContext
   "Release a fastcall context.  See docs for [[-fastcall]].  This is safe to call with
   null and to call multiple times on the same context."
   [ctx]
@@ -366,7 +391,7 @@
     (@release-fastcall-context* ctx)))
 
 
-(defn -fastcall
+(defn ^:no-doc -fastcall
   "Call a python function as fast as possible using a fixed number of positional arguments.
   The caller must provide an allocated fastcall context
   via [[-allocateFastcallContext]] and furthermore the caller may choose to deallocate the
@@ -397,7 +422,7 @@
 
 ```java
   try (AutoCloseable fastcaller = java_api.makeFastcallable(pycallable)) {
-     tightloop {
+     tightloop: {
        java_api.call(fastcaller, arg1, arg2);
      }
   }
@@ -423,9 +448,9 @@
   "Create a numpy array from a tuple of string datatype, shape and data.
   * `datatype` - One of \"int8\" \"uint8\" \"int16\" \"uint16\" \"int32\" \"uint32\"
   \"int64\" \"uint64\" \"float32\" \"float64\".
-  * `shape` - integer array of shapes.
+  * `shape` - integer array of dimension e.g. `[2,3]`.
   * `data` - list or array of data.  This will of course be fastest if the datatype
-  of the array matches the datatype."
+  of the array matches the requested datatype."
   [datatype shape data]
   (let [reshape (Clojure/var "tech.v3.tensor" "reshape")
         ->python (Clojure/var "libpython-clj2" "->python")]
@@ -436,9 +461,25 @@
 
 (defn -arrayToJVM
   "Copy (efficiently) a numeric numpy array into a jvm map containing keys \"datatype\",
-  \"shape\", and \"data\"."
+  \"shape\", and a jvm array \"data\" in flattened row-major form."
   [pyobj]
   (let [tens-data ((Clojure/var "libpython-clj2.python" "as-jvm") pyobj)]
     {"datatype" (name ((Clojure/var "tech.v3.datatype" "elemwise-datatype") tens-data))
      "shape" (int-array ((Clojure/var "tech.v3.datatype" "shape") tens-data))
      "data" ((Clojure/var "tech.v3.datatype" "->array") tens-data)}))
+
+
+(def ^:private copyfn* (delay (Clojure/var "tech.v3.datatype" "copy!")))
+
+
+(defn -copyData
+  "Copy data from a jvm container into a numpy array or back.  This allows you to use a fixed
+  preallocated set of numpy (and potentially jvm arrays) to transfer data back and forth
+  efficiently.  The most efficient transfer will be from a java primitive array that matches
+  the numeric type of the numpy array.  Also note the element count of the numpy array
+  and the jvm array must match.
+
+  Note this copies *from* the first argument *to* the second argument -- this is reverse the
+  normal memcpy argument order!!.  Returns the destination (to) argument."
+  [from to]
+  (@copyfn* from to))
