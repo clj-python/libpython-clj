@@ -1,4 +1,9 @@
 # Time for a ChangeLog!
+## 2.013
+ * Lots of changes and releases ironing out a java api with a user.  This is close but not
+   completely there yet so expect the java api to change a bit more.
+ * [make-fastcallable](https://clj-python.github.io/libpython-clj/libpython-clj2.python.html#var-make-fastcallable)
+
 ## 2.000
  * You can now create instance functions that accept both positional and keyword arguments -
    libpython-clj2.python/make-kw-instance-fn.  See test at

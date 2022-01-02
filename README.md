@@ -7,19 +7,23 @@
 
 
  ## New Versions Are HOT!  Huge New Features! You Can't Afford To Miss Out!
-
+ 
+ * [API Documentation](https://clj-python.github.io/libpython-clj/)
+ * [Java API](https://clj-python.github.io/libpython-clj/libpython-clj2.java-api.html) - you can use libpython-clj from java - no
+   Clojure required.  The class is included with the jar so just put the jar on the classpath and then `import libpython_clj2.java_api;`
+   will work.  Be sure to carefully read the namespace doc as, due to performance considerations, not all methods are 
+   protected via automatic GIL management.
+ * [make-fastcallable](https://clj-python.github.io/libpython-clj/libpython-clj2.python.html#var-make-fastcallable) so if you 
+   calling a small function repeatedly you can now call it about twice as fast.  A better optimization is to call
+   a function once with numpy array arguments but unfortunately not all use cases are amenable to this pathway.  So we
+   did what we can.
  * JDK-17 and Mac M-1 support.  To use libpython-clj2 with jdk-17 you need to enable the foreign module -
    see [deps.edn](https://github.com/clj-python/libpython-clj/blob/6e7368b44aaabddf565a5bbf3a240e60bf3dcbf8/deps.edn#L10)
    for a working alias.
  * You can now [Embed Clojure in Python](https://clj-python.github.io/libpython-clj/embedded.html) - you can launch a Clojure REPL from a Python host process.
- * Main namespace is now `libpython-clj2` -- docs have not been updated.
  * **32 bit support**!!
- * Partial support for JDK-16 - The tests pass for core Python functionality but numpy
-   failed to load - the JDK-16 dynamic library loading path is different than JNA and of
-   course this causes issues.
  * 20-30% better performance.
- * - Note - Please avoid deprecated versions such as `[cnuernber/libpython-clj "1.36"]` (***note name change***).
- * [API Documentation](https://clj-python.github.io/libpython-clj/)
+ * Please avoid deprecated versions such as `[cnuernber/libpython-clj "1.36"]` (***note name change***).
  * This library, which has received the efforts of many excellent people, is built mainly upon
    [cnuernber/dtype-next](https://github.com/cnuernber/dtype-next/) and the
    [JNA library](https://github.com/java-native-access/jna).
