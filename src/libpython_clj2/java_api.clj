@@ -358,7 +358,12 @@ Python eval pathway calls/ms 2646.0478013509883
 
 (defn -setGlobal
   "Set a value in the global dict.  This function expects the GIL to be locked - it will
-  not lock/unlock it for you."
+  not lock/unlock it for you.
+
+  In addition to numbers and strings, this method can take an implementation of
+  `clojure.lang.IFn` that will be converted to a python callable, primitive arrays which
+  will be converted to numpy arrays and primitive array-of-arrays which, if all inner
+  arrays are non-nil and have matching lengths, will be converted to a numpy matrix."
   [^String varname varval]
   (@fast-dict-set-item* @globals* (cached-string varname) varval)
   nil)
