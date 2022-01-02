@@ -126,6 +126,7 @@ Python eval pathway calls/ms 2646.0478013509883
 (def ^:private check-error-throw* (delay (Clojure/var "libpython-clj2.python.ffi" "check-error-throw")))
 (def ^:private simplify-or-track* (delay (Clojure/var "libpython-clj2.python.ffi" "simplify-or-track")))
 (def ^:private as-jvm* (delay (Clojure/var "libpython-clj2.python" "as-jvm")))
+(def ^:private ->jvm* (delay (Clojure/var "libpython-clj2.python" "->jvm")))
 (def ^:private eval-code* (delay (Clojure/var "libpython-clj2.python.ffi" "PyEval_EvalCode")))
 (def ^:private untracked->python* (delay (Clojure/var "libpython-clj2.python.ffi" "untracked->python")))
 (def ^:private decref* (delay (Clojure/var "libpython-clj2.python.ffi" "Py_DecRef")))
@@ -394,7 +395,8 @@ Python eval pathway calls/ms 2646.0478013509883
     (when-not pyobj
       (@check-error-throw*))
     (if-let [script-rt (@eval-code* pyobj @globals* @globals*)]
-      (@simplify-or-track* script-rt))))
+      (-> (@simplify-or-track* script-rt)
+          (@as-jvm*)))))
 
 
 (defn -runStringAsFile
