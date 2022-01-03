@@ -12,7 +12,8 @@
  * [Java API](https://clj-python.github.io/libpython-clj/libpython-clj2.java-api.html) - you can use libpython-clj from java - no
    Clojure required.  The class is included with the jar so just put the jar on the classpath and then `import libpython_clj2.java_api;`
    will work.  Be sure to carefully read the namespace doc as, due to performance considerations, not all methods are 
-   protected via automatic GIL management.
+   protected via automatic GIL management.  Note this integration includes support for extremely efficient data copies to numpy objects
+   and callbacks from python to java.
  * [make-fastcallable](https://clj-python.github.io/libpython-clj/libpython-clj2.python.html#var-make-fastcallable) so if you 
    calling a small function repeatedly you can now call it about twice as fast.  A better optimization is to call
    a function once with numpy array arguments but unfortunately not all use cases are amenable to this pathway.  So we
