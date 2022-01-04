@@ -16,7 +16,7 @@
 
   Performance:
 
-  There are a two logical ways to repeatedly invoking python functionality.  The first is
+  There are a two logical ways to repeatedly invoke python functionality.  The first is
   to set some globals and repeatedly [[runStringAsInput]] a script.  The second is
   'exec'ing a script, finding an exported function in the global dict and calling
   that.  With libpython-clj, the second pathway -- repeatedly calling a function --
@@ -47,17 +47,24 @@ Python eval pathway calls/ms 2646.0478013509883
   This pathway will get at most 10% above using fastcall by itself.
 
 
+  Example:
+
+
 ```java
   java_api.initialize(null);
-  np = java_api.importModule(\"numpy\");
-  Object ones = java_api.getAttr(np, \"ones\");
-  ArrayList dims = new ArrayList();
-  dims.add(2);
-  dims.add(3);
-  Object npArray = java_api.call(ones, dims); //see fastcall notes above
+  try (AutoCloseable locker = java_api.GILLocker()) {
+    np = java_api.importModule(\"numpy\");
+    Object ones = java_api.getAttr(np, \"ones\");
+    ArrayList dims = new ArrayList();
+    dims.add(2);
+    dims.add(3);
+    Object npArray = java_api.call(ones, dims); //see fastcall notes above
+    ...
+  }
 ```"
   (:import [java.util Map Map$Entry List HashMap LinkedHashMap Set HashSet]
            [java.util.function Supplier]
+           [java.lang AutoCloseable]
            [clojure.java.api Clojure]
            [com.google.common.cache CacheBuilder RemovalListener])
   (:gen-class
@@ -67,6 +74,7 @@ Python eval pathway calls/ms 2646.0478013509883
              #^{:static true} [initializeEmbedded [] Object]
              #^{:static true} [lockGIL [] long]
              #^{:static true} [unlockGIL [long] Object]
+             #^{:static true} [GILLocker [] java.lang.AutoCloseable]
              #^{:static true} [hasAttr [Object String] Boolean]
              #^{:static true} [getAttr [Object String] Object]
              #^{:static true} [setAttr [Object String Object] Object]
@@ -321,6 +329,23 @@ Python eval pathway calls/ms 2646.0478013509883
   be paired to a call to unlockGIL."
   [gilstate]
   ((Clojure/var "libpython-clj2.python.ffi" "unlock-gil") gilstate))
+
+
+(defn -GILLocker
+  "Lock the gil returning an AutoCloseable that will unlock the gil upon close.
+
+  Example:
+
+```java
+  try (AutoCloseable locker = java_api.GILLocker()) {
+    ... Do your python stuff.
+  }
+```"
+  ^AutoCloseable []
+  (let [gilstate (-lockGIL)]
+    (reify AutoCloseable
+      (close [this]
+        (-unlockGIL gilstate)))))
 
 
 (defn -hasAttr

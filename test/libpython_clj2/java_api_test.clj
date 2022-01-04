@@ -8,7 +8,7 @@
 
 (deftest base-japi-test
   (japi/-initialize nil)
-  (let [gilstate (japi/-lockGIL)]
+  (with-open [locker (japi/-GILLocker)]
     (japi/-runStringAsFile "data = 5")
     (is (= 5 (japi/-getGlobal "data")))
     (japi/-setGlobal "data" 6)
@@ -81,9 +81,7 @@
                   (japi/-runStringAsInput "bid-ask"))
               end-ns (System/nanoTime)
               ms (/ (- end-ns start-ns) 10e6)]
-          (println "Python setglobal pathway calls/ms" (/ n-calls ms))))
-      (finally
-        (japi/-unlockGIL gilstate)))))
+          (println "Python setglobal pathway calls/ms" (/ n-calls ms)))))))
 
 
 (defn only-string-input

@@ -1,4 +1,9 @@
 # Time for a ChangeLog!
+## 2.015
+ * java API has stabilized.
+ * [GILLocker](https://clj-python.github.io/libpython-clj/libpython-clj2.java-api.html#var--GILLocker) -
+ an auto-closeable pathway so you case use Java's try-with-resources or Clojure's with-open.
+
 ## 2.013
  * Lots of changes and releases ironing out a java api with a user.  This is close but not
    completely there yet so expect the java api to change a bit more.
