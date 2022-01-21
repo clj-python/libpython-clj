@@ -1,6 +1,6 @@
 {:paths ["src"]
  :deps {org.clojure/clojure  {:mvn/version "1.10.2" :scope "provided"}
-        cnuernber/dtype-next {:mvn/version "8.053"}
+        cnuernber/dtype-next {:mvn/version "8.062"}
         net.java.dev.jna/jna {:mvn/version "5.10.0"}
         org.clojure/data.json  {:mvn/version "1.0.0"}}
 
@@ -16,10 +16,8 @@
            {:extra-deps {codox-theme-rdash/codox-theme-rdash {:mvn/version "0.1.2"}
                          nrepl/nrepl {:mvn/version "0.8.3"}
                          cider/cider-nrepl {:mvn/version "0.25.5"}
-                         codox/codox {:mvn/version "0.10.7"
-                                      :exclusions [org.ow2.asm/asm-all]}}
-            :ns-default tech.v3.libs.lein-codox
-            :exec-fn tech.v3.libs.lein-codox/-main
+                         com.cnuernber/codox {:mvn/version "1.001"}}
+            :exec-fn codox.main/-main
             :exec-args {:arg-paths [[:aliases :depstar :exec-args]]
                         :description "Python bindings for Clojure"
                         :metadata {:doc/format :markdown}
@@ -48,7 +46,7 @@
             :exec-fn hf.depstar/jar
             :exec-args {:group-id "clj-python"
                         :artifact-id "libpython-clj"
-                        :version "2.015"
+                        :version "2.016"
                         :sync-pom true
                         :aot true
                         :compile-ns [libpython-clj2.java-api]

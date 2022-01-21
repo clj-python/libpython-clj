@@ -1,4 +1,8 @@
 # Time for a ChangeLog!
+## 2.016
+ * Upgrade dtype-next to latest version.  This version of dtype-next comes with it's own
+   java-api so you can integrate deeper into the zero-copy pathways.
+
 ## 2.015
  * java API has stabilized.
  * [GILLocker](https://clj-python.github.io/libpython-clj/libpython-clj2.java-api.html#var--GILLocker) -
