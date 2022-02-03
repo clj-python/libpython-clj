@@ -46,7 +46,7 @@
             :exec-fn hf.depstar/jar
             :exec-args {:group-id "clj-python"
                         :artifact-id "libpython-clj"
-                        :version "2.016"
+                        :version "2.017"
                         :sync-pom true
                         :aot true
                         :compile-ns [libpython-clj2.java-api]
@@ -56,6 +56,11 @@
             :exec-fn deps-deploy.deps-deploy/deploy
             :exec-args {:installer :remote
                         :sign-releases? true
+                        :artifact "target/libpython-clj.jar"}}
+           :install
+           {:replace-deps {slipset/deps-deploy {:mvn/version "0.1.5"}}
+            :exec-fn deps-deploy.deps-deploy/deploy
+            :exec-args {:installer :local
                         :artifact "target/libpython-clj.jar"}}
 
            }}

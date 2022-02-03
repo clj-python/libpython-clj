@@ -56,13 +56,12 @@
   (.write writer
           (format "
 
-(def %s (as-jvm/generic-callable-pyobject (py-global-delay (py/get-attr @src-obj* \"%s\"))))
-(alter-meta! #'%s assoc :doc \"%s\" :arglists '%s)"
+(def ^{:doc \"%s\" :arglists '%s} %s (as-jvm/generic-callable-pyobject (py-global-delay (py/get-attr @src-obj* \"%s\"))))"
+                  (get-docs v)
+                  (:arglists v)
                   clj-name
                   k
-                  clj-name
-                  (get-docs v)
-                  (:arglists v))))
+                  clj-name)))
 
 (defn- output-module-generic
   [^Writer writer clj-name k v vv]

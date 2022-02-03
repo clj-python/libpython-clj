@@ -1,4 +1,8 @@
 # Time for a ChangeLog!
+## 2.017
+ * Tested AOT and codegen of numpy namespace to ensure it is loadable and works as expected.
+ * This fixed an issue with the codegen system.
+
 ## 2.016
  * Upgrade dtype-next to latest version.  This version of dtype-next comes with it's own
    java-api so you can integrate deeper into the zero-copy pathways.

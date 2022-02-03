@@ -250,90 +250,89 @@
                     fn-name)))))
 
 
-(defn make-dict-att-map
+(defn- make-dict-att-map-delay
   [pyobj* attnames]
-  (let [dict-atts (set attnames)
-        gc-ctx (pygc/gc-context)]
-    (->> (py-proto/dir @pyobj*)
-         (filter dict-atts)
-         (map (juxt identity #(delay
-                                (pygc/with-gc-context gc-ctx
-                                  (py-proto/get-attr @pyobj* %)))))
-         (into {}))))
+  (delay
+    (let [dict-atts (set attnames)
+          gc-ctx (pygc/gc-context)]
+      (->> (py-proto/dir @pyobj*)
+           (filter dict-atts)
+           (map (juxt identity #(delay (pygc/with-gc-context gc-ctx
+                                         (py-proto/get-attr @pyobj* %)))))
+           (into {})))))
 
 
 (defn make-instance-pycall
   [pyobj* attnames]
-  (let [dict-att-map (make-dict-att-map pyobj* attnames)]
+  (let [dict-att-map* (make-dict-att-map-delay pyobj* attnames)]
     (fn [fn-name & args]
-      (py-ffi/with-gil (call-impl-fn fn-name dict-att-map args)))))
+      (py-ffi/with-gil (call-impl-fn fn-name @dict-att-map* args)))))
 
 
 
 (defn generic-python-as-map
   [pyobj*]
-  (with-gil
-    (let [py-call
-          (make-instance-pycall
-           pyobj*
-           #{"__len__" "__getitem__" "__setitem__" "__iter__" "__contains__"
-             "__eq__" "__hash__" "clear" "keys" "values" "__delitem__"})]
-      (bridge-pyobject
-       pyobj*
-       Map
-       (clear [item] (py-call "clear"))
-       (containsKey [item k] (boolean (py-call "__contains__" k)))
-       (entrySet
-        [this]
-        (py-ffi/with-gil
-          (->> (.iterator this)
-               iterator-seq
-               set)))
-       (get [this obj-key]
-            ;;Specifically return nil to match java map expectations
-            ;;and thus allow destructuring.
-            (when (py-call "__contains__" obj-key)
-              (py-call "__getitem__" obj-key)))
-       (getOrDefault [item obj-key obj-default-value]
-                     (if (.containsKey item obj-key)
-                       (.get item obj-key)
-                       obj-default-value))
-       (isEmpty [this] (= 0 (.size this)))
-       (keySet [this] (->> (py-call "keys")
-                           set))
-       (put [this k v]
-            (py-call "__setitem__" k v))
+  (let [py-call
+        (make-instance-pycall
+         pyobj*
+         #{"__len__" "__getitem__" "__setitem__" "__iter__" "__contains__"
+           "__eq__" "__hash__" "clear" "keys" "values" "__delitem__"})]
+    (bridge-pyobject
+     pyobj*
+     Map
+     (clear [item] (py-call "clear"))
+     (containsKey [item k] (boolean (py-call "__contains__" k)))
+     (entrySet
+      [this]
+      (py-ffi/with-gil
+        (->> (.iterator this)
+             iterator-seq
+             set)))
+     (get [this obj-key]
+          ;;Specifically return nil to match java map expectations
+          ;;and thus allow destructuring.
+          (when (py-call "__contains__" obj-key)
+            (py-call "__getitem__" obj-key)))
+     (getOrDefault [item obj-key obj-default-value]
+                   (if (.containsKey item obj-key)
+                     (.get item obj-key)
+                     obj-default-value))
+     (isEmpty [this] (= 0 (.size this)))
+     (keySet [this] (->> (py-call "keys")
+                         set))
+     (put [this k v]
+          (py-call "__setitem__" k v))
 
-       (remove [this k]
-               (py-call "__delitem__" k))
+     (remove [this k]
+             (py-call "__delitem__" k))
 
-       (size [this]
-             (int (py-call "__len__")))
-       (values [this]
-               (py-ffi/with-gil
-                 (-> (py-call "values")
-                     (vec))))
-       Iterable
-       (iterator
-        [this]
-        (let [mapentry-seq
-              (->> (python->jvm-iterator @pyobj* nil)
-                   iterator-seq
-                   (map (fn [pyobj-key]
-                          (with-gil
-                            (let [k (py-base/as-jvm pyobj-key)
-                                  v (.get this pyobj-key)
-                                  retval
-                                  (MapEntry. k v)]
-                              retval)))))]
+     (size [this]
+           (int (py-call "__len__")))
+     (values [this]
+             (py-ffi/with-gil
+               (-> (py-call "values")
+                   (vec))))
+     Iterable
+     (iterator
+      [this]
+      (let [mapentry-seq
+            (->> (python->jvm-iterator @pyobj* nil)
+                 iterator-seq
+                 (map (fn [pyobj-key]
+                        (with-gil
+                          (let [k (py-base/as-jvm pyobj-key)
+                                v (.get this pyobj-key)
+                                retval
+                                (MapEntry. k v)]
+                            retval)))))]
 
-          (.iterator ^Iterable mapentry-seq)))
-       IFn
-       (invoke [this arg] (.getOrDefault this arg nil))
-       (applyTo [this arglist]
-                (let [arglist (vec arglist)]
-                  (case (count arglist)
-                    1 (.get this (first arglist)))))))))
+        (.iterator ^Iterable mapentry-seq)))
+     IFn
+     (invoke [this arg] (.getOrDefault this arg nil))
+     (applyTo [this arglist]
+              (let [arglist (vec arglist)]
+                (case (count arglist)
+                  1 (.get this (first arglist))))))))
 
 
 (defmethod py-proto/pyobject-as-jvm :dict
@@ -343,34 +342,33 @@
 
 (defn generic-python-as-list
   [pyobj*]
-  (with-gil
-    (let [py-call (make-instance-pycall
-                  pyobj*
-                  #{"__len__" "__getitem__" "__setitem__" "__iter__" "__contains__"
-                    "__eq__" "__hash__" "clear" "insert" "pop" "append"
-                    "__delitem__" "sort"})]
-      (bridge-pyobject
-       pyobj*
-       ObjectBuffer
-       (lsize [reader]
-              (long (py-call "__len__")))
-       (readObject [reader idx]
-             (py-call "__getitem__" idx))
-       (sort [reader obj-com]
-             (when-not (= nil obj-com)
-               (throw (ex-info "Python lists do not support comparators" {})))
-             (py-call "sort"))
-       (writeObject [writer idx value]
-              (py-call "__setitem__" idx value))
-       (remove [writer ^int idx]
-               (py-call "__delitem__" idx)
-               true)
-       (add [mutable idx value]
-            (py-call "insert" idx value)
-            true)
-       (add [mutable value]
-            (.add mutable (.size mutable) value)
-            true)))))
+  (let [py-call (make-instance-pycall
+                 pyobj*
+                 #{"__len__" "__getitem__" "__setitem__" "__iter__" "__contains__"
+                   "__eq__" "__hash__" "clear" "insert" "pop" "append"
+                   "__delitem__" "sort"})]
+    (bridge-pyobject
+     pyobj*
+     ObjectBuffer
+     (lsize [reader]
+            (long (py-call "__len__")))
+     (readObject [reader idx]
+                 (py-call "__getitem__" idx))
+     (sort [reader obj-com]
+           (when-not (= nil obj-com)
+             (throw (ex-info "Python lists do not support comparators" {})))
+           (py-call "sort"))
+     (writeObject [writer idx value]
+                  (py-call "__setitem__" idx value))
+     (remove [writer ^int idx]
+             (py-call "__delitem__" idx)
+             true)
+     (add [mutable idx value]
+          (py-call "insert" idx value)
+          true)
+     (add [mutable value]
+          (.add mutable (.size mutable) value)
+          true))))
 
 
 (defmethod py-proto/pyobject-as-jvm :list

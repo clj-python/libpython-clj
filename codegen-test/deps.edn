@@ -1,0 +1,2 @@
+{:paths ["src"]
+ :deps {clj-python/libpython-clj {:mvn/version "2.017"}}}

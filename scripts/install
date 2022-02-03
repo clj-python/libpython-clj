@@ -1,0 +1,6 @@
+#!/bin/bash
+
+set -e
+
+clj -X:depstar
+clj -X:install
