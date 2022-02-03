@@ -1,0 +1,6 @@
+#!/bin/bash
+
+
+
+clj -e "(require '[code.codegen :as cg])(cg/codegen)(println \"compilation successful\")\
+(shutdown-agents)"

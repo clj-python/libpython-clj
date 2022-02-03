@@ -1,0 +1,4 @@
+#!/bin/bash
+
+clj -e "(compile 'code.main)"
+java -cp "$(clj -Spath):classes" code.main
