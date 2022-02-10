@@ -1,6 +1,6 @@
 {:paths ["src"]
  :deps {org.clojure/clojure  {:mvn/version "1.10.2" :scope "provided"}
-        cnuernber/dtype-next {:mvn/version "8.062"}
+        cnuernber/dtype-next {:mvn/version "9.009"}
         net.java.dev.jna/jna {:mvn/version "5.10.0"}
         org.clojure/data.json  {:mvn/version "1.0.0"}}
 
@@ -21,6 +21,14 @@
             :exec-args {:arg-paths [[:aliases :depstar :exec-args]]
                         :description "Python bindings for Clojure"
                         :metadata {:doc/format :markdown}
+                        :google-analytics "G-LN7PG6FJ2D"
+                        :html {:transforms [[:head] [:append [:script {:async true
+                                                                       :src "https://www.googletagmanager.com/gtag/js?id=G-LN7PG6FJ2D"}]]
+                                            [:head] [:append [:script "window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'G-LN7PG6FJ2D');"]]]}
                         :themes [:rdash]
                         :source-paths ["src"]
                         :output-path "docs"
@@ -46,7 +54,7 @@
             :exec-fn hf.depstar/jar
             :exec-args {:group-id "clj-python"
                         :artifact-id "libpython-clj"
-                        :version "2.017"
+                        :version "2.018"
                         :sync-pom true
                         :aot true
                         :compile-ns [libpython-clj2.java-api]
