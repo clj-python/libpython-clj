@@ -19,6 +19,7 @@
                          com.cnuernber/codox {:mvn/version "1.001"}}
             :exec-fn codox.main/-main
             :exec-args {:arg-paths [[:aliases :depstar :exec-args]]
+                        :name "libpython-clj"
                         :description "Python bindings for Clojure"
                         :metadata {:doc/format :markdown}
                         :google-analytics "G-LN7PG6FJ2D"
