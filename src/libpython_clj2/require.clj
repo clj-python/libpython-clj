@@ -223,6 +223,7 @@
    /path/to/foodir/foo.py:
 
    (require-python 'sys)
+   (def sys (py/import-module "sys"))
    (py/call-attr (py/get-attr sys \"path\")
                  \"append\"
                  \"/path/to/foodir\")
