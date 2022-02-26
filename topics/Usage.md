@@ -40,17 +40,15 @@ Python installation instructions [here](https://docs.python-guide.org/starting/i
 ```clojure
 user>
 
-user> (require '[libpython-clj.python
-                 :refer [as-python as-jvm
-                         ->python ->jvm
-                         get-attr call-attr call-attr-kw
-                         get-item att-type-map
-                         call call-kw initialize!
-                         as-numpy as-tensor ->numpy
-                         run-simple-string
-                         add-module module-dict
-                         import-module
-                         python-type]])
+user> (require [libpython-clj2.python
+          :refer [as-python as-jvm
+                  ->python ->jvm
+                  get-attr call-attr call-attr-kw
+                  get-item initialize!
+                  run-simple-string
+                  add-module module-dict
+                  import-module
+                  python-type]])
 nil
 
 ; Mac and Linux
