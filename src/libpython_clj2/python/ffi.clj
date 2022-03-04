@@ -303,18 +303,22 @@ Each call must be matched with PyGILState_Release"}
                           :doc "Mark a python function as being an instance method."}
    })
 
+(defn define-library!
+  [python-lib-classname]
+  (dt-ffi/define-library
+    python-library-fns
+    ["_Py_NoneStruct"
+     "_Py_FalseStruct"
+     "_Py_TrueStruct"
+     "PyType_Type"
+     "PyExc_StopIteration"
+     "PyRange_Type"
+     "PyExc_Exception"]
+    {:classname python-lib-classname}))
 
-(def python-lib-def* (delay (dt-ffi/define-library
-                              python-library-fns
-                              ["_Py_NoneStruct"
-                               "_Py_FalseStruct"
-                               "_Py_TrueStruct"
-                               "PyType_Type"
-                               "PyExc_StopIteration"
-                               "PyRange_Type"
-                               "PyExc_Exception"]
-                              nil
-                              )))
+
+(def python-lib-def* (delay (define-library! nil)))
+
 (defonce pyobject-struct-type*
   (delay (dt-struct/define-datatype!
            :pyobject [{:name :ob_refcnt :datatype (ffi-size-t/size-t-type)}
@@ -345,19 +349,19 @@ Each call must be matched with PyGILState_Release"}
 
 
 (defn reset-library!
-  []
+  [& [library-definition]]
   (when @library-path*
-    (reset! library* (dt-ffi/instantiate-library @python-lib-def*
+    (reset! library* (dt-ffi/instantiate-library (or library-definition @python-lib-def*)
                                                  (:libpath @library-path*)))))
 
 
 (defn set-library!
-  [libpath]
+  [libpath & [library-definition]]
   (when @library*
     (log/warnf "Python library is being reinitialized to (%s).  Is this what you want?"
                libpath))
   (reset! library-path* {:libpath libpath})
-  (reset-library!))
+  (reset-library! library-definition))
 
 ;;Useful for repling around - this regenerates the library function bindings
 (reset-library!)
@@ -572,11 +576,12 @@ Each call must be matched with PyGILState_Release"}
 
 
 (defn initialize!
-  [libpath python-home & [{:keys [signals? program-name python-home]
+  [libpath python-home & [{:keys [signals? program-name python-home
+                                  library-definition]
                            :or {signals? true
                                 program-name ""}
                            :as opts}]]
-  (set-library! libpath)
+  (set-library! libpath library-definition)
   (when-not (= 1 (Py_IsInitialized))
     (log/debug "Initializing Python C Layer")
     ;;platform specific encoding

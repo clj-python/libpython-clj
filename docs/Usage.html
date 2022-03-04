@@ -28,17 +28,15 @@ python3.6 -m pip install numpy pandas --user
 <h3>Initialize python</h3>
 <pre><code class="language-clojure">user&gt;
 
-user&gt; (require '[libpython-clj.python
-                 :refer [as-python as-jvm
-                         -&gt;python -&gt;jvm
-                         get-attr call-attr call-attr-kw
-                         get-item att-type-map
-                         call call-kw initialize!
-                         as-numpy as-tensor -&gt;numpy
-                         run-simple-string
-                         add-module module-dict
-                         import-module
-                         python-type]])
+user&gt; (require [libpython-clj2.python
+          :refer [as-python as-jvm
+                  -&gt;python -&gt;jvm
+                  get-attr call-attr call-attr-kw
+                  get-item initialize!
+                  run-simple-string
+                  add-module module-dict
+                  import-module
+                  python-type]])
 nil
 
 ; Mac and Linux

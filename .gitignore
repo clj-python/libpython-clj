@@ -20,3 +20,4 @@ a.out
 *.iml
 .lsp
 .clj-kondo
+pregen-ffi-test
