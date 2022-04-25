@@ -232,7 +232,7 @@ user> (py/py. np linspace 2 3 :num 10)
 
 
 (defn set-item!
-  "Get an item from a python object using  __setitem__"
+  "Set an item on a python object using  __setitem__"
   [pyobj item-name item-val]
   (with-gil (py-proto/set-item! pyobj item-name item-val))
   pyobj)
