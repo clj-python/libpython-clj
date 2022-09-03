@@ -75,7 +75,7 @@ INFO: Reference thread starting
 
 This dynamically finds the python shared library and loads it using output from
 the python3 executable on your system.  For information about how that works,
-please checkout the code 
+please checkout the code
 [here](https://github.com/cnuernber/libpython-clj/blob/master/src/libpython_clj/python/interpreter.clj#L30).
 
 
@@ -308,28 +308,28 @@ user> (py/$.. numpy random shuffle)
 
 ##### New sugar (fixme)
 
-`libpython-clj` offers syntactic forms similar to those offered by 
-Clojure for interacting with Python classes and objects. 
+`libpython-clj` offers syntactic forms similar to those offered by
+Clojure for interacting with Python classes and objects.
 
 **Class/object methods**
 Where in Clojure you would use `(. obj method arg1 arg2 ... argN)`,
-you can use `(py. pyobj method arg1 arg2 ... argN)`.  
+you can use `(py. pyobj method arg1 arg2 ... argN)`.
 
 In Python, this is equivalent to `pyobj.method(arg1, arg2, ..., argN)`.
 Concrete examples are shown below.
 
 **Class/object attributes**
-Where in Clojure you would use `(.- obj attr)`, you can use 
+Where in Clojure you would use `(.- obj attr)`, you can use
 `(py.- pyobj attr)`.
 
-In Python, this is equivalent to `pyobj.attr`. 
+In Python, this is equivalent to `pyobj.attr`.
 Concrete examples shown below.
 
 **Nested attribute access**
 To achieve a chain of method/attribute access, use the `py..` for.
 
-```clojure 
-(py.. (requests/get "http://www.google.com") 
+```clojure
+(py.. (requests/get "http://www.google.com")
       -content
       (decode "latin-1"))
 ```
@@ -337,7 +337,7 @@ To achieve a chain of method/attribute access, use the `py..` for.
 
 **Examples**
 
-```clojure 
+```clojure
 user=> (require '[libpython-clj.python :as py :refer [py. py.. py.-]])
 nil
 user=> (require '[libpython-clj.require :refer [require-python]])
@@ -418,3 +418,79 @@ please refer to the datatype library [documentation](https://github.com/techasce
 
 Just keep in mind, careless usage of zero copy is going to cause spooky action at a
     distance.
+
+
+### Pickle
+
+Speaking of numpy, you can pickle python objects and transform the result via numpy and dtype
+to a java byte array and back:
+
+
+```clojure
+user> (require '[libpython-clj2.python :as py])
+nil
+user> (py/initialize!)
+Sep 03, 2022 11:23:34 AM clojure.tools.logging$eval5948$fn__5951 invoke
+INFO: Detecting startup info
+Sep 03, 2022 11:23:34 AM clojure.tools.logging$eval5948$fn__5951 invoke
+INFO: Startup info {:lib-version "3.9", :java-library-path-addendum "/home/chrisn/miniconda3/lib", :exec-prefix "/home/chrisn/miniconda3", :executable "/home/chrisn/miniconda3/bin/python3", :libnames ("python3.9m" "python3.9"), :prefix "/home/chrisn/miniconda3", :base-prefix "/home/chrisn/miniconda3", :libname "python3.9m", :base-exec-prefix "/home/chrisn/miniconda3", :python-home "/home/chrisn/miniconda3", :version [3 9 1], :platform "linux"}
+Sep 03, 2022 11:23:34 AM clojure.tools.logging$eval5948$fn__5951 invoke
+INFO: Prefixing java library path: /home/chrisn/miniconda3/lib
+Sep 03, 2022 11:23:35 AM clojure.tools.logging$eval5948$fn__5951 invoke
+INFO: Loading python library: python3.9
+Sep 03, 2022 11:23:35 AM clojure.tools.logging$eval5948$fn__5951 invoke
+INFO: Reference thread starting
+:ok
+user> (def data (py/->python {:a 1 :b 2}))
+#'user/data
+user> (def pickle (py/import-module "pickle"))
+#'user/pickle
+user> (def bdata (py/py. pickle dumps data))
+#'user/bdata
+user> bdata
+b'\x80\x04\x95\x11\x00\x00\x00\x00\x00\x00\x00}\x94(\x8c\x01a\x94K\x01\x8c\x01b\x94K\x02u.'
+user> (def np (py/import-module "numpy"))
+#'user/np
+user> (py/py. np frombuffer bdata :dtype "int8")
+[-128    4 -107   17    0    0    0    0    0    0    0  125 -108   40
+ -116    1   97 -108   75    1 -116    1   98 -108   75    2  117   46]
+user> (require '[libpython-clj2.python.np-array])
+nil
+user> (def ary (py/py. np frombuffer bdata :dtype "int8"))
+#'user/ary
+user> (py/->jvm ary)
+#tech.v3.tensor<int8>[28]
+[-128 4 -107 17 0 0 0 0 0 0 0 125 -108 40 -116 1 97 -108 75 1 -116 1 98 -108 75 2 117 46]
+user> (require '[tech.v3.datatype :as dt])
+nil
+user> (dt/->byte-array *2)
+[-128, 4, -107, 17, 0, 0, 0, 0, 0, 0, 0, 125, -108, 40, -116, 1, 97, -108, 75, 1,
+ -116, 1, 98, -108, 75, 2, 117, 46]
+user> (require '[tech.v3.tensor :as dtt])
+nil
+user> (dtt/as-tensor *2)
+nil
+user> (def bdata *3)
+#'user/bdata
+user> bdata
+[-128, 4, -107, 17, 0, 0, 0, 0, 0, 0, 0, 125, -108, 40, -116, 1, 97, -108, 75, 1,
+ -116, 1, 98, -108, 75, 2, 117, 46]
+user> (type bdata)
+[B
+user> (def tens (dtt/reshape bdata [(dt/ecount bdata)]))
+#'user/tens
+user> (def pdata (py/->python tens))
+#'user/pdata
+user> pdata
+[-128    4 -107   17    0    0    0    0    0    0    0  125 -108   40
+ -116    1   97 -108   75    1 -116    1   98 -108   75    2  117   46]
+user> (py/python-type *1)
+:ndarray
+user> (def py-ary *2)
+#'user/py-ary
+user> (def py-bytes (py/py. py-ary tobytes))
+#'user/py-bytes
+user> (py/py. pickle loads py-bytes)
+{'a': 1, 'b': 2}
+user>
+```
