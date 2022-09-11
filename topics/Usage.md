@@ -36,19 +36,19 @@ Python installation instructions [here](https://docs.python-guide.org/starting/i
 
 
 ### Initialize python
-
 ```clojure
-user>
-
 user> (require '[libpython-clj2.python
-          :refer [as-python as-jvm
-                  ->python ->jvm
-                  get-attr call-attr call-attr-kw
-                  get-item initialize!
-                  run-simple-string
-                  add-module module-dict
-                  import-module
-                  python-type]])
+                 :refer [as-python as-jvm
+                         ->python ->jvm
+                         get-attr call-attr call-attr-kw
+                         get-item initialize!
+                         run-simple-string
+                         add-module module-dict
+                         import-module
+                         python-type
+                         dir]
+                 :as py])
+
 nil
 
 ; Mac and Linux
@@ -158,70 +158,27 @@ user> (get-attr ones-ary "shape")
 user> (vec (get-attr ones-ary "shape"))
 [2 3]
 
-user> (att-type-map ones-ary)
-{"T" :ndarray,
- "__abs__" :method-wrapper,
- "__add__" :method-wrapper,
- "__and__" :method-wrapper,
- "__array__" :builtin-function-or-method,
- "__array_finalize__" :none-type,
- "__array_function__" :builtin-function-or-method,
- "__array_interface__" :dict,
- "__array_prepare__" :builtin-function-or-method,
- "__array_priority__" :float,
- "__array_struct__" :py-capsule,
- "__array_ufunc__" :builtin-function-or-method,
- "__array_wrap__" :builtin-function-or-method,
- "__bool__" :method-wrapper,
- "__class__" :type,
- "__complex__" :builtin-function-or-method,
- "__contains__" :method-wrapper,
+user> (dir ones-ary)
+["T"
+ "__abs__"
+ "__add__"
+ "__and__"
+ "__array__"
+ "__array_finalize__"
  ...
- "std" :builtin-function-or-method,
- "strides" :tuple,
- "sum" :builtin-function-or-method,
- "swapaxes" :builtin-function-or-method,
- "take" :builtin-function-or-method,
- "tobytes" :builtin-function-or-method,
- "tofile" :builtin-function-or-method,
- "tolist" :builtin-function-or-method,
- "tostring" :builtin-function-or-method,
- "trace" :builtin-function-or-method,
- "transpose" :builtin-function-or-method,
- "var" :builtin-function-or-method,
- "view" :builtin-function-or-method}
-```
-
-
-### att-type-map
-
-It can be extremely helpful to print out the attribute name->attribute type map:
-
-```clojure
-user> (att-type-map ones-ary)
-{"T" :ndarray,
- "__abs__" :method-wrapper,
- "__add__" :method-wrapper,
- "__and__" :method-wrapper,
- "__array__" :builtin-function-or-method,
- "__array_finalize__" :none-type,
- "__array_function__" :builtin-function-or-method,
- "__array_interface__" :dict,
  ...
-  "real" :ndarray,
- "repeat" :builtin-function-or-method,
- "reshape" :builtin-function-or-method,
- "resize" :builtin-function-or-method,
- "round" :builtin-function-or-method,
- "searchsorted" :builtin-function-or-method,
- "setfield" :builtin-function-or-method,
- "setflags" :builtin-function-or-method,
- "shape" :tuple,
- "size" :int,
- "sort" :builtin-function-or-method,
- ...
-}
-```
+ "strides"
+ "sum"
+ "swapaxes"
+ "take"
+ "tobytes"
+ "tofile"
+ "tolist"
+ "tostring"
+ "trace"
+ "transpose"
+ "var"
+ "view"]
 
 ### DataFrame access full example
 
@@ -240,6 +197,7 @@ table.loc[row_date]
 
 ```clojure
 ; Clojure
+(require '[libpython-clj2.require :refer [require-python]])
 (require-python '[numpy :as np])
 (require-python '[pandas :as pan])
 
@@ -306,7 +264,7 @@ user> (py/$.. numpy random shuffle)
 <built-in method shuffle of numpy.random.mtrand.RandomState object at 0x7fa66410cca8>
 ```
 
-##### New sugar (fixme)
+##### Extra sugar 
 
 `libpython-clj` offers syntactic forms similar to those offered by
 Clojure for interacting with Python classes and objects.
@@ -338,9 +296,9 @@ To achieve a chain of method/attribute access, use the `py..` for.
 **Examples**
 
 ```clojure
-user=> (require '[libpython-clj.python :as py :refer [py. py.. py.-]])
+user=> (require '[libpython-clj2.python :as py :refer [py. py.. py.-]])
 nil
-user=> (require '[libpython-clj.require :refer [require-python]])
+user=> (require '[libpython-clj2.require :refer [require-python]])
 
 ... debug info ...
 
@@ -382,6 +340,7 @@ user=> (py.. requests (get "http://www.google.com") -content (decode "latin-1"))
 Speaking of numpy, you can move data between numpy and java easily.
 
 ```clojure
+(require '[tech.v3.tensor :refer [as-tensor]])
 user> (def tens-data (as-tensor ones-ary))
 #'user/tens-data
 user> (println tens-data)
@@ -391,7 +350,7 @@ user> (println tens-data)
 nil
 
 
-user> (require '[tech.v2.datatype :as dtype])
+user> (require '[tech.v3.datatype :as dtype])
 nil
 user> (def ignored (dtype/copy! (repeat 6 5) tens-data))
 #'user/ignored
