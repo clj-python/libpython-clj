@@ -264,7 +264,7 @@ user> (py/$.. numpy random shuffle)
 <built-in method shuffle of numpy.random.mtrand.RandomState object at 0x7fa66410cca8>
 ```
 
-##### Extra sugar 
+##### Extra sugar
 
 `libpython-clj` offers syntactic forms similar to those offered by
 Clojure for interacting with Python classes and objects.
@@ -340,23 +340,26 @@ user=> (py.. requests (get "http://www.google.com") -content (decode "latin-1"))
 Speaking of numpy, you can move data between numpy and java easily.
 
 ```clojure
-(require '[tech.v3.tensor :refer [as-tensor]])
-user> (def tens-data (as-tensor ones-ary))
+(require '[tech.v3.tensor :as dtt])
+;;includes the appropriate protocols and multimethod overloads
+(require '[libpython-clj2.python.np-array]
+;;python objects created now for numpy arrays will be different.  So you have to require
+;;np-array *before* you create your numpy data.
+user> (def ones-ary (py/py. np ones [2 3]))
+#'user/ones-ary
+user> (def tens-data (dtt/as-tensor ones-ary))
 #'user/tens-data
-user> (println tens-data)
-#tech.v2.tensor<float64>[2 3]
+user> tens-data
+#tech.v3.tensor<float64>[2 3]
 [[1.000 1.000 1.000]
  [1.000 1.000 1.000]]
-nil
 
 
 user> (require '[tech.v3.datatype :as dtype])
 nil
-user> (def ignored (dtype/copy! (repeat 6 5) tens-data))
+;;Only constant-time count items can be copied, so vectors and arrays and such.
+user> (def ignored (dtype/copy! (vec (repeat 6 5)) tens-data))
 #'user/ignored
-user> (.put main-globals "ones_ary" ones_ary)
-Syntax error compiling at (*cider-repl cnuernber/libpython-clj:localhost:39019(clj)*:191:7).
-Unable to resolve symbol: ones_ary in this context
 user> (.put main-globals "ones_ary" ones-ary)
 nil
 
