@@ -67,12 +67,3 @@
   (setup-std-writer #'*out* "stdout"))
 
 
-(comment
-  (require '[libpython-clj2.python :as py])
-  (py/initialize!)
-  (def _ (py/run-simple-string "from tqdm import tqdm"))
-  (def _ (py/run-simple-string "from time import sleep"))
-  (def _ (py/run-simple-string "with tqdm(total=100) as pbar:\n    for i in range(10):\n        sleep(1)\n        pbar.update(10)"))
-
-
-  :ok)
