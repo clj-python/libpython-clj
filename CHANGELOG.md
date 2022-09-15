@@ -1,4 +1,9 @@
 # Time for a ChangeLog!
+## 2.019
+ * Upgrade to clojure 1.11 as development version.
+ * Upgrade dtype-next to get rid of 1.11 warnings (and for unary min,max).
+ * Upgrade jna to latest version for greater x-platform support.
+
 ## 2.017
  * Tested AOT and codegen of numpy namespace to ensure it is loadable and works as expected.
  * This fixed an issue with the codegen system.
