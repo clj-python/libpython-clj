@@ -10,6 +10,8 @@
             [clojure.tools.logging :as log])
   (:import [java.io Writer]))
 
+(set! *warn-on-reflection* true)
+
 
 (defn self->writer
   ^Writer [self]
@@ -32,7 +34,9 @@
                 (py-ffi/py-none))
               {:arg-converter identity})
      "flush" (py-class/make-tuple-instance-fn
-              (constantly (py-ffi/py-none)))
+              (fn [self & args] (.flush (self->writer self)) (py-ffi/py-none))
+              {:arg-converter identity} ;;avoid paying anything for argument conversion
+              )
      "isatty" (py-class/make-tuple-instance-fn
                (constantly (py-ffi/py-false)))})))
 
@@ -53,3 +57,16 @@
   []
   (setup-std-writer #'*err* "stderr")
   (setup-std-writer #'*out* "stdout"))
+
+
+(comment
+  ;;Ensure flush works
+  (require '[libpython-clj2.python :as py])
+  (py/initialize!)
+  (def _)
+  (def _ (py/run-simple-string "import sys\nimport time"))
+  (py/run-simple-string "for i in range(10):
+\ttime.sleep(1)
+\tsys.stderr.write('#')
+\tsys.stdout.flush()")
+  )
