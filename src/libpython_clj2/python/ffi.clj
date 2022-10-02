@@ -737,6 +737,14 @@ Each call must be matched with PyGILState_Release"}
     (PyGILState_Release gilstate)))
 
 
+(defn ^:no-doc manual-gil-locker
+  ^java.lang.AutoCloseable []
+  (let [gil-state (lock-gil)]
+     (reify java.lang.AutoCloseable
+       (close [this]
+         (unlock-gil gil-state)))))
+
+
 (defmacro with-gil
   "Grab the gil and use the main interpreter using reentrant acquire-gil pathway."
   [& body]

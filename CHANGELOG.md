@@ -1,4 +1,8 @@
 # Time for a ChangeLog!
+## 2.020
+ * Better support for running with `-Dlibpython_clj.manual_gil=true` - `with-manual-gil`.  
+   Addresses [issue 221](https://github.com/clj-python/libpython-clj/issues/221).
+
 ## 2.019
  * Upgrade to clojure 1.11 as development version.
  * Upgrade dtype-next to get rid of 1.11 warnings (and for unary min,max).

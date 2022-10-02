@@ -48,3 +48,23 @@
     (is (= {"name" "ACME", "shares" 50, "price" 90}
            (edn/read-string (.toString new-instance))))
     (is (= 116.0 (py/call-attr-kw new-instance "kw_clj_fn" [1 2 3] {:a 20})))))
+
+
+(deftest new-kw-init-cls-test
+  ;;The crux of this is making instance functions to get the 'self' parameter
+  ;;passed in.
+  (let [cls-obj (py/create-class
+                 "Stock" nil
+                 {"__init__" (py/make-kw-instance-fn
+                              (fn [[self :as args] {:as kwargs}]
+                                (py/set-attr! self "kwargs" kwargs)
+                                ;;Because we did not use an arg-converter, all the
+                                ;;arguments above are raw jna Pointers - borrowed
+                                ;;references.
+                                ;;If you don't return nil from __init__ that is an
+                                ;;error.
+                                nil))})
+        new-instance (py/cfn cls-obj "ACME" 50 :a 1 :b 2)
+        dict (py/get-attr new-instance "kwargs")]
+    (is (= {"a" 1 "b" 2}
+           (py/->jvm dict)))))

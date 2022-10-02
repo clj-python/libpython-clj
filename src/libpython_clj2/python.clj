@@ -126,7 +126,7 @@ user> (py/py. np linspace 2 3 :num 10)
 
 (defmacro with-gil
   "Capture the gil for an extended amount of time.  This can greatly speed up
-  operations as the mutex is captured and held once as opposed to find grained
+  operations as the mutex is captured and held once as opposed to fine grained
   grabbing/releasing of the mutex."
   [& body]
   `(py-ffi/with-gil
@@ -145,6 +145,33 @@ user> (py/py. np linspace 2 3 :num 10)
   `(py-ffi/with-gil
      (pygc/with-stack-context
        ~@body)))
+
+
+(defmacro with-manual-gil
+  "When running with -Dlibpython_clj.manual_gil=true, you need to wrap all accesses to
+  the python runtime with this locker.  This includes calls to require-python or any other
+  pathways.
+
+```clojure
+  (with-manual-gil
+    ...)
+```
+  "
+  [& body]
+  `(with-open [locker# (py-ffi/manual-gil-locker)]
+     ~@body))
+
+
+(defmacro with-manual-gil-stack-rc-context
+  "When running with -Dlibpython_clj.manual_gil=true, you need to wrap all accesses to
+  the python runtime with this locker.  This includes calls to require-python or any other
+  pathways.  This macro furthermore defines a stack-based gc context to immediately release
+  objects when the stack frame exits."
+  [& body]
+  `(with-manual-gil
+     (pygc/with-stack-context
+       ~@body)))
+
 
 (declare ->jvm)
 
