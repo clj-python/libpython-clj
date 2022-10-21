@@ -424,6 +424,7 @@ class Foo:
            (py/->jvm (py/get-attr pp "shape"))))))
 
 (deftest iter-should-not-npe
+  ;; credit Carsten Behring
   (is (true? (boolean (py. (libpython-clj2.python.bridge-as-python/map-as-python {}) __iter__)))))
 
 
