@@ -422,6 +422,15 @@ class Foo:
     (is (= [5 2]
            (py/->jvm (py/get-attr pp "shape"))))))
 
+(deftest null-pointer-on-python-iterator
+  (py/run-simple-string "
+class Thing:
+    def __call__(this, data):
+        return {a: b for a, b in data.items()}")
+  (let [main (py/import-module "__main__")
+        thing (py/get-attr main "Thing")]
+    (py.. (thing) (__call__  {}))))
+
 
 (comment
   (require '[libpython-clj.require :refer [require-python]])

@@ -663,7 +663,7 @@ nil
 
          :else ;; assumed to be method invocation
 
-         (list* (into (vector #'py. x instance-member) args))))
+         (list* (into (vector #'py. x instance-member) (map (fn [arg] `(#'->python ~arg))  args)))))
      (handle-pydotdot x (list form))))
   ([x form & more]
    (apply handle-pydotdot (handle-pydotdot x form) more)))
