@@ -72,8 +72,12 @@ user> (py/py. np linspace 2 3 :num 10)
              no-io-redirect?]
       :as options}]
   (if-not (and (py-ffi/library-loaded?)
-                 (= 1 (py-ffi/Py_IsInitialized)))
-    (let [info (py-info/detect-startup-info options)
+               (= 1 (py-ffi/Py_IsInitialized)))
+    (let [python-edn-opts (-> (try (slurp "python.edn")
+                                   (catch java.io.FileNotFoundException e "{}"))
+                              clojure.edn/read-string)
+          options (merge python-edn-opts options)
+          info (py-info/detect-startup-info options)
           _ (log/infof "Startup info %s" info)
           _ (when-let [lib-path (:java-library-path-addendum
                                  options (:java-library-path-addendum info))]
