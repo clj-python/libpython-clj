@@ -7,7 +7,8 @@
             [tech.v3.datatype.functional :as dfn]
             [tech.v3.datatype.ffi :as dt-ffi]
             [tech.v3.tensor :as dtt]
-            [clojure.test :refer :all])
+            [clojure.test :refer :all]
+            libpython-clj2.python.bridge-as-python)
   (:import [java.io StringWriter]
            [java.util Map List]
            [tech.v3.datatype.ffi Pointer]))
@@ -421,6 +422,9 @@ class Foo:
         pp (tp p)]
     (is (= [5 2]
            (py/->jvm (py/get-attr pp "shape"))))))
+
+(deftest iter-should-not-npe
+  (is (true? (boolean (py. (libpython-clj2.python.bridge-as-python/map-as-python {}) __iter__)))))
 
 
 (comment
