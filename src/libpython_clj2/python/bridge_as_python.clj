@@ -104,31 +104,31 @@
 
 (defonce mapping-type*
   (jvm-handle/py-global-delay
-   (with-gil
-     (py-ffi/with-decref
-       [mod (py-ffi/PyImport_ImportModule "collections.abc")
-        map-type (py-ffi/PyObject_GetAttrString mod "MutableMapping")]
+    (with-gil
+      (py-ffi/with-decref
+        [mod (py-ffi/PyImport_ImportModule "collections.abc")
+         map-type (py-ffi/PyObject_GetAttrString mod "MutableMapping")]
         ;;In order to make things work ingeneral
-       (py-class/create-class
-        "jvm-map-as-python"
-        [map-type]
-        {"__init__" (py-class/wrapped-jvm-constructor)
-         "__del__" (py-class/wrapped-jvm-destructor)
-         "__contains__" (as-tuple-instance-fn #(.containsKey (self->map %1)
-                                                             (py-base/as-jvm %2)))
-         "__eq__" (as-tuple-instance-fn #(.equals (self->map %1) (py-base/as-jvm %2)))
-         "__getitem__" (as-tuple-instance-fn
-                        #(.get (self->map %1) (py-base/as-jvm %2)))
-         "__setitem__" (as-tuple-instance-fn #(.put (self->map %1) (py-base/as-jvm %2) %3))
-         "__delitem__" (as-tuple-instance-fn #(.remove (self->map %1) (py-base/as-jvm %2)))
-         "__hash__" (as-tuple-instance-fn #(.hashCode (self->map %1)))
-         "__iter__" (as-tuple-instance-fn #(.iterator ^Iterable (or (keys (self->map %1)) [])))
-         "__len__" (as-tuple-instance-fn #(.size (self->map %1)))
-         "__str__" (as-tuple-instance-fn #(.toString (self->map %1)))
-         "clear" (as-tuple-instance-fn #(.clear (self->map %1)))
-         "keys" (as-tuple-instance-fn #(seq (.keySet (self->map %1))))
-         "values" (as-tuple-instance-fn #(seq (.values (self->map %1))))
-         "pop" (as-tuple-instance-fn #(.remove (self->map %1) (py-base/as-jvm %2)))})))))
+        (py-class/create-class
+         "jvm-map-as-python"
+         [map-type]
+         {"__init__" (py-class/wrapped-jvm-constructor)
+          "__del__" (py-class/wrapped-jvm-destructor)
+          "__contains__" (as-tuple-instance-fn #(.containsKey (self->map %1)
+                                                              (py-base/as-jvm %2)))
+          "__eq__" (as-tuple-instance-fn #(.equals (self->map %1) (py-base/as-jvm %2)))
+          "__getitem__" (as-tuple-instance-fn
+                         #(.get (self->map %1) (py-base/as-jvm %2)))
+          "__setitem__" (as-tuple-instance-fn #(.put (self->map %1) (py-base/as-jvm %2) %3))
+          "__delitem__" (as-tuple-instance-fn #(.remove (self->map %1) (py-base/as-jvm %2)))
+          "__hash__" (as-tuple-instance-fn #(.hashCode (self->map %1)))
+          "__iter__" (as-tuple-instance-fn #(.iterator ^Iterable (or (keys (self->map %1)) [])))
+          "__len__" (as-tuple-instance-fn #(.size (self->map %1)))
+          "__str__" (as-tuple-instance-fn #(.toString (self->map %1)))
+          "clear" (as-tuple-instance-fn #(.clear (self->map %1)))
+          "keys" (as-tuple-instance-fn #(seq (.keySet (self->map %1))))
+          "values" (as-tuple-instance-fn #(seq (.values (self->map %1))))
+          "pop" (as-tuple-instance-fn #(.remove (self->map %1) (py-base/as-jvm %2)))})))))
 
 
 (defn map-as-python
