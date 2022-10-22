@@ -122,7 +122,7 @@
           "__setitem__" (as-tuple-instance-fn #(.put (self->map %1) (py-base/as-jvm %2) %3))
           "__delitem__" (as-tuple-instance-fn #(.remove (self->map %1) (py-base/as-jvm %2)))
           "__hash__" (as-tuple-instance-fn #(.hashCode (self->map %1)))
-          "__iter__" (as-tuple-instance-fn #(.iterator ^Iterable (keys (self->map %1))))
+          "__iter__" (as-tuple-instance-fn #(.iterator ^Iterable (or (keys (self->map %1)) [])))
           "__len__" (as-tuple-instance-fn #(.size (self->map %1)))
           "__str__" (as-tuple-instance-fn #(.toString (self->map %1)))
           "clear" (as-tuple-instance-fn #(.clear (self->map %1)))
