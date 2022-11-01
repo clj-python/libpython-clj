@@ -9,7 +9,9 @@ clojure -SPath '{:deps {nrepl/nrepl {:mvn/version \"0.8.3\"} cider/cider-nrepl {
   (:require [libpython-clj2.python.ffi :as py-ffi]
             [nrepl.server :as server]
             [nrepl.cmdline :as cmdline]
-            [clojure.tools.logging :as log]))
+            [clojure.tools.logging :as log]
+            [clojure.tools.build.api :as b]
+            [clojure.string :as str]))
 
 
 (defn initialize!
@@ -66,3 +68,20 @@ clojure -SPath '{:deps {nrepl/nrepl {:mvn/version \"0.8.3\"} cider/cider-nrepl {
          (.wait ^Object #'repl-server*))))
    (:port @repl-server*))
   ([] (start-repl! nil)))
+
+
+(defn print-jvm-args
+  "Resolves the given deps.end aliases to jvm-args and prints them"
+  [aliases]
+  (let [basis (b/create-basis {:aliases (map keyword aliases)})
+        jvm-args
+        (str/join " " (:jvm-opts (:resolve-args basis)))]
+    (println jvm-args)))
+
+(defn print-classpath
+  "Resolves the given deps.end aliases to classpath and prints it"
+  [aliases]
+  (let [basis (b/create-basis {:aliases (map keyword aliases)})
+        cp
+        (->> basis :classpath-roots (str/join ":"))]
+    (println cp)))
