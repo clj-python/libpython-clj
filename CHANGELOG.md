@@ -1,4 +1,7 @@
 # Time for a ChangeLog!
+## 2.021
+ * Add support for a `python.edn` file, see `libpython-clj2.python/initialize!` documentation
+
 ## 2.020
  * Better support for running with `-Dlibpython_clj.manual_gil=true` - `with-manual-gil`.  
    Addresses [issue 221](https://github.com/clj-python/libpython-clj/issues/221).
