@@ -36,7 +36,7 @@ user> (py/py. np linspace 2 3 :num 10)
             [tech.v3.datatype.errors :as errors]
             [clojure.tools.logging :as log])
   (:import [java.util Map List]
-           [clojure.lang IFn]))
+           [clojure.lang IFn])
 
 
 (set! *warn-on-reflection* true)
@@ -47,6 +47,26 @@ user> (py/py. np linspace 2 3 :num 10)
     "Initialize the python library.  If library path is not provided, then the system
   attempts to execute a simple python program and have python return system info.
 
+  Note: all of the options passed to `initialize!` may now be provided in 
+  a root-level `python.edn` file.  Example:
+
+  ```
+  ;; python.edn
+  {:python-executable   \"/usr/bin/python3.7\"
+   :python-library-path \"/usr/lib/libpython3.7m.so\"
+   :python-home         \"/usr/lib/python3.7\"
+   :python-verbose      true}
+  ```
+  or, using a local virtual environment:
+  ```
+  ;; python.edn
+  {:python-executable   \"env/bin/python\"}
+  ```
+
+  The file MUST be named `python.edn` and be in the root of the classpath.
+  With a `python.edn` file in place, the `initialize!` function may be called
+  with no arguments and the options will be read from the file. If arguments are 
+  passed to `initialize!` then they will override the values in the file.
 
   Returns either `:ok` in which case the initialization completed successfully or
   `:already-initialized` in which case we detected that python has already been
