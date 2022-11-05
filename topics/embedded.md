@@ -81,6 +81,11 @@ two important libraries for clojure loaded, nrepl and cider which allow a rich,
 interactive development experience so let's now connect to that port with our favorite
 Clojure editor - emacs of course ;-).
 
+If you want to specify arbitrary arguments for the JVM to be started by Python,
+you can use the environment variable `JDK_JAVA_OPTIONS` to do so. It will be picked up by 
+the JVM when starting.
+```
+```
 
 ## From the Clojure REPL
 
