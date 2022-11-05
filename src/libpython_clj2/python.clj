@@ -34,9 +34,10 @@ user> (py/py. np linspace 2 3 :num 10)
             [libpython-clj2.python.windows :as win]
             [tech.v3.datatype.ffi :as dtype-ffi]
             [tech.v3.datatype.errors :as errors]
-            [clojure.tools.logging :as log])
+            [clojure.tools.logging :as log]
+            clojure.edn)
   (:import [java.util Map List]
-           [clojure.lang IFn])
+           [clojure.lang IFn]))
 
 
 (set! *warn-on-reflection* true)
@@ -94,7 +95,7 @@ user> (py/py. np linspace 2 3 :num 10)
   (if-not (and (py-ffi/library-loaded?)
                (= 1 (py-ffi/Py_IsInitialized)))
     (let [python-edn-opts (-> (try (slurp "python.edn")
-                                   (catch java.io.FileNotFoundException e "{}"))
+                                   (catch java.io.FileNotFoundException _ "{}"))
                               clojure.edn/read-string)
           options (merge python-edn-opts options)
           info (py-info/detect-startup-info options)
