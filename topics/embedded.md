@@ -81,11 +81,35 @@ two important libraries for clojure loaded, nrepl and cider which allow a rich,
 interactive development experience so let's now connect to that port with our favorite
 Clojure editor - emacs of course ;-).
 
+### Passing JVM arguments 
+
 If you want to specify arbitrary arguments for the JVM to be started by Python,
 you can use the environment variable `JDK_JAVA_OPTIONS` to do so. It will be picked up by 
 the JVM when starting.
+
+Since clojurebridge 0.0.8, you can as well specify a list of aliases, which get resolved 
+from the `deps.edn` file. This allows as well to specify JVM arguments and JVM properties.
+
+Example: 
+
+Starting Clojure embedded from python via
+
+```python
+cljbridge.init_jvm(aliases=["jdk-17","fastcall"],start_repl=True)
 ```
+and a `deps.edn` with
+
+```clojure
+:aliases {
+
+           :fastcall
+           {:jvm-opts ["-Dlibpython_clj.manual_gil=true"]}
+           :jdk-17
+           {:jvm-opts ["--add-modules=jdk.incubator.foreign"
+                       "--enable-native-access=ALL-UNNAMED"]}}
 ```
+
+would add then the appropriate JVM options.
 
 ## From the Clojure REPL
 
