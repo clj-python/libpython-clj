@@ -42,7 +42,7 @@ user> (py/py. np linspace 2 3 :num 10)
 
 (set! *warn-on-reflection* true)
 
-
+(defn- no-op [])
 
 (defn initialize!
     "Initialize the python library.  If library path is not provided, then the system
@@ -97,6 +97,7 @@ user> (py/py. np linspace 2 3 :num 10)
     (let [python-edn-opts (-> (try (slurp "python.edn")
                                    (catch java.io.FileNotFoundException _ "{}"))
                               clojure.edn/read-string)
+          _ ((requiring-resolve (get python-edn-opts :pre-initialize-fn 'libpython-clj2.python/no-op)))
           options (merge python-edn-opts options)
           info (py-info/detect-startup-info options)
           _ (log/infof "Startup info %s" info)
@@ -132,6 +133,7 @@ user> (py/py. np linspace 2 3 :num 10)
             (io-redirect/redirect-io!))
           (finally
             (py-ffi/unlock-gil gilstate))))
+      ((requiring-resolve (get python-edn-opts :post-initialize-fn 'libpython-clj2.python/no-op)))
       :ok)
     :already-initialized))
 
