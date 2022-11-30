@@ -64,6 +64,24 @@ user> (py/py. np linspace 2 3 :num 10)
   {:python-executable   \"env/bin/python\"}
   ```
 
+  Additionaly the file can contain two keys which can can refer to custom hooks
+  to run code just before and just after python is initialised.
+  Typical use case for this is to setup / verify the python virtual enviornment
+  to be used.
+
+  ```
+  :pre-initialize-fn my-ns/my-venv-setup-fn!
+  :post-initialize-fn my-ns/my-venv-validate-fn!
+
+  ```
+
+  A :pre-initialize-fn could for example shell out and setup a python
+  virtual enviornment.
+
+  The :post-initialize-fn can use all functions from ns `libpython-clj2.python`
+  as libpython-clj is initialised alreday andc ould for example be used to validate
+  that later needed libraries can be loaded via calling `import-module`.
+
   The file MUST be named `python.edn` and be in the root of the classpath.
   With a `python.edn` file in place, the `initialize!` function may be called
   with no arguments and the options will be read from the file. If arguments are 
