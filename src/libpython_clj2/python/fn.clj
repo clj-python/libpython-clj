@@ -121,8 +121,10 @@
 (defn convert-kw-args
   [{:keys [arg-converter] :as options} tuple-args kw-args]
   [(raw-tuple-arg-converter arg-converter tuple-args nil)
-   (->> (py-proto/as-jvm kw-args options)
-        (into {}))])
+   (if kw-args
+     (->> (py-proto/as-jvm kw-args options)
+          (into {}))
+     {})])
 
 
 (defn make-tuple-fn

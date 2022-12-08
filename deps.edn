@@ -1,6 +1,6 @@
 {:paths ["src"]
  :deps {org.clojure/clojure  {:mvn/version "1.11.1" :scope "provided"}
-        cnuernber/dtype-next {:mvn/version "9.032"}
+        cnuernber/dtype-next {:mvn/version "10.000-beta-2"}
         net.java.dev.jna/jna {:mvn/version "5.12.1"}
         org.clojure/data.json  {:mvn/version "1.0.0"}}
 
@@ -55,7 +55,7 @@
             :exec-fn hf.depstar/jar
             :exec-args {:group-id "clj-python"
                         :artifact-id "libpython-clj"
-                        :version "2.020"
+                        :version "2.021"
                         :sync-pom true
                         :aot true
                         :compile-ns [libpython-clj2.java-api]

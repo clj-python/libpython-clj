@@ -38,7 +38,7 @@
                                  (let [self (first pos-args)
                                        price (double (py/py.- self price))]
                                    ;;keywords become strings!!
-                                   (apply + price (kw-args "a")
+                                   (apply + price (get kw-args "a" 5)
                                           (drop 1 pos-args)))))
                   "clsattr" 55})
         new-instance (cls-obj "ACME" 50 90)]
@@ -47,7 +47,9 @@
     (is (= 55 (py/py.- new-instance clsattr)))
     (is (= {"name" "ACME", "shares" 50, "price" 90}
            (edn/read-string (.toString new-instance))))
-    (is (= 116.0 (py/call-attr-kw new-instance "kw_clj_fn" [1 2 3] {:a 20})))))
+    (is (= 116.0 (py/call-attr-kw new-instance "kw_clj_fn" [1 2 3] {:a 20})))
+    (is (= 101.0 (py/call-attr-kw new-instance "kw_clj_fn" [1 2 3] nil)))
+    ))
 
 
 (deftest new-kw-init-cls-test
