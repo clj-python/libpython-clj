@@ -42,8 +42,6 @@ user> (py/py. np linspace 2 3 :num 10)
 
 (set! *warn-on-reflection* true)
 
-
-
 (defn initialize!
     "Initialize the python library.  If library path is not provided, then the system
   attempts to execute a simple python program and have python return system info.
@@ -63,6 +61,24 @@ user> (py/py. np linspace 2 3 :num 10)
   ;; python.edn
   {:python-executable   \"env/bin/python\"}
   ```
+
+  Additionaly the file can contain two keys which can can refer to custom hooks
+  to run code just before and just after python is initialised.
+  Typical use case for this is to setup / verify the python virtual enviornment
+  to be used.
+
+  ```
+  :pre-initialize-fn my-ns/my-venv-setup-fn!
+  :post-initialize-fn my-ns/my-venv-validate-fn!
+
+  ```
+
+  A :pre-initialize-fn could for example shell out and setup a python
+  virtual enviornment.
+
+  The :post-initialize-fn can use all functions from ns `libpython-clj2.python`
+  as libpython-clj is initialised alreday andc ould for example be used to validate
+  that later needed libraries can be loaded via calling `import-module`.
 
   The file MUST be named `python.edn` and be in the root of the classpath.
   With a `python.edn` file in place, the `initialize!` function may be called
@@ -97,6 +113,7 @@ user> (py/py. np linspace 2 3 :num 10)
     (let [python-edn-opts (-> (try (slurp "python.edn")
                                    (catch java.io.FileNotFoundException _ "{}"))
                               clojure.edn/read-string)
+          _ (some-> python-edn-opts :pre-initialize-fn requiring-resolve (apply []))
           options (merge python-edn-opts options)
           info (py-info/detect-startup-info options)
           _ (log/infof "Startup info %s" info)
@@ -132,9 +149,9 @@ user> (py/py. np linspace 2 3 :num 10)
             (io-redirect/redirect-io!))
           (finally
             (py-ffi/unlock-gil gilstate))))
+      (some-> python-edn-opts :post-initialize-fn requiring-resolve (apply []))
       :ok)
     :already-initialized))
-
 
 (defmacro stack-resource-context
   "Create a stack-based resource context.  All python objects allocated within this
