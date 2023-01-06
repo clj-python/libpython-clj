@@ -1,4 +1,7 @@
 # Time for a ChangeLog!
+## 2.023
+ * pre/post hooks for python initialization 
+   
 ## 2.022
  * Support for JDK-19.  Still uses JNA as the FFI provider but libpython-clj now works
    out of the box when using JDK-19.
