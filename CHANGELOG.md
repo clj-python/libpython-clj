@@ -1,4 +1,8 @@
 # Time for a ChangeLog!
+## 2.022
+ * Support for JDK-19.  Still uses JNA as the FFI provider but libpython-clj now works
+   out of the box when using JDK-19.
+ 
 ## 2.021
  * Add support for a `python.edn` file, see `libpython-clj2.python/initialize!` documentation
 

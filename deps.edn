@@ -1,8 +1,10 @@
 {:paths ["src"]
- :deps {org.clojure/clojure  {:mvn/version "1.11.1" :scope "provided"}
-        cnuernber/dtype-next {:mvn/version "10.000-beta-9-SNAPSHOT"}
-        net.java.dev.jna/jna {:mvn/version "5.12.1"}
-        org.clojure/data.json  {:mvn/version "1.0.0"}}
+ :deps {org.clojure/clojure     {:mvn/version "1.11.1" :scope "provided"}
+        cnuernber/dtype-next    {:mvn/version "10.000-beta-20"}
+        net.java.dev.jna/jna    {:mvn/version "5.12.1"}
+        org.clojure/data.json   {:mvn/version "1.0.0"}
+        ;;Replace me with caffeine...
+        com.google.guava/guava  {:mvn/version "31.1-jre"}}
 
  :aliases {:dev
            {:extra-deps {criterium/criterium {:mvn/version"0.4.5"}
@@ -12,6 +14,8 @@
            :jdk-17
            {:jvm-opts ["--add-modules" "jdk.incubator.foreign"
                        "--enable-native-access=ALL-UNNAMED"]}
+           :jdk-19
+           {:jvm-opts ["--enable-native-access=ALL-UNNAMED"]}
            :codox
            {:extra-deps {codox-theme-rdash/codox-theme-rdash {:mvn/version "0.1.2"}
                          nrepl/nrepl {:mvn/version "0.8.3"}
@@ -55,7 +59,7 @@
             :exec-fn hf.depstar/jar
             :exec-args {:group-id "clj-python"
                         :artifact-id "libpython-clj"
-                        :version "2.021"
+                        :version "2.022"
                         :sync-pom true
                         :aot true
                         :compile-ns [libpython-clj2.java-api]
