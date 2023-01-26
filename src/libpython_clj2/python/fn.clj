@@ -224,14 +224,17 @@
   map of keyword args."
   [item att-name arglist kw-map arg-converter]
   (py-ffi/with-gil
-    (if (string? att-name)
-      (py-ffi/with-decref [attval (py-ffi/PyObject_GetAttrString item att-name)]
+    (if (or (string? att-name) (keyword? att-name))
+      (py-ffi/with-decref [attval (py-ffi/PyObject_GetAttrString
+                                   item (if (keyword? att-name)
+                                          (name att-name)
+                                          att-name))]
         (when-not attval (py-ffi/check-error-throw))
         (->> (call-py-fn attval arglist kw-map arg-converter)
              (py-proto/marshal-return item)))
       (py-ffi/with-decref
         [att-name (py-ffi/untracked->python att-name py-base/->python)
-         att-val (py-ffi/untracked->python att-name py-base/->python)]
+         att-val (py-ffi/PyObject_GetAttr item att-name)]
         (when (or (nil? att-name) (nil? att-val))
           (py-ffi/check-error-throw))
         (->> (call-py-fn att-val arglist kw-map arg-converter)

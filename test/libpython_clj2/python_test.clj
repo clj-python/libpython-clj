@@ -428,6 +428,13 @@ class Foo:
   (is (true? (boolean (py. (libpython-clj2.python.bridge-as-python/map-as-python {}) __iter__)))))
 
 
+(deftest call-attr-test
+  (let [np (py/import-module "numpy")
+        random (py/get-attr np "random")
+        data (py/call-attr random :randn 8 6)]
+    (is (= [8 6] (dtype/shape (py/call-attr random :randn 8 6))))))
+
+
 (comment
   (require '[libpython-clj.require :refer [require-python]])
 

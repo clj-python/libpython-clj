@@ -4,7 +4,7 @@
 set -e
 
 rm -rf classes
-clj -M:test
+scripts/run-tests
 clj -X:codox
 clj -X:depstar
 clj -X:deploy

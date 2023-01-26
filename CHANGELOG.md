@@ -1,16 +1,20 @@
 # Time for a ChangeLog!
+## 2.024
+ * large dtype-next/hamf upgrade.
+ * fix for call-attr (it was broken when using keywords).
+
 ## 2.023
- * pre/post hooks for python initialization 
-   
+ * pre/post hooks for python initialization
+
 ## 2.022
  * Support for JDK-19.  Still uses JNA as the FFI provider but libpython-clj now works
    out of the box when using JDK-19.
- 
+
 ## 2.021
  * Add support for a `python.edn` file, see `libpython-clj2.python/initialize!` documentation
 
 ## 2.020
- * Better support for running with `-Dlibpython_clj.manual_gil=true` - `with-manual-gil`.  
+ * Better support for running with `-Dlibpython_clj.manual_gil=true` - `with-manual-gil`.
    Addresses [issue 221](https://github.com/clj-python/libpython-clj/issues/221).
 
 ## 2.019
