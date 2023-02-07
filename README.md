@@ -151,7 +151,7 @@ languages.
 #### Environments
 
 
-One very complimentary aspect of Python with respect to Clojure is it's integration
+One very complimentary aspect of Python with respect to Clojure is its integration
 with cutting edge native libraries.  Our support isn't perfect so some understanding
 of the mechanism is important to diagnose errors and issues.
 
