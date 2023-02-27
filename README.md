@@ -160,11 +160,12 @@ configuration as json.  We parse the json and use the output to attempt to find
 the `libpython3.Xm.so` shared library so for example if we are loading python
 3.6 we look for `libpython3.6m.so` on Linux or `libpython3.6m.dylib` on the Mac.
 
-In some situations we can eventualy not find a dynamic library `libpythonx.y.so` or 
-`libpythonx.z.dynlib`. It might not even be present at all , if python is statically linked.
-This is OS / instalation dependent and cannot be reliably detected in all cases.
-In such situation we fail with error `Failed to find a valid python library!`.
-This might then require to install additional OS level packages and / or set the precise library location manualy during `py/initalize!`
+If we are unable to find a dynamic library such as `libpythonx.y.so` or `libpythonx.z.dylib`, 
+it may be because Python is statically linked and the library is not present at all. 
+This is dependent on the operating system and installation, and it is not always possible to detect it. 
+In this case, we will receive an error message saying "Failed to find a valid python library!". 
+To fix this, you may need to install additional OS packages or manually set the precise library location during `py/initialize!`.
+
 
 This pathway has allowed us support Conda albeit with some work.  For examples
 using Conda, check out the facial rec repository a)bove or look into how we
