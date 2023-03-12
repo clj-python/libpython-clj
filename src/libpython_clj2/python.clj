@@ -46,7 +46,7 @@ user> (py/py. np linspace 2 3 :num 10)
     "Initialize the python library.  If library path is not provided, then the system
   attempts to execute a simple python program and have python return system info.
 
-  Note: all of the options passed to `initialize!` may now be provided in 
+  Note: all of the options passed to `initialize!` may now be provided in
   a root-level `python.edn` file.  Example:
 
   ```
@@ -82,7 +82,7 @@ user> (py/py. np linspace 2 3 :num 10)
 
   The file MUST be named `python.edn` and be in the root of the classpath.
   With a `python.edn` file in place, the `initialize!` function may be called
-  with no arguments and the options will be read from the file. If arguments are 
+  with no arguments and the options will be read from the file. If arguments are
   passed to `initialize!` then they will override the values in the file.
 
   Returns either `:ok` in which case the initialization completed successfully or
@@ -359,7 +359,17 @@ user> (py/py. np linspace 2 3 :num 10)
 (defn python-type
   "Get the type (as a keyword) of a python object"
   [v]
-  (py-ffi/with-gil (py-proto/python-type v)))
+  (if v
+    (py-ffi/with-gil (py-proto/python-type v))
+    :py-none))
+
+
+(defn attr-type-map
+  "Return a map of attr name to python-type of the attribute"
+  [pyobj]
+  (py-ffi/with-gil
+    (into (sorted-map) (map #(vector % (python-type (get-attr pyobj %))))
+          (dir pyobj))))
 
 
 (defmacro import-as
