@@ -40,6 +40,7 @@
                         :doc-paths ["topics"]
                         :source-uri "https://github.com/clj-python/libpython-clj/blob/master/{filepath}#L{line}"
                         :namespaces [libpython-clj2.python
+                                     libpython-clj2.python.class
                                      libpython-clj2.codegen
                                      libpython-clj2.python.np-array
                                      libpython-clj2.require

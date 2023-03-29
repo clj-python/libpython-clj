@@ -27,7 +27,8 @@
   as that can add confusion and unnecessary overhead.  Self will be the first argument.
   Callers can change this behavior by setting the 'arg-converter' option as in
   'make-tuple-fn'.
-  Options are the same as make-tuple-fn."
+
+  See options to [[libpython-clj2.python/make-callable]]."
   ([clj-fn & [{:keys [arg-converter]
                :or {arg-converter py-base/as-jvm}
                :as options}]]
@@ -45,16 +46,13 @@
   pass as-jvm bridged python object ptr args and kw dict args to the clojure function without
   marshalling.  Self will be the first argument of the arg vector.
 
-
+  See options to [[libpython-clj2.python/make-callable]].
 
   Options:
 
-  * `:kw-arg-converter` - passed two arguments, the positional arguments as a python ptr
-  and the keyword arguments as a python pointer.  The clj-fn is 'applied' to the result
-  of `:arg-converter` which has the same default as [[make-tuple-fn]].
-
-  * `:result-converter` - defaults to the same argument conversion rules of bridged
-     objects."
+  * `:arg-converter` - gets one argument and must convert into jvm space - defaults to as-jvm.
+  * `:result-converter` - gets one argument and must convert to python space.
+     Has reasonable default."
   ([clj-fn & [{:keys [arg-converter
                       result-converter]
                :or {arg-converter py-base/as-jvm}
@@ -84,7 +82,7 @@
           (py-base/as-jvm)))))
 
 
-(def wrapped-jvm-destructor*
+(def ^:private wrapped-jvm-destructor*
   (jvm-handle/py-global-delay
    (make-tuple-instance-fn
     (fn [self]
@@ -94,28 +92,28 @@
         nil)))))
 
 
-(defn wrapped-jvm-destructor
+(defn ^:no-doc wrapped-jvm-destructor
   []
   @wrapped-jvm-destructor*)
 
 
-(def wrapped-jvm-constructor*
+(def ^:private wrapped-jvm-constructor*
   (jvm-handle/py-global-delay
    (make-tuple-instance-fn jvm-handle/py-self-set-jvm-handle!)))
 
 
-(defn wrapped-jvm-constructor
+(defn ^:no-doc wrapped-jvm-constructor
   []
   @wrapped-jvm-constructor*)
 
 
-(def abc-callable-type*
+(def ^:no-doc abc-callable-type*
   (jvm-handle/py-global-delay
    (py-ffi/with-decref [mod (py-ffi/PyImport_ImportModule "collections.abc")]
      (py-proto/get-attr mod "Callable"))))
 
 
-(def wrapped-fn-class*
+(def ^:no-doc wrapped-fn-class*
   (jvm-handle/py-global-delay
      (create-class
       "LibPythonCLJWrappedFn" [@abc-callable-type*]
@@ -133,7 +131,7 @@
                      (.toString (jvm-handle/py-self->jvm-obj self)))))})))
 
 
-(defn wrap-ifn
+(defn ^:no-doc wrap-ifn
   [ifn]
   (errors/when-not-errorf
    (instance? IFn ifn)
