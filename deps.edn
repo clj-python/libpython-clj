@@ -1,6 +1,6 @@
 {:paths ["src"]
  :deps {org.clojure/clojure     {:mvn/version "1.11.1" :scope "provided"}
-        cnuernber/dtype-next    {:mvn/version "10.000-beta-48"}
+        cnuernber/dtype-next    {:mvn/version "10.000-beta-49"}
         net.java.dev.jna/jna    {:mvn/version "5.12.1"}
         org.clojure/data.json   {:mvn/version "1.0.0"}
         ;;Replace me with caffeine...
