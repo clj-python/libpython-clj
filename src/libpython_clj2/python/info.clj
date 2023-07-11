@@ -96,6 +96,7 @@ print(json.dumps(
                                   "Failed to find value python executable.  Tried %s"
                                   default-python-executables)))))
         python-home (find-python-home system-info options)
+        platform (:platform system-info)
         java-lib-path (java-library-path-addendum python-home)
         [ver-maj ver-med _ver-min] (:version system-info)
         lib-version                (format "%s.%s" ver-maj ver-med)
@@ -105,7 +106,12 @@ print(json.dumps(
         libnames                   (concat [libname]
                                            ;;Make sure we try without the 'm' suffix
                                            (when lib-version
-                                             [(str "python" lib-version)]))]
+                                             [(str "python" lib-version)])
+                                           ;; The official python dll
+                                           ;; does not have a dot in
+                                           ;; its name.
+                                           (when (= platform "win32")
+                                             [(str "python" ver-maj ver-med)]))]
     (merge
      system-info
      {:python-home                python-home
