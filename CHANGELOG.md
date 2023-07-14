@@ -1,4 +1,8 @@
 # Time for a ChangeLog!
+## Unreleased
+ * Fix issue with locating python dll on MS-Windows
+   [#246](https://github.com/clj-python/libpython-clj/issues/246).
+
 ## 2.024
  * large dtype-next/hamf upgrade.
  * fix for call-attr (it was broken when using keywords).
