@@ -365,7 +365,7 @@ class Foo:
         bridged-dict (py/as-python {"a" 1 "b" 2})
         bridged-iter (py/as-python (repeat 5 1))
         bridged-list (py/as-python (vec (range 10)))
-        pycol (py/import-module "collections")
+        pycol (py/import-module "collections.abc")
         mapping-type (py/get-attr pycol "Mapping")
         iter-type (py/get-attr pycol "Iterable")
         sequence-type (py/get-attr pycol "Sequence")]
