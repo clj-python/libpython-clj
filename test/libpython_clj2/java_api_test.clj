@@ -2,7 +2,6 @@
   (:require [libpython-clj2.java-api :as japi]
             [libpython-clj2.python.ffi :as py-ffi]
             [libpython-clj2.python :as py]
-            [tech.v3.datatype.jvm-map :as jvm-map]
             [clojure.test :refer [deftest is]]))
 
 
