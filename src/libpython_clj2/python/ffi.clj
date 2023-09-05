@@ -16,7 +16,6 @@
             [tech.v3.datatype.struct :as dt-struct]
             [tech.v3.datatype.errors :as errors]
             [tech.v3.datatype.native-buffer :as native-buffer]
-            [tech.v3.datatype.nio-buffer :as nio-buffer]
             [tech.v3.datatype.protocols :as dt-proto]
             [tech.v3.resource :as resource]
             [libpython-clj2.python.gc :as pygc]
@@ -793,11 +792,7 @@ Each call must be matched with PyGILState_Release"}
                                          (size-obj 0)
                                          nil)]
     (native-buffer/free size-obj)
-    (-> (.decode StandardCharsets/UTF_8
-                 ;;avoid resource chaining for performance
-                 ^java.nio.ByteBuffer (nio-buffer/native-buf->nio-buf
-                                       nbuf {:resource-type nil}))
-        (.toString))))
+    (native-buffer/native-buffer->string nbuf)))
 
 (defn pytype-name
   ^String [type-pyobj]
