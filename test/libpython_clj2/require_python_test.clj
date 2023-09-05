@@ -146,3 +146,12 @@
           "Methods have line numbers")
       (is (string? file)
           "Methods have file paths"))))
+
+(deftest convert-types
+  (let [typing-module (py/import-module "typing")]
+    (testing "convert generic alias type to JVM"
+      (-> (py/py. typing-module GenericAlias list str)
+          py/->jvm
+          :type
+          (= :generic-alias)
+          is))))
