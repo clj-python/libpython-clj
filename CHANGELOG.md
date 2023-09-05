@@ -1,5 +1,7 @@
 # Time for a ChangeLog!
-## Unreleased
+## 2.025
+ * [Stop using nio-buffer conversion for ->string](https://github.com/clj-python/libpython-clj/blob/master/src/libpython_clj2/python/ffi.clj#L795)
+ * [PR - Handle conversion of more types in ->jvm](https://github.com/clj-python/libpython-clj/pull/251)
  * Fix issue with locating python dll on MS-Windows
    [#246](https://github.com/clj-python/libpython-clj/issues/246).
 
