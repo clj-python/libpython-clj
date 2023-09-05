@@ -1,4 +1,7 @@
 # Time for a ChangeLog!
+## 2.026 - UNRELEASED
+ * Faster string conversion from c->jvm for large strings.
+
 ## 2.025
  * [Stop using nio-buffer conversion for ->string](https://github.com/clj-python/libpython-clj/blob/master/src/libpython_clj2/python/ffi.clj#L795)
  * [PR - Handle conversion of more types in ->jvm](https://github.com/clj-python/libpython-clj/pull/251)
