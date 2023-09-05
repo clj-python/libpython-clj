@@ -172,36 +172,43 @@
           stop (py-base/->jvm (py-proto/get-attr pyobj "stop"))]
       (range start stop step))))
 
+(def mapping-exceptions
+  "These types pass PyMapping_Check but cannot be treated as a collection."
+  ;; See github issue#250
+  #{:generic-alias
+    :union-type})
 
 (defmethod py-proto/pyobject->jvm :default
   [pyobj & [options]]
-  (cond
-    (= :none-type (py-ffi/pyobject-type-kwd pyobj))
-    nil
-    ;;Things could implement mapping and sequence logically so mapping
-    ;;takes precedence
-    (= 1 (py-ffi/PyMapping_Check pyobj))
-    (do
-      (if-let [map-items (py-ffi/PyMapping_Items pyobj)]
-        (try
-          (python->jvm-copy-hashmap pyobj map-items)
-          (finally
-            (py-ffi/Py_DecRef map-items)))
-        (do
-          ;;Ignore error.  The mapping check isn't thorough enough to work for all
-          ;;python objects.
-          (py-ffi/PyErr_Clear)
-          (python->jvm-copy-persistent-vector pyobj))))
-    ;;Sequences become persistent vectors
-    (= 1 (py-ffi/PySequence_Check pyobj))
-    (python->jvm-copy-persistent-vector pyobj)
-    :else
-    {:type (py-ffi/pyobject-type-kwd pyobj)
-     ;;Create a new GC root as the old reference is released.
-     :value (let [new-obj (py-ffi/track-pyobject
-                           (Pointer. (.address (dt-ffi/->pointer pyobj))))]
-              (py-ffi/Py_IncRef new-obj)
-              new-obj)}))
+  (let [python-type-keyword (py-ffi/pyobject-type-kwd pyobj)]
+    (cond
+      (= :none-type python-type-keyword)
+      nil
+      ;;Things could implement mapping and sequence logically so mapping
+      ;;takes precedence
+      (and (= 1 (py-ffi/PyMapping_Check pyobj))
+           (not (mapping-exceptions python-type-keyword)))
+      (do
+        (if-let [map-items (py-ffi/PyMapping_Items pyobj)]
+          (try
+            (python->jvm-copy-hashmap pyobj map-items)
+            (finally
+              (py-ffi/Py_DecRef map-items)))
+          (do
+            ;;Ignore error.  The mapping check isn't thorough enough to work for all
+            ;;python objects.
+            (py-ffi/PyErr_Clear)
+            (python->jvm-copy-persistent-vector pyobj))))
+      ;;Sequences become persistent vectors
+      (= 1 (py-ffi/PySequence_Check pyobj))
+      (python->jvm-copy-persistent-vector pyobj)
+      :else
+      {:type python-type-keyword
+       ;;Create a new GC root as the old reference is released.
+       :value (let [new-obj (py-ffi/track-pyobject
+                             (Pointer. (.address (dt-ffi/->pointer pyobj))))]
+                (py-ffi/Py_IncRef new-obj)
+                new-obj)})))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
