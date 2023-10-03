@@ -77,7 +77,7 @@ user> (py/py. np linspace 2 3 :num 10)
   virtual enviornment.
 
   The :post-initialize-fn can use all functions from ns `libpython-clj2.python`
-  as libpython-clj is initialised alreday andc ould for example be used to validate
+  as libpython-clj is initialised alreday and could for example be used to validate
   that later needed libraries can be loaded via calling `import-module`.
 
   The file MUST be named `python.edn` and be in the root of the classpath.
