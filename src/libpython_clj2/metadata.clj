@@ -41,6 +41,7 @@
              (get-attr % "__doc__")
              (catch Exception e
                "")))
+(def os (import-module "os"))
 (def get-pydoc doc)
 (def vars (get-attr builtins "vars"))
 (def pyclass? (get-attr inspect "isclass"))
@@ -226,6 +227,12 @@
   [att-val]
   (or (string? att-val)
       (number? att-val)))
+
+(defn py-chdir [path]
+  (py/$a os "chdir" path))
+
+(defn py-getcwd []
+  (py/$a os "getcwd"))
 
 (defn datafy-module-or-class [item]
   (with-gil
