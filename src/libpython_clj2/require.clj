@@ -6,7 +6,8 @@
             [libpython-clj2.metadata :as pymeta]
             [clojure.datafy :refer [datafy nav]]
             [clojure.tools.logging :as log]
-            [clojure.core.protocols :as clj-proto]))
+            [clojure.core.protocols :as clj-proto])
+  (:import (java.io File)))
 
 
 (defn- parse-flags
@@ -19,7 +20,7 @@
   ;; First attempt is to filter keywords and make sure any keywords are
   ;; in supported-flags
   (let [total-flags (set (concat supported-flags [:as :refer :exclude
-                                                  :* :all :bind-ns]))]
+                                                  :* :all :bind-ns :path]))]
     (when-let [missing-flags (->> reqs
                                   (filter #(and (not (total-flags %))
                                                 (keyword? %)))
@@ -100,13 +101,20 @@
         no-arglists?        (:no-arglists flags)
         bind-ns?            (:bind-ns flags)
         alias-name          (:as etc)
+        path                (:path etc)
         exclude             (into #{} (:exclude etc))
-
         refer-data          (cond
                               (= :all (:refer etc)) #{:all}
                               (= :* (:refer etc))   #{:*}
                               :else                 (into #{} (:refer etc)))
-        pyobj               (py/path->py-obj (str module-name) :reload? reload?)
+        pyobj               (if path
+                              (let [cwd (pymeta/py-getcwd)]
+                                (try
+                                  (pymeta/py-chdir path)
+                                  (py/path->py-obj (str module-name) :reload? reload?)
+                                  (finally
+                                    (pymeta/py-chdir cwd))))
+                              (py/path->py-obj (str module-name) :reload? reload?))
         existing-py-ns?     (find-ns module-name)]
     (create-ns module-name)
 
@@ -170,6 +178,7 @@
          (into [(req-transform prefix base)] reqs))))))
 
 
+
 (defn require-python
   "## Basic usage ##
 
@@ -219,9 +228,64 @@
    ## Setting up classpath for custom modules ##
 
    Note: you may need to setup your PYTHONPATH correctly.
-   One technique to do this is, if your foo.py lives at
-   /path/to/foodir/foo.py:
+   **WARNING**: This is very handy for local REPL development,
+            ..: if you are going to AOT classes,
+            ..: refer to the documentation on codegen
+            ..: or your AOT compilation will fail.
+   If your foo.py lives at /path/to/foodir/foo.py, the easiest
+   way to do it is:
 
+   (require-python :from \"/path/to/foodir\"
+                   'foo) ;; or
+   (require-python \"/path/to/foodir\"
+                   'foo) ;; or
+   (require-python {:from \"/path/to/foodir\"}
+                   'foo)
+
+   as you prefer.
+
+   Additionally, if you want to keep the namespacing as you have 
+   it in Python, you may prefer to use a relative import 
+   starting from a location of your choosing. If your 
+   os.getcwd() => /some/path/foo,
+   and your directory structure looks something like:
+
+   /some $ tree
+   .
+   └── path
+       ├── baz
+       │   └── quux.py
+       └── foo
+           └── bar.py
+
+   
+   (require-python :from \"path\"
+                   '[baz.quux :as quux]
+                   :from \"path/foo\"
+                   'bar)
+   
+   is perfectly acceptable. It probably makes the most 
+   sense to keep you style consistent, but you can mix
+   and match as you see fit between <path>, :from <path>, 
+   and {:from <path>}.  <path> can either be a file or a
+   directory.  If it is a file, the Python path will be
+   set to the directory containing that file.
+
+   You may also stack several require-pythons under one path:
+
+   (require-python {:from \"dir-a\"}
+                   'a
+                   'b
+                   'c
+                   {:from \"dir-b\"}
+                   'e.f
+                   'g
+                   {:from \"dir-c}
+                   'hi.there)
+
+   Other options more in keeping with traditional PYTHONPATH
+   management include:
+   
    (require-python 'sys)
    (py/call-attr (py/get-attr sys \"path\")
                  \"append\"
@@ -275,9 +339,32 @@
        (throw (Exception. "Invalid argument: %s" req))))
    :ok)
   ([req & reqs]
-   (require-python req)
-   (when (not-empty reqs)
-     (apply require-python reqs))
+   (cond (and (map? req)
+              (contains? req :from)
+              (seq reqs))
+         (apply require-python (:from req) reqs)
+         (and (keyword? req)
+              (= :from req)
+              (string? (first reqs)))
+         (apply require-python (first reqs) (rest reqs))
+         (and (string? req)
+              (.isFile (File. req)))
+         (let [file (File. req)
+               cwd (pymeta/py-getcwd)]
+           (apply require-python (str (.getParent file)) reqs))
+         (and (string? req)
+              (.isDirectory (File. req)))
+         (let [cwd (pymeta/py-getcwd)]
+           (try
+             (pymeta/py-chdir req)
+             (apply require-python reqs)
+             (finally
+               (pymeta/py-chdir cwd))))
+         :else
+         (do
+           (require-python req)
+           (when (not-empty reqs)
+             (apply require-python reqs))))
    :ok))
 
 
