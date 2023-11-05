@@ -72,7 +72,16 @@
   will be presented as instance methods.
   Things in the cls hashmap had better be either atoms or already converted
   python objects.  You may get surprised otherwise; you have been warned.
-  See the classes-test file in test/libpython-clj"
+  See the classes-test file in test/libpython-clj.
+
+
+  Calling `super.init()` may be done in a non-obvious way:
+
+```clojure
+(py. (py/get-item (py.. self -__class__ -__mro__) 1) __init__ self)
+```
+  More feedback/research in this area is needed to integrated deeper into
+  the python class hierarchies."
   [name bases cls-hashmap]
   (py-ffi/with-gil
     (py-ffi/with-decref

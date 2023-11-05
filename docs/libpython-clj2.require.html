@@ -8,7 +8,7 @@
 scanning the module for metadata and dynamically building the Clojure namespace.</p>
 </div></div><div class="public anchor" id="var-import-python"><h3>import-python</h3><div class="usage"><code>(import-python)</code></div><div class="doc"><div class="markdown"><p>Loads python, python.list, python.dict, python.set, python.tuple,
 and python.frozenset.</p>
-</div></div><div class="src-link"><a href="https://github.com/clj-python/libpython-clj/blob/master/src/libpython_clj2/require.clj#L284">view source</a></div></div><div class="public anchor" id="var-require-python"><h3>require-python</h3><div class="usage"><code>(require-python req)</code><code>(require-python req &amp; reqs)</code></div><div class="doc"><div class="markdown"><h2>Basic usage</h2>
+</div></div><div class="src-link"><a href="https://github.com/clj-python/libpython-clj/blob/master/src/libpython_clj2/require.clj#L371">view source</a></div></div><div class="public anchor" id="var-require-python"><h3>require-python</h3><div class="usage"><code>(require-python req)</code><code>(require-python req &amp; reqs)</code></div><div class="doc"><div class="markdown"><h2>Basic usage</h2>
 <p>(require-python 'math)
 (math/sin 1.0) ;;=&gt; 0.8414709848078965</p>
 <p>(require-python '<a href="math :as maaaath">math :as maaaath</a>)</p>
@@ -40,8 +40,53 @@ use:</p>
 ..: the behavior mimics importlib.reload</p>
 <h2>Setting up classpath for custom modules</h2>
 <p>Note: you may need to setup your PYTHONPATH correctly.
-One technique to do this is, if your foo.py lives at
-/path/to/foodir/foo.py:</p>
+<strong>WARNING</strong>: This is very handy for local REPL development,
+..: if you are going to AOT classes,
+..: refer to the documentation on codegen
+..: or your AOT compilation will fail.
+If your foo.py lives at /path/to/foodir/foo.py, the easiest
+way to do it is:</p>
+<p>(require-python :from "/path/to/foodir"
+'foo) ;; or
+(require-python "/path/to/foodir"
+'foo) ;; or
+(require-python {:from "/path/to/foodir"}
+'foo)</p>
+<p>as you prefer.</p>
+<p>Additionally, if you want to keep the namespacing as you have
+it in Python, you may prefer to use a relative import
+starting from a location of your choosing. If your
+os.getcwd() =&gt; /some/path/foo,
+and your directory structure looks something like:</p>
+<p>/some $ tree
+.
+└── path
+├── baz
+│   └── quux.py
+└── foo
+└── bar.py</p>
+<p>(require-python :from "path"
+'<a href="baz.quux :as quux">baz.quux :as quux</a>
+:from "path/foo"
+'bar)</p>
+<p>is perfectly acceptable. It probably makes the most
+sense to keep you style consistent, but you can mix
+and match as you see fit between <path>, :from <path>,
+and {:from <path>}.  <path> can either be a file or a
+directory.  If it is a file, the Python path will be
+set to the directory containing that file.</path></path></path></path></p>
+<p>You may also stack several require-pythons under one path:</p>
+<p>(require-python {:from "dir-a"}
+'a
+'b
+'c
+{:from "dir-b"}
+'e.f
+'g
+{:from "dir-c}
+'hi.there)</p>
+<p>Other options more in keeping with traditional PYTHONPATH
+management include:</p>
 <p>(require-python 'sys)
 (py/call-attr (py/get-attr sys "path")
 "append"
@@ -68,4 +113,4 @@ you can do the following --</p>
 those things designated by the module under the <strong>all</strong> attribute,
 you can do</p>
 <p>(require-python '<a href="operators :refer :*">operators :refer :*</a>)</p>
-</div></div><div class="src-link"><a href="https://github.com/clj-python/libpython-clj/blob/master/src/libpython_clj2/require.clj#L173">view source</a></div></div></div></body></html>
+</div></div><div class="src-link"><a href="https://github.com/clj-python/libpython-clj/blob/master/src/libpython_clj2/require.clj#L182">view source</a></div></div></div></body></html>
