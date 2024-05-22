@@ -172,6 +172,13 @@ using Conda, check out the facial rec repository a)bove or look into how we
 [build](scripts/build-conda-docker)
 our test [docker containers](dockerfiles/CondaDockerfile).
 
+#### devcontainer 
+The scicloj community is maintaining a `devcontainer` [template](https://github.com/scicloj/devcontainer-templates/tree/main/src/scicloj) on which `libpython-clj` is know to work
+out of the box.
+
+This can be used as a starting point for projects using `libpython-clj` or as reference for debuging issues.
+
+
 ## Community
 
 We like to talk about libpython-clj on [Zulip](https://clojurians.zulipchat.com/#streams/215609/libpython-clj-dev) as the conversations are persistent and searchable.
