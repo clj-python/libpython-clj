@@ -217,16 +217,21 @@ we have an [introductory document](topics/new-to-clojure.md).
 To install jar to local .m2 :
 
 ```bash
-$ lein install
+$ clj -X:depstar
+```
+
+After building and process `pom.xml` file you can run:
+
+```bash
+$ clj -X:install
 ```
 
 ### Deploy to clojars
 
 ```bash
-$ lein deploy clojars
+$ clj -X:deploy
 ```
-This command will sign jar before deploy, using your gpg key. (see dev/src/build.clj for signing options)
-
+> This command will sign jar before deploy, using your gpg key.
 
 
 ## License
