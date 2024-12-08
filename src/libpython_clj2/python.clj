@@ -413,7 +413,7 @@ user> (py/py. np linspace 2 3 :num 10)
   (cond
     (instance? IFn pyobj)
     true
-    (dtype-ffi/convertible-to-pointer? pyobj)
+    (py-ffi/convertible-to-pointer? pyobj)
     (py-ffi/with-gil
       (let [retval (long (py-ffi/PyCallable_Check pyobj))]
         (case retval

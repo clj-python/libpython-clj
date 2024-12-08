@@ -323,6 +323,16 @@ Each call must be matched with PyGILState_Release"}
            :pyobject [{:name :ob_refcnt :datatype (ffi-size-t/size-t-type)}
                       {:name :ob_type :datatype (ffi-size-t/size-t-type)}])))
 
+
+(defn convertible-to-pointer?
+  "Older definition - excludes Long objects which were made convertible-to-pointer
+  in later versions of dtype-next."
+  [d]
+  (boolean 
+   (when-not (instance? Long d)
+     (dt-ffi/convertible-to-pointer? d))))
+
+
 (defn pytype-offset
   ^long []
   (first (dt-struct/offset-of @pyobject-struct-type* :ob_type)))

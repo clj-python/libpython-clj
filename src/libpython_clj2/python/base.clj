@@ -80,13 +80,13 @@
 (extend-type Object
   py-proto/PCopyToJVM
   (->jvm [item options]
-    (if (dt-ffi/convertible-to-pointer? item)
+    (if (py-ffi/convertible-to-pointer? item)
       (py-proto/pyobject->jvm item options)
       ;;item is already a jvm object
       item))
   py-proto/PBridgeToJVM
   (as-jvm [item options]
-    (if (dt-ffi/convertible-to-pointer? item)
+    (if (py-ffi/convertible-to-pointer? item)
       (py-proto/pyobject-as-jvm item options)
       item))
   py-proto/PPyCallable
