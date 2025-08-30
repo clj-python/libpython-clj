@@ -21,3 +21,4 @@ a.out
 .lsp
 .clj-kondo
 pregen-ffi-test
+.calva

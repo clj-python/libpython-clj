@@ -1,13 +1,17 @@
 {:paths ["src"]
- :deps {org.clojure/clojure     {:mvn/version "1.11.1" :scope "provided"}
+ :deps {org.clojure/clojure     {:mvn/version "1.12.0" }
         cnuernber/dtype-next    {:mvn/version "10.111"}
         net.java.dev.jna/jna    {:mvn/version "5.12.1"}
         org.clojure/data.json   {:mvn/version "1.0.0"}
+        cheshire/cheshire {:mvn/version "5.13.0"}
+        scicloj/clojisr {:mvn/version "1.0.0"}
         ;;Replace me with caffeine...
         com.google.guava/guava  {:mvn/version "31.1-jre"}}
+ 
+
 
  :aliases {:dev
-           {:extra-deps {criterium/criterium {:mvn/version"0.4.5"}
+           {:extra-deps {criterium/criterium {:mvn/version "0.4.5"}
                          ch.qos.logback/logback-classic {:mvn/version "1.1.3"}}}
            :fastcall
            {:jvm-opts ["-Dlibpython_clj.manual_gil=true"]}
@@ -77,4 +81,172 @@
             :exec-args {:installer :local
                         :artifact "target/libpython-clj.jar"}}
 
-           }}
+           }
+           
+ :python-version "3.13.7"
+ :python-deps [
+               "openai==1.58.1"
+               ]
+ 
+:renv-deps {:R
+            {:Version "4.4.1",
+             :Repositories [{:Name "CRAN", :URL "https://cloud.r-project.org"}]},
+            :Packages
+            {:tidyselect
+             {:Package "tidyselect",
+              :Version "1.2.1",
+              :Source "Repository",
+              :Repository "CRAN",
+              :Requirements
+              ["R" "cli" "glue" "lifecycle" "rlang" "vctrs" "withr"],
+              :Hash "829f27b9c4919c16b593794a6344d6c0"},
+             :withr
+             {:Package "withr",
+              :Version "3.0.1",
+              :Source "Repository",
+              :Repository "CRAN",
+              :Requirements ["R" "grDevices" "graphics"],
+              :Hash "07909200e8bbe90426fbfeb73e1e27aa"},
+             :utf8
+             {:Package "utf8",
+              :Version "1.2.4",
+              :Source "Repository",
+              :Repository "CRAN",
+              :Requirements ["R"],
+              :Hash "62b65c52671e6665f803ff02954446e9"},
+             :rlang
+             {:Package "rlang",
+              :Version "1.1.4",
+              :Source "Repository",
+              :Repository "CRAN",
+              :Requirements ["R" "utils"],
+              :Hash "3eec01f8b1dee337674b2e34ab1f9bc1"},
+             :glue
+             {:Package "glue",
+              :Version "1.7.0",
+              :Source "Repository",
+              :Repository "CRAN",
+              :Requirements ["R" "methods"],
+              :Hash "e0b3a53876554bd45879e596cdb10a52"},
+             :vctrs
+             {:Package "vctrs",
+              :Version "0.6.5",
+              :Source "Repository",
+              :Repository "CRAN",
+              :Requirements ["R" "cli" "glue" "lifecycle" "rlang"],
+              :Hash "c03fa420630029418f7e6da3667aac4a"},
+             :tibble
+             {:Package "tibble",
+              :Version "3.2.1",
+              :Source "Repository",
+              :Repository "CRAN",
+              :Requirements
+              ["R"
+               "fansi"
+               "lifecycle"
+               "magrittr"
+               "methods"
+               "pillar"
+               "pkgconfig"
+               "rlang"
+               "utils"
+               "vctrs"],
+              :Hash "a84e2cc86d07289b3b6f5069df7a004c"},
+             :magrittr
+             {:Package "magrittr",
+              :Version "2.0.3",
+              :Source "Repository",
+              :Repository "CRAN",
+              :Requirements ["R"],
+              :Hash "7ce2733a9826b3aeb1775d56fd305472"},
+             :lifecycle
+             {:Package "lifecycle",
+              :Version "1.0.4",
+              :Source "Repository",
+              :Repository "CRAN",
+              :Requirements ["R" "cli" "glue" "rlang"],
+              :Hash "b8552d117e1b808b09a832f589b79035"},
+             :dplyr
+             {:Package "dplyr",
+              :Version "1.1.4",
+              :Source "Repository",
+              :Repository "CRAN",
+              :Requirements
+              ["R"
+               "R6"
+               "cli"
+               "generics"
+               "glue"
+               "lifecycle"
+               "magrittr"
+               "methods"
+               "pillar"
+               "rlang"
+               "tibble"
+               "tidyselect"
+               "utils"
+               "vctrs"],
+              :Hash "fedd9d00c2944ff00a0e2696ccf048ec"},
+             :pkgconfig
+             {:Package "pkgconfig",
+              :Version "2.0.3",
+              :Source "Repository",
+              :Repository "CRAN",
+              :Requirements ["utils"],
+              :Hash "01f28d4278f15c76cddbea05899c5d6f"},
+             :fansi
+             {:Package "fansi",
+              :Version "1.0.6",
+              :Source "Repository",
+              :Repository "CRAN",
+              :Requirements ["R" "grDevices" "utils"],
+              :Hash "962174cf2aeb5b9eea581522286a911f"},
+             :renv
+             {:Package "renv",
+              :Version "1.0.7",
+              :Source "Repository",
+              :Repository "CRAN",
+              :Requirements ["utils"],
+              :Hash "397b7b2a265bc5a7a06852524dabae20"},
+             :pillar
+             {:Package "pillar",
+              :Version "1.9.0",
+              :Source "Repository",
+              :Repository "CRAN",
+              :Requirements
+              ["cli" "fansi" "glue" "lifecycle" "rlang" "utf8" "utils" "vctrs"],
+              :Hash "15da5a8412f317beeee6175fbc76f4bb"},
+             :generics
+             {:Package "generics",
+              :Version "0.1.3",
+              :Source "Repository",
+              :Repository "CRAN",
+              :Requirements ["R" "methods"],
+              :Hash "15e9634c0fcd294799e9b2e929ed1b86"},
+             :cli
+             {:Package "cli",
+              :Version "3.6.3",
+              :Source "Repository",
+              :Repository "CRAN",
+              :Requirements ["R" "utils"],
+              :Hash "b21916dd77a27642b447374a5d30ecf3"},
+             :R6
+             {:Package "R6",
+              :Version "2.5.1",
+              :Source "Repository",
+              :Repository "CRAN",
+              :Requirements ["R"],
+              :Hash "470851b6d5d0ac559e9d01bb352b4021"}
+:Rserve
+{:Package "Rserve",
+ :Version "1.8-13",
+ :Source "Repository",
+ :Repository "CRAN",
+ :Requirements ["R"],
+ :Hash "589ebd25cffe93ab5ab61e66936d2678"}             
+             }}
+           
+           
+           
+           
+           }
