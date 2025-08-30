@@ -1,3 +1,0 @@
-{:python-executable   ".venv/bin/python"
- :pre-initialize-fn libpython-clj2.python.uv/setup!}
-

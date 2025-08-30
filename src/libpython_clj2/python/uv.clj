@@ -1,10 +1,9 @@
 (ns libpython-clj2.python.uv
-  (:require 
-            [clojure.edn :as edn]
-            [clojure.java.process :as process]
-            [clojure.string :as str]
-            [cheshire.core :as json]
-            ))
+  (:require
+   [clojure.edn :as edn]
+   [clojure.java.process :as process]
+   [clojure.string :as str]
+   [cheshire.core :as json]))
 
 (defn write-pyproject-toml! [deps-edn]
 
@@ -92,6 +91,14 @@
 
 (defn setup! [& args]
   (setup-python!)
-  (setup-r!)
+  ;(setup-r!)
   )
 
+(comment
+  (require 'libpython-clj2.python)
+  (require 'libpython-clj2.python.uv)
+  (libpython-clj2.python.uv/setup!)
+  (libpython-clj2.python/initialize! :python-executable ".venv/bin/python")
+  (libpython-clj2.python/run-simple-string "import sys; print(sys.path)")
+  (libpython-clj2.python/import-module "openai")
+  )
