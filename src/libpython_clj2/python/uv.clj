@@ -10,12 +10,12 @@
   (let [python-deps
         (:python-deps deps-edn)
 
-        ;python-version (:python-version deps-edn)
+        python-version (:python-version deps-edn)
 
         py-project-header-lines ["[project]"
                                  "name = \"temp\""
                                  "version = \"0.0\""
-                                 ;(format "requires-python = \"==%s\"" python-version) 
+                                 (format "requires-python = \"==%s\"" python-version) 
                                  ]
         python-deps-lines
         (map
