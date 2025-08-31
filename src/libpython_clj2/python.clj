@@ -837,6 +837,10 @@ user> c
   (require 'libpython-clj2.python.uv)
 
   (libpython-clj2.python/initialize!)
+  (libpython-clj2.python/run-simple-string "import sys; sys.path.append('.venv/Lib/site-packages')")
   (libpython-clj2.python/run-simple-string "import sys; print(sys.path)")
+  (libpython-clj2.python/run-simple-string "import sys; print(sys.prefix)")
+  (libpython-clj2.python/run-simple-string "import sys; print(sys.base_prefix)")
   (libpython-clj2.python/import-module "openai")
-  (libpython-clj2.python/import-module "langextract"))
+  (libpython-clj2.python/import-module "langextract")
+  )

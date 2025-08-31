@@ -1,8 +1,8 @@
 {
- :python-version "3.10.16"
- :python-deps ["openai==1.58.1"
-               "langextract"]
+ ;:python-version "3.10.16"
+ ;:python-deps ["openai==1.58.1"
+ ;              "langextract"]
  :python-executable ".venv/Scripts/python"
- :pre-initialize-fn libpython-clj2.python.uv/sync-python-setup!
+ ;:pre-initialize-fn libpython-clj2.python.uv/sync-python-setup!
 
 }
