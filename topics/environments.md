@@ -46,6 +46,15 @@ On Windows we need to use:
 
 as the python executable.
 
+### Performance and progress logging
+
+uv is very fast, usualy package installations and even python installations run in under one minute.
+
+It was not possible to print progress logging output from the 'uv sync' run, so please be patient if nothings happens for a while, after changing python version or adding (larger) python packages.
+
+If you don't want to wait, you can just "kill the clojure process" and run `uv sync` by hand (which prints the logging).
+The integration creates an updated "pyproject.toml" file on disk, which `uv sync` will process.
+
 ### Caveat
 
 We have noticed that under Windows for some python versions  `libpython-clj` does not setup the python library path correctly, resulting in python libraries not found using for example: `(py/import-module "xxx")`
