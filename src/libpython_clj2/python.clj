@@ -114,7 +114,17 @@ user> (py/py. np linspace 2 3 :num 10)
                                    (catch java.io.FileNotFoundException _ "{}"))
                               clojure.edn/read-string)
           _ (log/infof "Pre-initialize-fn %s" (some-> python-edn-opts :pre-initialize-fn))
+          _ (def python-edn-opts python-edn-opts)
           _ (some-> python-edn-opts :pre-initialize-fn requiring-resolve (apply []))
+          _ (some-> python-edn-opts :pre-initialize-fn)
+          ;_ ( (requiring-resolve 'libpython-clj2.python.uv/sync-python-setup))
+
+          ;(require 'libpython-clj2.python.uv)
+
+          ;(requiring-resolve )
+
+          ;(-> 'libpython-clj2.python.uv/char-seq namespace symbol require)
+          ;(resolve 'libpython-clj2.python.uv/char-seq)
           options (merge python-edn-opts options)
           info (py-info/detect-startup-info options)
           _ (log/infof "Startup info %s" info)
@@ -820,3 +830,13 @@ user> c
   [symbols input]
   `(let [~symbols ~input]
      ~@(for [s symbols] `(def ~s ~s))))
+
+
+(comment
+  (require 'libpython-clj2.python)
+  (require 'libpython-clj2.python.uv)
+
+  (libpython-clj2.python/initialize!)
+  (libpython-clj2.python/run-simple-string "import sys; print(sys.path)")
+  (libpython-clj2.python/import-module "openai")
+  (libpython-clj2.python/import-module "langextract"))
