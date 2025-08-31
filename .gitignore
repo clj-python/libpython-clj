@@ -23,3 +23,5 @@ a.out
 pregen-ffi-test
 .calva
 .lock
+pyproject.toml
+uv.lock
