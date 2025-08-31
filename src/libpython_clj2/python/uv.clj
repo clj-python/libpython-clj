@@ -3,9 +3,10 @@
    [clojure.edn :as edn]
    [clojure.java.process :as process]
    [clojure.string :as str]
-   [cheshire.core :as json]))
+   [cheshire.core :as json]
+   [clojure.java.process :as proc]))
 
-(defn write-pyproject-toml! [deps-edn]
+(defn- write-pyproject-toml! [deps-edn]
 
   (let [python-deps
         (:python-deps deps-edn)
@@ -33,7 +34,7 @@
     (spit "pyproject.toml"
           (str/join "\n" py-project-lines))))
 
-(defn char-seq
+(defn- char-seq
   [^java.io.Reader rdr]
   (let [chr (.read rdr)]
     (when (>= chr 0)
@@ -44,12 +45,8 @@
         (cons chr (lazy-seq (char-seq rdr)))))))
 
 
-(defn start-and-print! [process-args]
-  (let [args
-        (concat [{:env {"RENV_CONFIG_INSTALL_VERBOSE" "TRUE"}}]
-                process-args)
-        p
-        (apply process/start args)]
+(defn- start-and-print! [process-args]
+  (let [p(apply process/start process-args)]
 
     (with-open [in-rdr (java.io.InputStreamReader. (.getInputStream p))
                 err-rdr (java.io.InputStreamReader. (.getErrorStream p))]
@@ -60,7 +57,9 @@
       (dorun (char-seq err-rdr)))))
 
 
-(defn sync-python-setup! []
+(defn sync-python-setup! 
+  "Synchronize python venv at .venv with 'uv sync'."
+  []
   (println "Synchronize python venv at .venv with 'uv sync'. This might take a few minutes")
   (let [deps-edn
         (->
