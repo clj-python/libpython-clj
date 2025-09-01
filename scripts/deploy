@@ -6,5 +6,7 @@ set -e
 rm -rf classes
 scripts/run-tests
 clj -X:codox
-clj -X:depstar
+rm -rf pom.xml
+clj -T:build jar
+cp target/classes/META-INF/maven/clj-python/libpython-clj/pom.xml .
 clj -X:deploy

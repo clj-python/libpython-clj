@@ -1,6 +1,6 @@
 {:paths ["src"]
  :deps {org.clojure/clojure     {:mvn/version "1.11.1" :scope "provided"}
-        cnuernber/dtype-next    {:mvn/version "10.111"}
+        cnuernber/dtype-next    {:mvn/version "10.124"}
         net.java.dev.jna/jna    {:mvn/version "5.12.1"}
         org.clojure/data.json   {:mvn/version "1.0.0"}
         cheshire/cheshire {:mvn/version "5.13.0"}
@@ -28,6 +28,9 @@
             :exec-fn codox.main/-main
             :exec-args {:arg-paths [[:aliases :depstar :exec-args]]
                         :name "libpython-clj"
+                        :group-id "clj-python"
+                        :artifact-id "libpython-clj"
+                        :version "2.026"
                         :description "Python bindings for Clojure"
                         :metadata {:doc/format :markdown}
                         :google-analytics "G-LN7PG6FJ2D"
@@ -57,18 +60,9 @@
                          ch.qos.logback/logback-classic {:mvn/version "1.1.3"}}
             :extra-paths ["test"]
             :main-opts ["-m" "cognitect.test-runner"]}
-           :depstar
-           {:replace-deps
-            {com.github.seancorfield/depstar {:mvn/version "2.0.193"}}
-            :ns-default hf.depstar
-            :exec-fn hf.depstar/jar
-            :exec-args {:group-id "clj-python"
-                        :artifact-id "libpython-clj"
-                        :version "2.025"
-                        :sync-pom true
-                        :aot true
-                        :compile-ns [libpython-clj2.java-api]
-                        :jar "target/libpython-clj.jar"}}
+           :build
+           {:deps {io.github.clojure/tools.build {:mvn/version "0.10.5"}}
+            :ns-default build}
            :deploy
            {:replace-deps {slipset/deps-deploy {:mvn/version "0.1.5"}}
             :exec-fn deps-deploy.deps-deploy/deploy
