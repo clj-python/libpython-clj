@@ -66,7 +66,7 @@
          (slurp "python.edn")
          edn/read-string)]
     (write-pyproject-toml! deps-edn)
-    (start-and-print! ["uv" "sync" "--python" (-> deps-edn :python-version)])))
+    (start-and-print! ["uv" "sync" "--managed-python" "--python" (-> deps-edn :python-version)])))
 
 
 
