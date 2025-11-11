@@ -192,6 +192,13 @@
       (is (= ["enter" "exit: None"]
              (py/->jvm fn-list))))))
 
+(deftest with-enter-returns-different-object
+  (testing "py/with should bind the return value of __enter__, not the context manager"
+    (let [testcode (py/import-module "testcode")]
+      (py/with [f (py/call-attr testcode "FileWrapper" "test content")]
+               ;; f should be the StringIO object returned by __enter__, not FileWrapper
+               (is (= "test content" (py/call-attr f "read")))))))
+
 (deftest arrow-as-fns-with-nil
   (is (= nil (py/->jvm nil)))
   (is (= nil (py/as-jvm nil))))
@@ -449,6 +456,4 @@ class Foo:
 
   (let [data (doto (pd/DataFrame {:index [1 2] :value [2 3] :variable [1 1]})
                (py. melt :id_vars "index"))]
-    ((py.- px line) :data_frame data :x "index" :y "value" :color "variable"))
-
-  )
+    ((py.- px line) :data_frame data :x "index" :y "value" :color "variable")))
