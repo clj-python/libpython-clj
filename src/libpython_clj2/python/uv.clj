@@ -16,8 +16,7 @@
         py-project-header-lines ["[project]"
                                  "name = \"temp\""
                                  "version = \"0.0\""
-                                 (format "requires-python = \"==%s\"" python-version) 
-                                 ]
+                                 (format "requires-python = \"==%s\"" python-version)]
         python-deps-lines
         (map
          (fn [dep]
@@ -46,7 +45,7 @@
 
 
 (defn- start-and-print! [process-args]
-  (let [p(apply process/start process-args)]
+  (let [p (apply process/start process-args)]
 
     (with-open [in-rdr (java.io.InputStreamReader. (.getInputStream p))
                 err-rdr (java.io.InputStreamReader. (.getErrorStream p))]
@@ -68,7 +67,7 @@
     (catch Throwable _
       false)))
 
-(defn sync-python-setup! 
+(defn sync-python-setup!
   "Synchronize python venv at .venv with 'uv sync'.
   When 'uv' is not available on PATH, throws with guidance to install."
   []
@@ -86,9 +85,10 @@
             (throw (ex-info "Missing python.edn. Copy python.edn.example to python.edn and set :python-version and :python-deps."
                             {:file "python.edn" :stage :read-config} e))))]
     (write-pyproject-toml! deps-edn)
-    (start-and-print! ["uv" "sync" "--python" (-> deps-edn :python-version)])
+    (start-and-print! ["uv" "sync" "--managed-python" "--python" (-> deps-edn :python-version)])
     (println "Python environment synchronized with uv.")
     true))
+ 
 
 
 

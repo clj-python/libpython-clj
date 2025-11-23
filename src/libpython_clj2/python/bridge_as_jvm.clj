@@ -179,7 +179,7 @@
          (get-attr [item# item-name#]
            (with-gil
              (-> (py-proto/get-attr @pyobj*# item-name#)
-                 py-base/as-jvm)))
+                 (py-base/as-jvm))))
          (set-attr! [item# item-name# item-value#]
            (with-gil
              (py-ffi/with-decref [item-value# (py-ffi/untracked->python
@@ -225,7 +225,7 @@
                  (py-base/->jvm (py-fn/call-attr @pyobj*# "__str__" nil))))))
          (equals [this# other#]
            (boolean
-            (when (dt-ffi/convertible-to-pointer? other#)
+            (when (py-ffi/convertible-to-pointer? other#)
               (py-base/equals? @pyobj*# other#))))
          (hashCode [this#]
            (.hashCode ^Object (py-base/hash-code this#)))
