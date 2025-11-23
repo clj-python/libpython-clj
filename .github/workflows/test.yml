@@ -16,8 +16,8 @@ jobs:
       fail-fast: false
       matrix:
         os: [macos-latest, ubuntu-latest, windows-latest]
-        jdk: [8, 17, 19]
-        python-version: ["3.9", "3.11","3.12","3.13","3.14","3.15"]
+        jdk: [8, 17, 19, 21, 25]
+        python-version: ["3.9", "3.11","3.12","3.13","3.14"]
 
     steps:
       - uses: actions/checkout@v3
