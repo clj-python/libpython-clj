@@ -35,3 +35,13 @@
           (str "Found require-python errors in output:\n" output))
       (is (not (has-unresolved-refer-errors? output))
           (str "Found unresolved symbol errors for referred symbols:\n" output)))))
+
+(defn- has-py-dot-errors? [output]
+  (boolean (re-find #"(Unresolved symbol: py\.|unresolved var.*py\.)" output)))
+
+(deftest py-dot-hook-test
+  (testing "py_dot_test.clj - py. and py.. macros"
+    (let [{:keys [out err]} (run-clj-kondo (str fixtures-dir "/py_dot_test.clj"))
+          output (str out err)]
+      (is (not (has-py-dot-errors? output))
+          (str "Found py. related errors in output:\n" output)))))
