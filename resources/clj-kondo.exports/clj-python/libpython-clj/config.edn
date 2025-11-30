@@ -12,10 +12,16 @@
                  libpython-clj2.require/require-python
                  hooks.libpython-clj.require.require-python/require-python
 
-                 libpython-clj2.python/py..
-                 hooks.libpython-clj.python.py-dot-dot/py..
                  libpython-clj2.python/py.
-                 hooks.libpython-clj.python.py-dot-dot/py..}}
+                 hooks.libpython-clj.python.py-macros/py-macro
+                 libpython-clj2.python/py..
+                 hooks.libpython-clj.python.py-macros/py-macro
+                 libpython-clj2.python/py.-
+                 hooks.libpython-clj.python.py-macros/py-macro
+                 libpython-clj2.python/py*
+                 hooks.libpython-clj.python.py-macros/py-macro
+                 libpython-clj2.python/py**
+                 hooks.libpython-clj.python.py-macros/py-macro}}
 
  :linters
  {:unresolved-namespace
