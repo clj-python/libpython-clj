@@ -71,4 +71,12 @@
             :exec-args {:installer :local
                         :artifact "target/libpython-clj.jar"}}
 
+           :clj-kondo-test
+           {:extra-deps {com.cognitect/test-runner
+                         {:git/url "https://github.com/cognitect-labs/test-runner"
+                          :sha "209b64504cb3bd3b99ecfec7937b358a879f55c1"}}
+            :extra-paths ["test"]
+            :main-opts ["-m" "cognitect.test-runner"
+                        "-n" "clj-kondo.hook-test"]}
+
            }}
