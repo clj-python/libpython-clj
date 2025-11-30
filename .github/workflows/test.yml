@@ -10,6 +10,23 @@ on:
   pull_request:
 
 jobs:
+  clj-kondo-hooks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Install clj-kondo
+        run: |
+          curl -sLO https://raw.githubusercontent.com/clj-kondo/clj-kondo/master/script/install-clj-kondo
+          chmod +x install-clj-kondo
+          sudo ./install-clj-kondo
+
+      - name: Test clj-kondo hooks
+        run: ./script/test-clj-kondo-hooks.sh
+
+      - name: Test end-to-end config
+        run: ./script/test-copy-configs.sh
+
   unit-test:
     runs-on: ${{matrix.os}}
     strategy:
