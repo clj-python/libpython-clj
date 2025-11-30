@@ -1,14 +1,16 @@
 {:hooks
  {:analyze-call {libpython-clj.jna.base/def-pylib-fn
                  hooks.libpython-clj.jna.base.def-pylib-fn/def-pylib-fn
+
                  libpython-clj.require/import-python
                  hooks.libpython-clj.require.import-python/import-python
                  libpython-clj2.require/import-python
-                 hooks.libpython-clj.require.import-python/import-python}}
+                 hooks.libpython-clj.require.import-python/import-python
 
- :lint-as
- {libpython-clj.require/require-python clojure.core/require
-  libpython-clj2.require/require-python clojure.core/require}
+                 libpython-clj.require/require-python
+                 hooks.libpython-clj.require.require-python/require-python
+                 libpython-clj2.require/require-python
+                 hooks.libpython-clj.require.require-python/require-python}}
 
  :linters
  {:unresolved-namespace
