@@ -1,4 +1,6 @@
-{:hooks
+{:lint-as {libpython-clj2.python/with clojure.core/with-open}
+
+ :hooks
  {:analyze-call {libpython-clj.jna.base/def-pylib-fn
                  hooks.libpython-clj.jna.base.def-pylib-fn/def-pylib-fn
 

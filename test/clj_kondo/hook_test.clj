@@ -45,3 +45,10 @@
           output (str out err)]
       (is (not (has-py-dot-errors? output))
           (str "Found py. related errors in output:\n" output)))))
+
+(deftest py-with-test
+  (testing "py_with_test.clj - py/with binding"
+    (let [{:keys [out err]} (run-clj-kondo (str fixtures-dir "/py_with_test.clj"))
+          output (str out err)]
+      (is (not (re-find #"Unresolved symbol: f" output))
+          (str "py/with binding not recognized:\n" output)))))
