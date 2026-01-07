@@ -151,7 +151,9 @@ user> (doto (python/list)
                         exclude default-exclude}}]
    (let [metadata-fn (requiring-resolve
                       'libpython-clj2.metadata/datafy-module-or-class)
-         ns-symbol (or ns-symbol (symbol (str ns-prefix "." py-mod-or-cls)))]
+         ns-symbol (or ns-symbol (symbol (str (when-not (s/blank? ns-prefix)
+                                                (str ns-prefix "."))
+                                              py-mod-or-cls)))]
      (py/with-gil-stack-rc-context
        (let [target (py/path->py-obj py-mod-or-cls)
              target-metadata (metadata-fn target)
