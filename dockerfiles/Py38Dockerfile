@@ -1,10 +1,11 @@
 # We will use Ubuntu for our image
-FROM ubuntu:latest
+FROM ubuntu:22.04
 
 # Updating Ubuntu packages
 
 ARG CLOJURE_TOOLS_VERSION=1.10.1.507
 
+ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get -qq update && apt-get -qq -y install curl wget bzip2 openjdk-8-jdk-headless python3.8 libpython3.8 python3-pip \
     && curl -o install-clojure https://download.clojure.org/install/linux-install-${CLOJURE_TOOLS_VERSION}.sh \
