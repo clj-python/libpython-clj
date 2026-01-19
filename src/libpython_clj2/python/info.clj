@@ -37,7 +37,7 @@
   (list python-major python-minor python-micro)"
   [executable]
   (let [{:keys [out err exit]}
-        (sh/sh executable "-c" "import sys, json;
+        (sh/sh executable "-c" "import sys, platform, json;
 print(json.dumps(
 {'platform':          sys.platform,
   'prefix':           sys.prefix,
@@ -45,6 +45,7 @@ print(json.dumps(
   'executable':       sys.executable,
   'base-exec-prefix': sys.base_exec_prefix,
   'exec-prefix':      sys.exec_prefix,
+  'platform-arch':    platform.machine(),
   'version':          list(sys.version_info)[:3]}))")]
     (when (= 0 exit)
       (json/read-str out :key-fn keyword))))
@@ -117,6 +118,7 @@ print(json.dumps(
      {:python-home                python-home
       :lib-version                lib-version
       :libname                    libname
-      :libnames                   libnames}
+      :libnames                   libnames
+      :java-os-arch               (System/getProperty "os.arch")}
      (when java-lib-path
        {:java-library-path-addendum java-lib-path}))))
