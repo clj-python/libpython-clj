@@ -1,10 +1,11 @@
 # We will use Ubuntu for our image
-FROM ubuntu:latest
+FROM ubuntu:22.04
 
 # Updating Ubuntu packages
 
 ARG CLOJURE_TOOLS_VERSION=1.10.1.507
 
+ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get -qq update && apt-get -qq -y install curl wget bzip2 openjdk-8-jdk-headless \
     && curl -sSL https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -o /tmp/miniconda.sh \
