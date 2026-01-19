@@ -49,15 +49,16 @@
   [bind-vec & body]
   (when-not (= 2 (count bind-vec))
     (throw (Exception. "Bind vector must have 2 items")))
-  (let [varname (first bind-vec)]
+  (let [varname (first bind-vec)
+        mgr (gensym "mgr")]
     `(py-ffi/with-gil
-       (let [~@bind-vec]
+       (let [~mgr ~(second bind-vec)]
          (with-bindings
            {#'py-ffi/*python-error-handler* python-pyerr-fetch-error-handler}
-           (py-fn/call-attr ~varname "__enter__" nil)
-           (try
-             (let [retval# (do ~@body)]
-               (py-fn/call-attr ~varname "__exit__" [nil nil nil])
-               retval#)
-             (catch Throwable e#
-               (with-exit-error-handler ~varname e#))))))))
+           (let [~varname (py-fn/call-attr ~mgr "__enter__" nil)]
+             (try
+               (let [retval# (do ~@body)]
+                 (py-fn/call-attr ~mgr "__exit__" [nil nil nil])
+                 retval#)
+               (catch Throwable e#
+                 (with-exit-error-handler ~mgr e#)))))))))
