@@ -1,0 +1,38 @@
+{
+	"build": {
+		"dockerfile": "Dockerfile"
+	},
+
+	"features": {
+		"ghcr.io/devcontainers/features/desktop-lite:1": {},
+		"ghcr.io/devcontainers-contrib/features/apt-get-packages:1": {
+			"packages": "r-base-dev,rlwrap,expect"
+		},
+		"ghcr.io/devcontainers/features/python:1": {},
+		"ghcr.io/rocker-org/devcontainer-features/quarto-cli:1": {},
+		"ghcr.io/rocker-org/devcontainer-features/r-apt:0": {},
+		"ghcr.io/rocker-org/devcontainer-features/r-packages:1": {},
+		"ghcr.io/wxw-matt/devcontainer-features/command_runner:latest": {
+                        "command1": "bash < <(curl -s https://raw.githubusercontent.com/clojure-lsp/clojure-lsp/master/install)",
+                        "command2": "bash < <(curl -s https://raw.githubusercontent.com/babashka/babashka/master/install)",
+			"command3": "bash -c 'wget https://raw.githubusercontent.com/technomancy/leiningen/stable/bin/lein -O /usr/local/bin/lein && chmod +x /usr/local/bin/lein'"
+				},
+				"ghcr.io/wxw-matt/devcontainer-features/command_runner:0": {},
+				"ghcr.io/va-h/devcontainers-features/uv:1": {}
+	},
+	"overrideFeatureInstallOrder": [
+	       "ghcr.io/rocker-org/devcontainer-features/r-apt",
+	       "ghcr.io/devcontainers-contrib/features/apt-get-packages",
+	       "ghcr.io/rocker-org/devcontainer-features/r-packages"
+                ],	
+
+	"customizations": {
+		"vscode": {
+			"extensions": [
+				"betterthantomorrow.calva"
+			]
+		}
+	}
+
+
+}

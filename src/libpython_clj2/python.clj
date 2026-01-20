@@ -113,6 +113,7 @@ user> (py/py. np linspace 2 3 :num 10)
     (let [python-edn-opts (-> (try (slurp "python.edn")
                                    (catch java.io.FileNotFoundException _ "{}"))
                               clojure.edn/read-string)
+          _ (log/debugf "Pre-initialize-fn %s" (some-> python-edn-opts :pre-initialize-fn))
           _ (some-> python-edn-opts :pre-initialize-fn requiring-resolve (apply []))
           options (merge python-edn-opts options)
           info (py-info/detect-startup-info options)
@@ -819,3 +820,5 @@ user> c
   [symbols input]
   `(let [~symbols ~input]
      ~@(for [s symbols] `(def ~s ~s))))
+
+
