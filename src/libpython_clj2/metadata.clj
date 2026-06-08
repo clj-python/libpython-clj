@@ -132,14 +132,8 @@
                               (map symbol)
                               (into []))
 
-         ;;These sometimes have actual python symbols in them so we can't use them
-         ;; or-map          (->> (concat
-         ;;                       (interleave kw-default-args defaults)
-         ;;                       (flatten (seq kwonlydefaults)))
-         ;;                      (partition-all 2)
-         ;;                      (map vec)
-         ;;                      (map (fn [[k v]] [(symbol k) v]))
-         ;;                      (into {}))
+         ;; Preserve the default values that inspect returned.  These may be nil
+         ;; or non-keyword JVM representations of Python values.
          as-varkw    (when (not (nil? varkw))
                        {:as (symbol varkw)})
          default-map (->> (concat
@@ -147,7 +141,7 @@
                            (flatten (seq kwonlydefaults)))
                           (partition-all 2)
                           (map vec)
-                          (map (fn [[k v]] [(symbol k) (keyword k)]))
+                          (map (fn [[k v]] [(symbol k) v]))
                           (into {}))
 
          kwargs-map (merge default-map
