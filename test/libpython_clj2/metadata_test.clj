@@ -1,5 +1,6 @@
 (ns libpython-clj2.metadata-test
   (:require [clojure.test :refer :all]
+            [libpython-clj2.python :as py]
             [libpython-clj2.metadata :as metadata]))
 
 (deftest pyarglists-preserves-default-values
@@ -25,3 +26,12 @@
              [& [{follow_symlinks false
                   dir_fd nil}]])
            (metadata/pyarglists argspec)))))
+
+(deftest py-fn-argspec-stringifies-python-object-defaults
+  (let [testcode (py/import-module "testcode")
+        default-type-fn (py/get-attr testcode "default_type_fn")]
+    (is (= '([& [{dtype "<class 'int'>"}]]
+             [])
+           (-> default-type-fn
+               metadata/py-fn-argspec
+               metadata/pyarglists)))))

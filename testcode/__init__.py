@@ -49,6 +49,16 @@ def complex_fn(a, b, c: str = 5, *args, d=10, **kwargs):
     return {"a": a, "b": b, "c": c, "args": args, "d": d, "kwargs": kwargs}
 
 
+def defaults_fn(top=".", topdown=True, onerror=None, *, follow_symlinks=False, dir_fd=None):
+    """Function with Python defaults for metadata tests."""
+    return top, topdown, onerror, follow_symlinks, dir_fd
+
+
+def default_type_fn(dtype=int):
+    """Function with a Python object default for metadata tests."""
+    return dtype
+
+
 complex_fn_testcases = {
     "complex_fn(1, 2, c=10, d=10, e=10)": complex_fn(1, 2, c=10, d=10, e=10),
     "complex_fn(1, 2, 10, 11, 12, d=10, e=10)": complex_fn(

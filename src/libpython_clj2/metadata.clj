@@ -18,6 +18,7 @@
 
 
 (def builtins (import-module "builtins"))
+(def py-str (get-attr builtins "str"))
 (def inspect (import-module "inspect"))
 (def argspec (get-attr inspect "getfullargspec"))
 (def py-source (get-attr inspect "getsource"))
@@ -68,6 +69,28 @@
     (catch Exception _
       nil)))
 
+(defn- py-default->jvm [x]
+  (let [jvm-val (->jvm x)]
+    (if (and (map? jvm-val)
+             (contains? jvm-val :type)
+             (contains? jvm-val :value))
+      (str (py-str x))
+      jvm-val)))
+
+(defn- py-defaults->jvm [defaults]
+  (when (->jvm defaults)
+    (->> defaults
+         (map py-default->jvm)
+         (into []))))
+
+(defn- py-kwonlydefaults->jvm [kwonlydefaults]
+  (when (->jvm kwonlydefaults)
+    (->> (call-attr kwonlydefaults "items")
+         (map (fn [entry]
+                (let [[k v] (seq entry)]
+                  [(->jvm k) (py-default->jvm v)])))
+         (into {}))))
+
 (defn py-fn-argspec [f]
   (if-let [spec (try (when-not (pyclass? f)
                        (argspec f))
@@ -75,9 +98,9 @@
     {:args           (->jvm (get-attr spec "args"))
      :varargs        (->jvm (get-attr spec "varargs"))
      :varkw          (->jvm (get-attr spec "varkw"))
-     :defaults       (->jvm (get-attr spec "defaults"))
+     :defaults       (py-defaults->jvm (get-attr spec "defaults"))
      :kwonlyargs     (->jvm (get-attr spec "kwonlyargs"))
-     :kwonlydefaults (->jvm (get-attr spec "kwonlydefaults"))
+     :kwonlydefaults (py-kwonlydefaults->jvm (get-attr spec "kwonlydefaults"))
      :annotations    (->jvm (get-attr spec "annotations"))}
     (py-fn-argspec (get-attr f "__init__"))))
 

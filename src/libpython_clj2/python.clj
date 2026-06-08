@@ -381,6 +381,14 @@ user> (py/py. np linspace 2 3 :num 10)
      #'~varname))
 
 
+(defn ^:no-doc py-var-metadata [var-name var-data]
+  (try
+    (let [metadata-fn (requiring-resolve 'libpython-clj2.metadata/py-fn-metadata)]
+      (select-keys (metadata-fn var-name var-data {}) [:doc :arglists]))
+    (catch Throwable _
+      {:doc (get-attr var-data "__doc__")})))
+
+
 (defmacro from-import
   "Support for the from a import b,c style of importing modules and symbols in python.
   Documentation is included."
@@ -390,7 +398,7 @@ user> (py/py. np linspace 2 3 :num 10)
        ~@(map (fn [varname]
                 `(let [~'var-data (get-attr ~'mod-data ~(name varname))]
                    (def ~varname ~'var-data)
-                   (alter-meta! #'~varname assoc :doc (get-attr ~'var-data "__doc__"))
+                   (alter-meta! #'~varname merge (py-var-metadata ~(name varname) ~'var-data))
                    #'~varname))
               (concat [item] args)))))
 

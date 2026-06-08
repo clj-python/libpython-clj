@@ -153,6 +153,25 @@
                   a)
                 vec)))))
 
+(py/from-import testcode defaults_fn)
+
+(deftest from-import-adds-arglists-metadata
+  (is (= '([& [{top "."
+                topdown true
+                onerror nil
+                follow_symlinks false
+                dir_fd nil}]]
+           [& [{top "."
+                topdown true
+                follow_symlinks false
+                dir_fd nil}]]
+           [& [{top "."
+                follow_symlinks false
+                dir_fd nil}]]
+           [& [{follow_symlinks false
+                dir_fd nil}]])
+         (:arglists (meta #'defaults_fn)))))
+
 (deftest aspy-iter
   (let [testcode-module (py/import-module "testcode")]
     (is (= [1 2 3 4 5]
