@@ -59,6 +59,11 @@ def default_type_fn(dtype=int):
     return dtype
 
 
+def kw_default_type_fn(*, dtype=int):
+    """Function with a keyword-only Python object default for metadata tests."""
+    return dtype
+
+
 complex_fn_testcases = {
     "complex_fn(1, 2, c=10, d=10, e=10)": complex_fn(1, 2, c=10, d=10, e=10),
     "complex_fn(1, 2, 10, 11, 12, d=10, e=10)": complex_fn(

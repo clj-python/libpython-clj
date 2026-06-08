@@ -35,3 +35,11 @@
            (-> default-type-fn
                metadata/py-fn-argspec
                metadata/pyarglists)))))
+
+(deftest py-fn-argspec-stringifies-kwonly-python-object-defaults
+  (let [testcode (py/import-module "testcode")
+        kw-default-type-fn (py/get-attr testcode "kw_default_type_fn")]
+    (is (= '([& [{dtype "<class 'int'>"}]])
+           (-> kw-default-type-fn
+               metadata/py-fn-argspec
+               metadata/pyarglists)))))

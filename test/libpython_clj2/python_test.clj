@@ -8,6 +8,7 @@
             [tech.v3.datatype.ffi :as dt-ffi]
             [tech.v3.tensor :as dtt]
             [clojure.test :refer :all]
+            [clojure.repl :refer [doc]]
             libpython-clj2.python.bridge-as-python)
   (:import [java.io StringWriter]
            [java.util Map List]
@@ -171,6 +172,12 @@
            [& [{follow_symlinks false
                 dir_fd nil}]])
          (:arglists (meta #'defaults_fn)))))
+
+(deftest from-import-doc-renders-arglists
+  (let [doc-output (with-out-str (doc defaults_fn))]
+    (is (re-find #"defaults_fn" doc-output))
+    (is (re-find #"\[\[& \[\{top \"\.\"" doc-output))
+    (is (re-find #"Function with Python defaults for metadata tests\." doc-output))))
 
 (deftest aspy-iter
   (let [testcode-module (py/import-module "testcode")]
