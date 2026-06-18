@@ -69,12 +69,23 @@
     (catch Exception _
       nil)))
 
+(def ^:private default-repr-max-len 200)
+
+(defn- safe-py-str [x]
+  (let [s (try (str (py-str x))
+               (catch Throwable _ "<unprintable>"))]
+    (if (> (count s) default-repr-max-len)
+      (str (subs s 0 default-repr-max-len) "...")
+      s)))
+
+(defn- opaque? [v]
+  (and (map? v) (contains? v :type) (contains? v :value)))
+
 (defn- py-default->jvm [x]
   (let [jvm-val (->jvm x)]
-    (if (and (map? jvm-val)
-             (contains? jvm-val :type)
-             (contains? jvm-val :value))
-      (str (py-str x))
+    ;; nested opaques have no JVM form and leak pointers - stringify instead
+    (if (some opaque? (tree-seq coll? seq jvm-val))
+      (safe-py-str x)
       jvm-val)))
 
 (defn- py-defaults->jvm [defaults]

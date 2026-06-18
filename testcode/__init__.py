@@ -1,3 +1,6 @@
+import functools
+
+
 class WithObjClass:
     def __init__(self, suppress, fn_list):
         self.suppress = suppress
@@ -70,3 +73,68 @@ complex_fn_testcases = {
         1, 2, 10, 11, 12, d=10, e=10
     ),
 }
+
+
+class BadStr:
+    def __repr__(self):
+        raise ValueError("boom repr")
+    def __str__(self):
+        raise ValueError("boom str")
+
+
+class WeirdStr:
+    def __repr__(self):
+        return "x" * 40
+
+
+class HugeReprModel:
+    def __init__(self, n_layers=300):
+        self.n_layers = n_layers
+
+    def __repr__(self):
+        lines = ["GnarlyNet("]
+        for i in range(self.n_layers):
+            lines.append(f"  (layer{i}): Linear(in_features=4096, out_features=4096, bias=True)")
+            lines.append(f"  (act{i}): GELU(approximate='none')")
+            lines.append(f"  (drop{i}): Dropout(p=0.1, inplace=False)")
+        lines.append(")")
+        return "\n".join(lines)
+    __str__ = __repr__
+
+
+_bad = BadStr()
+_weird = WeirdStr()
+_sentinel = object()
+_partial = functools.partial(int, 0)
+_huge = HugeReprModel(300)
+
+
+def f_class(x=int):
+    return x
+
+def f_lambda(x=lambda a: a):
+    return x
+
+def f_badstr(x=_bad):
+    return x
+
+def f_weird(x=_weird):
+    return x
+
+def f_sentinel(x=_sentinel):
+    return x
+
+def f_partial(x=_partial):
+    return x
+
+def f_nested_opaque(x=(int, str)):
+    return x
+
+def f_huge(model=_huge):
+    return model
+
+def f_kw_huge(*, model=_huge):
+    return model
+
+def f_mixed(a, b=1, c=int, *, d=_sentinel, e=2):
+    return (a, b, c, d, e)
