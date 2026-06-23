@@ -73,12 +73,25 @@
        :ctypes ctypes})))
 
 
+(defn- zero-copyable-dtype?
+  "Object/str/datetime arrays hold python-object pointers, not a numeric native
+  buffer, so only the numeric dtypes in py-dtype->dtype-map can become a tensor."
+  [pyobj]
+  (py-ffi/with-gil
+    (let [dtype-name (-> (py-proto/get-attr pyobj "dtype")
+                         (py-proto/get-attr "name"))]
+      (contains? py-dtype->dtype-map dtype-name))))
+
+
 (defmethod py-proto/pyobject->jvm :ndarray
   [pyobj opts]
-  (pygc/with-stack-context
-    (-> (numpy->desc pyobj)
-        (dtt/nd-buffer-descriptor->tensor)
-        (dtt/clone))))
+  (if (zero-copyable-dtype? pyobj)
+    (pygc/with-stack-context
+      (-> (numpy->desc pyobj)
+          (dtt/nd-buffer-descriptor->tensor)
+          (dtt/clone)))
+    ;; non-numeric dtype (object/str/datetime): can't zero-copy, fall back to copy
+    ((get-method py-proto/pyobject->jvm :default) pyobj opts)))
 
 
 (defmethod py-proto/pyobject-as-jvm :ndarray

@@ -1,6 +1,8 @@
 (ns libpython-clj2.numpy-test
   (:require [clojure.test :refer [deftest is]]
             [libpython-clj2.python :as py]
+            ;; loading these zero-copy bindings is what made object-dtype ->jvm fail
+            [libpython-clj2.python.np-array]
             [tech.v3.datatype :as dtype]
             [tech.v3.datatype.functional :as dfn]
             [tech.v3.tensor :as dtt]))
@@ -18,3 +20,10 @@
     (is (dfn/equals (dtt/ensure-tensor np-ary) tens))
     (is (dfn/equals [1 2 3 4]
                     (dtype/make-container :java-array :int64 np-ary)))))
+
+
+(deftest object-dtype-ndarray->jvm
+  (let [empty-obj (py/call-attr-kw np-mod "array" [[]] {:dtype "object"})
+        mixed-obj (py/call-attr-kw np-mod "array" [["a" 1]] {:dtype "object"})]
+    (is (= [] (py/->jvm empty-obj)))
+    (is (= ["a" 1] (py/->jvm mixed-obj)))))
