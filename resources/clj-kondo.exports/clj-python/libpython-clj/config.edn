@@ -1,13 +1,59 @@
-{:hooks
+{:lint-as {libpython-clj2.python/with clojure.core/with-open}
+
+ :hooks
  {:analyze-call {libpython-clj.jna.base/def-pylib-fn
                  hooks.libpython-clj.jna.base.def-pylib-fn/def-pylib-fn
+
                  libpython-clj.require/import-python
-                 hooks.libpython-clj.require.import-python/import-python}}
-  :linters {:unused-namespace {:exclude [builtins.list
-                                         builtins.dict
-                                         builtins.set
-                                         builtins.tuple
-                                         builtins.frozenset
-                                         builtins.str
-                                         builtins]}}
-}
+                 hooks.libpython-clj.require.import-python/import-python
+                 libpython-clj2.require/import-python
+                 hooks.libpython-clj.require.import-python/import-python
+
+                 libpython-clj.require/require-python
+                 hooks.libpython-clj.require.require-python/require-python
+                 libpython-clj2.require/require-python
+                 hooks.libpython-clj.require.require-python/require-python
+
+                 libpython-clj2.python/py.
+                 hooks.libpython-clj.python.py-macros/py-macro
+                 libpython-clj2.python/py..
+                 hooks.libpython-clj.python.py-macros/py-macro
+                 libpython-clj2.python/py.-
+                 hooks.libpython-clj.python.py-macros/py-macro
+                 libpython-clj2.python/py*
+                 hooks.libpython-clj.python.py-macros/py-macro
+                 libpython-clj2.python/py**
+                 hooks.libpython-clj.python.py-macros/py-macro}}
+
+ :linters
+ {:unresolved-namespace
+  {:exclude [python
+             python.list
+             python.dict
+             python.set
+             python.tuple
+             python.frozenset
+             python.str
+             builtins
+             builtins.list
+             builtins.dict
+             builtins.set
+             builtins.tuple
+             builtins.frozenset
+             builtins.str]}
+
+  :unused-namespace
+  {:exclude [builtins.list
+             builtins.dict
+             builtins.set
+             builtins.tuple
+             builtins.frozenset
+             builtins.str
+             builtins
+             python
+             python.list
+             python.dict
+             python.set
+             python.tuple
+             python.frozenset
+             python.str]}}}

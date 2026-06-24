@@ -10,6 +10,25 @@ on:
   pull_request:
 
 jobs:
+  clj-kondo-hooks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Install Clojure
+        uses: DeLaGuardo/setup-clojure@11.0
+        with:
+          cli: 1.11.1.1347
+
+      - name: Install clj-kondo
+        run: |
+          curl -sLO https://raw.githubusercontent.com/clj-kondo/clj-kondo/master/script/install-clj-kondo
+          chmod +x install-clj-kondo
+          sudo ./install-clj-kondo
+
+      - name: Test clj-kondo hooks
+        run: clojure -M:clj-kondo-test
+
   unit-test:
     runs-on: ${{matrix.os}}
     strategy:
