@@ -171,6 +171,10 @@ This pathway has allowed us support Conda albeit with some work.  For examples
 using Conda, check out the facial rec repository a)bove or look into how we
 [build](scripts/build-conda-docker)
 our test [docker containers](dockerfiles/CondaDockerfile).
+##### uv
+In case of using [uv](https://docs.astral.sh/uv/) as environment manager we have an extension library:
+https://github.com/behrica/libpython-clj-uv
+which further automates the environment management, so that we get a full declarative management of python version and python libraries
 
 #### devcontainer 
 The scicloj community is maintaining a `devcontainer` [template](https://github.com/scicloj/devcontainer-templates/tree/main/src/scicloj) on which `libpython-clj` is know to work
